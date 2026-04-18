@@ -58,13 +58,12 @@ function renderKlassen() {
   `;
 }
 
-// ---------- MODAL ----------
 function openKlasModal(id = null) {
   const k = id ? DB.getKlas(id) : null;
   const vakken = DB.getVakken();
 
   document.getElementById('modal-overlay').innerHTML = `
-    <div class="modal-overlay">
+    <div class="modal-overlay" onclick="closeModal(event)">
       <div class="modal-box">
         <h2>${k ? 'Klas bewerken' : 'Nieuwe klas'}</h2>
 
@@ -88,20 +87,30 @@ function openKlasModal(id = null) {
         </div>
 
         <div class="modal-actions">
-          <button class="btn" onclick="closeModal()">Annuleren</button>
+          <button class="btn" onclick="closeModalDirect()">Annuleren</button>
           <button class="btn btn-primary" onclick="saveKlas('${k?.id || ''}')">Opslaan</button>
         </div>
       </div>
     </div>
   `;
+
+  document.getElementById('modal-overlay').style.display = 'flex';
 }
 
-// ---------- OPSLAAN ----------
 function saveKlas(id) {
+  const naam = document.getElementById('klas-naam').value.trim();
+  const niveau = document.getElementById('klas-niveau').value.trim();
+  const vakId = document.getElementById('klas-vak').value;
+
+  if (!naam || !niveau || !vakId) {
+    alert('Vul alle velden in.');
+    return;
+  }
+
   const data = {
-    naam: document.getElementById('klas-naam').value,
-    niveau: document.getElementById('klas-niveau').value,
-    vakId: document.getElementById('klas-vak').value,
+    naam,
+    niveau,
+    vakId,
     docentId: Auth.currentUser.id,
     schooljaar: '2025-2026',
     aantalWeken: 38
@@ -113,11 +122,10 @@ function saveKlas(id) {
     DB.addKlas(data);
   }
 
-  closeModal();
+  closeModalDirect();
   renderKlassen();
 }
 
-// ---------- DELETE ----------
 function deleteKlas(id) {
   if (!confirm('Weet je zeker dat je deze klas wilt verwijderen?')) return;
   DB.deleteKlas(id);
