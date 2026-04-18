@@ -4,7 +4,7 @@ const DB = {
     if (localStorage.getItem('jp_seeded')) return;
 
     const users = [
-      { id: 'u1', naam: 'Beheerder', achternaam: 'School', email: 'admin@school.nl', wachtwoord: 'admin123', rol: 'admin', vakken: [] },
+      { id: 'u1', naam: 'Tom', achternaam: 'Nieuweboer', email: 't.nieuweboer@atlascollege.nl', wachtwoord: 'admin123', rol: 'admin', vakken: [] },
       { id: 'u2', naam: 'Jan', achternaam: 'Jansen', email: 'docent@school.nl', wachtwoord: 'docent123', rol: 'docent', vakken: ['v1','v2'] },
       { id: 'u3', naam: 'Fatima', achternaam: 'El Amrani', email: 'felam@school.nl', wachtwoord: 'docent123', rol: 'docent', vakken: ['v1'] },
       { id: 'u4', naam: 'Management', achternaam: 'Viewer', email: 'management@school.nl', wachtwoord: 'mgmt123', rol: 'management', vakken: [] },
