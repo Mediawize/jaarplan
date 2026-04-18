@@ -62,35 +62,33 @@ function openKlasModal(id = null) {
   const k = id ? DB.getKlas(id) : null;
   const vakken = DB.getVakken();
 
-  document.getElementById('modal-overlay').innerHTML = `
-        <h2>${k ? 'Klas bewerken' : 'Nieuwe klas'}</h2>
+  openModal(`
+    <h2>${k ? 'Klas bewerken' : 'Nieuwe klas'}</h2>
 
-        <div class="form-field">
-          <label>Naam</label>
-          <input id="klas-naam" value="${k?.naam || ''}">
-        </div>
+    <div class="form-field">
+      <label>Naam</label>
+      <input id="klas-naam" value="${k?.naam || ''}">
+    </div>
 
-        <div class="form-field">
-          <label>Niveau</label>
-          <input id="klas-niveau" value="${k?.niveau || ''}">
-        </div>
+    <div class="form-field">
+      <label>Niveau</label>
+      <input id="klas-niveau" value="${k?.niveau || ''}">
+    </div>
 
-        <div class="form-field">
-          <label>Vak</label>
-          <select id="klas-vak">
-            ${vakken.map(v =>
-              `<option value="${v.id}" ${k?.vakId === v.id ? 'selected' : ''}>${v.naam}</option>`
-            ).join('')}
-          </select>
-        </div>
+    <div class="form-field">
+      <label>Vak</label>
+      <select id="klas-vak">
+        ${vakken.map(v =>
+          `<option value="${v.id}" ${k?.vakId === v.id ? 'selected' : ''}>${v.naam}</option>`
+        ).join('')}
+      </select>
+    </div>
 
-        <div class="modal-actions">
-          <button class="btn" onclick="closeModalDirect()">Annuleren</button>
-          <button class="btn btn-primary" onclick="saveKlas('${k?.id || ''}')">Opslaan</button>
-        </div>
-  `;
-
-  document.getElementById('modal-overlay').style.display = 'flex';
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModalDirect()">Annuleren</button>
+      <button class="btn btn-primary" onclick="saveKlas('${k?.id || ''}')">Opslaan</button>
+    </div>
+  `);
 }
 
 function saveKlas(id) {
