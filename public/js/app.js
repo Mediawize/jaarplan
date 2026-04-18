@@ -221,11 +221,7 @@ function showView(view) {
   if (view === 'klassen') renderKlassen();
   if (view === 'jaarplanning') renderJaarplanning();
   if (view === 'vakken') renderVakken();
-
-  if (view === 'gebruikers') {
-    const el = document.getElementById('view-gebruikers');
-    el.innerHTML = `<div class="empty-state"><h3>Nog niet gekoppeld</h3><p>Dit onderdeel voeg je later toe.</p></div>`;
-  }
+  if (view === 'gebruikers') renderGebruikers();
 
   if (view === 'opdrachten') {
     const el = document.getElementById('view-opdrachten');
