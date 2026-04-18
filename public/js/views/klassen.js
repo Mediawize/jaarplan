@@ -63,8 +63,6 @@ function openKlasModal(id = null) {
   const vakken = DB.getVakken();
 
   document.getElementById('modal-overlay').innerHTML = `
-    <div class="modal-overlay" onclick="closeModal(event)">
-      <div class="modal-box">
         <h2>${k ? 'Klas bewerken' : 'Nieuwe klas'}</h2>
 
         <div class="form-field">
@@ -90,8 +88,6 @@ function openKlasModal(id = null) {
           <button class="btn" onclick="closeModalDirect()">Annuleren</button>
           <button class="btn btn-primary" onclick="saveKlas('${k?.id || ''}')">Opslaan</button>
         </div>
-      </div>
-    </div>
   `;
 
   document.getElementById('modal-overlay').style.display = 'flex';
