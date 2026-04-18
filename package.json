@@ -1,1 +1,19 @@
 
+---
+
+# 3. `package.json`
+
+**Inhoud:**
+```json
+{
+  "name": "jaarplan",
+  "version": "1.0.0",
+  "description": "JaarPlan docentenplatform",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.21.2"
+  }
+}
