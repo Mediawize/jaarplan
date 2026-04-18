@@ -1,0 +1,2259 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>JaarPlan — Docentenplatform</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --cream: #F7F4EE;
+  --ink: #1A1714;
+  --ink-light: #4A4640;
+  --ink-muted: #8A8480;
+  --accent: #2D5A3D;
+  --accent-light: #E8F0EA;
+  --accent-mid: #4A8A5D;
+  --amber: #C4821A;
+  --amber-light: #FDF3E0;
+  --red: #B03A2E;
+  --red-light: #FCEAE8;
+  --blue: #1A4A7A;
+  --blue-light: #E8EFF7;
+  --border: rgba(26,23,20,0.1);
+  --border-med: rgba(26,23,20,0.18);
+  --shadow: 0 1px 3px rgba(26,23,20,0.08), 0 4px 16px rgba(26,23,20,0.06);
+  --shadow-lg: 0 8px 32px rgba(26,23,20,0.12);
+  --radius: 10px;
+  --radius-lg: 16px;
+  --sidebar-w: 240px;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'DM Sans', sans-serif;
+  background: var(--cream);
+  color: var(--ink);
+  font-size: 14px;
+  line-height: 1.6;
+  min-height: 100vh;
+}
+
+/* ---- LOGIN ---- */
+.login-screen {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.login-bg {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, #1A2E1F 0%, #2D5A3D 50%, #1A3A2A 100%);
+}
+
+.login-grid {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(255,255,255,0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.04) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+
+.login-card {
+  position: relative;
+  background: var(--cream);
+  border-radius: var(--radius-lg);
+  padding: 48px;
+  width: 420px;
+  box-shadow: var(--shadow-lg);
+  animation: slideUp .4s ease;
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.login-logo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 32px;
+}
+
+.logo-mark {
+  width: 44px;
+  height: 44px;
+  background: var(--accent);
+  color: #fff;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'DM Serif Display', serif;
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+.logo-title {
+  font-family: 'DM Serif Display', serif;
+  font-size: 18px;
+  color: var(--ink);
+}
+
+.logo-sub {
+  font-size: 12px;
+  color: var(--ink-muted);
+}
+
+.login-heading {
+  font-family: 'DM Serif Display', serif;
+  font-size: 28px;
+  font-weight: 400;
+  margin-bottom: 8px;
+  color: var(--ink);
+}
+
+.login-desc {
+  color: var(--ink-muted);
+  font-size: 14px;
+  margin-bottom: 28px;
+}
+
+.login-error {
+  background: var(--red-light);
+  color: var(--red);
+  border: 1px solid rgba(176,58,46,0.2);
+  border-radius: var(--radius);
+  padding: 10px 14px;
+  font-size: 13px;
+  margin-bottom: 16px;
+}
+
+.form-field {
+  margin-bottom: 16px;
+}
+
+.form-field label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: var(--ink-light);
+  margin-bottom: 6px;
+}
+
+.form-field input,
+.form-field select,
+.form-field textarea {
+  width: 100%;
+  padding: 11px 14px;
+  border: 1.5px solid var(--border-med);
+  border-radius: var(--radius);
+  background: #fff;
+  color: var(--ink);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14px;
+  transition: border-color .15s;
+  outline: none;
+}
+
+.form-field input:focus,
+.form-field select:focus,
+.form-field textarea:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(45,90,61,0.1);
+}
+
+.form-field textarea { resize: vertical; min-height: 80px; }
+
+.btn-login {
+  width: 100%;
+  padding: 13px;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background .15s, transform .1s;
+  margin-top: 8px;
+}
+
+.btn-login:hover { background: #1E3E2A; }
+.btn-login:active { transform: scale(.99); }
+
+.login-demo {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+}
+
+.login-demo p {
+  font-size: 12px;
+  color: var(--ink-muted);
+  margin-bottom: 10px;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  font-weight: 600;
+}
+
+.demo-accounts {
+  display: flex;
+  gap: 8px;
+}
+
+.demo-accounts button {
+  flex: 1;
+  padding: 8px 6px;
+  border: 1px solid var(--border-med);
+  border-radius: var(--radius);
+  background: #fff;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 11px;
+  cursor: pointer;
+  color: var(--ink-light);
+  transition: background .12s, border-color .12s;
+}
+
+.demo-accounts button:hover {
+  background: var(--accent-light);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* ---- APP SHELL ---- */
+.app-shell {
+  display: flex;
+  min-height: 100vh;
+}
+
+/* ---- SIDEBAR ---- */
+.sidebar {
+  width: var(--sidebar-w);
+  background: var(--ink);
+  display: flex;
+  flex-direction: column;
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 100vh;
+  z-index: 100;
+  padding: 0;
+}
+
+.sidebar-logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 22px 20px 18px;
+  border-bottom: 1px solid rgba(255,255,255,0.07);
+}
+
+.logo-mark-sm {
+  width: 34px;
+  height: 34px;
+  background: var(--accent);
+  color: #fff;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'DM Serif Display', serif;
+  font-size: 13px;
+  flex-shrink: 0;
+}
+
+.logo-text {
+  font-family: 'DM Serif Display', serif;
+  font-size: 16px;
+  color: #fff;
+}
+
+.nav-group {
+  padding: 16px 0 8px;
+}
+
+.nav-group + .nav-group {
+  border-top: 1px solid rgba(255,255,255,0.06);
+}
+
+.nav-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.3);
+  padding: 0 20px 6px;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 20px;
+  color: rgba(255,255,255,0.55);
+  cursor: pointer;
+  font-size: 13.5px;
+  font-weight: 400;
+  transition: color .15s, background .15s;
+  border-left: 2.5px solid transparent;
+  text-decoration: none;
+}
+
+.nav-item svg {
+  width: 17px;
+  height: 17px;
+  flex-shrink: 0;
+}
+
+.nav-item:hover {
+  color: rgba(255,255,255,0.85);
+  background: rgba(255,255,255,0.05);
+}
+
+.nav-item.active {
+  color: #fff;
+  background: rgba(74,138,93,0.2);
+  border-left-color: var(--accent-mid);
+  font-weight: 500;
+}
+
+.sidebar-footer {
+  margin-top: auto;
+  padding: 16px;
+  border-top: 1px solid rgba(255,255,255,0.07);
+}
+
+.user-info {
+  font-size: 12px;
+  color: rgba(255,255,255,0.4);
+  padding: 0 4px 10px;
+  line-height: 1.5;
+}
+
+.user-info strong {
+  display: block;
+  color: rgba(255,255,255,0.75);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.btn-logout {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 9px 12px;
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: var(--radius);
+  background: transparent;
+  color: rgba(255,255,255,0.45);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all .15s;
+}
+
+.btn-logout svg { width: 15px; height: 15px; }
+.btn-logout:hover { background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.8); }
+
+/* ---- MAIN CONTENT ---- */
+.main-content {
+  margin-left: var(--sidebar-w);
+  flex: 1;
+  min-height: 100vh;
+  background: var(--cream);
+}
+
+.view {
+  padding: 36px 40px;
+  animation: fadeIn .25s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ---- PAGE HEADER ---- */
+.page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 32px;
+}
+
+.page-header-left .breadcrumb {
+  font-size: 12px;
+  color: var(--ink-muted);
+  margin-bottom: 4px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.page-header-left h1 {
+  font-family: 'DM Serif Display', serif;
+  font-size: 26px;
+  font-weight: 400;
+  color: var(--ink);
+}
+
+.page-header-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+/* ---- BUTTONS ---- */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 16px;
+  border: 1.5px solid var(--border-med);
+  border-radius: var(--radius);
+  background: #fff;
+  color: var(--ink-light);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13.5px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all .15s;
+  text-decoration: none;
+}
+
+.btn:hover { background: var(--cream); border-color: var(--border-med); color: var(--ink); }
+
+.btn-primary {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+
+.btn-primary:hover { background: #1E3E2A; border-color: #1E3E2A; color: #fff; }
+
+.btn-danger {
+  background: var(--red-light);
+  color: var(--red);
+  border-color: rgba(176,58,46,0.25);
+}
+
+.btn-danger:hover { background: #f5d0cc; }
+
+.btn-sm {
+  padding: 6px 11px;
+  font-size: 12px;
+}
+
+.btn svg { width: 15px; height: 15px; }
+
+/* ---- STAT CARDS ---- */
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 32px;
+}
+
+.stat-card {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 20px 22px;
+}
+
+.stat-card .stat-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  color: var(--ink-muted);
+  margin-bottom: 8px;
+}
+
+.stat-card .stat-value {
+  font-family: 'DM Serif Display', serif;
+  font-size: 32px;
+  line-height: 1;
+  color: var(--ink);
+  margin-bottom: 4px;
+}
+
+.stat-card .stat-sub {
+  font-size: 12px;
+  color: var(--ink-muted);
+}
+
+/* ---- CARDS ---- */
+.card {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  margin-bottom: 20px;
+  overflow: hidden;
+}
+
+.card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 24px;
+  border-bottom: 1px solid var(--border);
+}
+
+.card-header h2 {
+  font-family: 'DM Serif Display', serif;
+  font-size: 17px;
+  font-weight: 400;
+}
+
+.card-header .card-meta {
+  font-size: 12px;
+  color: var(--ink-muted);
+  margin-top: 2px;
+}
+
+.card-body { padding: 20px 24px; }
+
+/* ---- TABLE ---- */
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13.5px;
+}
+
+.data-table th {
+  text-align: left;
+  padding: 10px 16px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  color: var(--ink-muted);
+  border-bottom: 1px solid var(--border);
+  background: var(--cream);
+}
+
+.data-table td {
+  padding: 13px 16px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+
+.data-table tr:last-child td { border-bottom: none; }
+
+.data-table tbody tr:hover td { background: rgba(45,90,61,0.025); }
+
+/* ---- BADGES ---- */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 9px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .02em;
+  gap: 4px;
+}
+
+.badge-green { background: var(--accent-light); color: var(--accent); }
+.badge-amber { background: var(--amber-light); color: var(--amber); }
+.badge-red { background: var(--red-light); color: var(--red); }
+.badge-blue { background: var(--blue-light); color: var(--blue); }
+.badge-gray { background: #F0EDE8; color: var(--ink-muted); }
+
+/* week badge */
+.week-pill {
+  display: inline-block;
+  padding: 3px 9px;
+  border-radius: 6px;
+  border: 1px solid var(--border-med);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink-light);
+  background: var(--cream);
+}
+
+/* current week highlight */
+.week-pill.current { background: var(--accent-light); border-color: var(--accent); color: var(--accent); }
+
+/* ---- KLAS GRID ---- */
+.klas-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+
+.klas-card {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  cursor: pointer;
+  transition: box-shadow .15s, transform .15s, border-color .15s;
+}
+
+.klas-card:hover {
+  box-shadow: var(--shadow);
+  transform: translateY(-1px);
+  border-color: var(--border-med);
+}
+
+.klas-card-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.klas-naam {
+  font-family: 'DM Serif Display', serif;
+  font-size: 18px;
+  font-weight: 400;
+}
+
+.klas-vak-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+  margin-top: 6px;
+}
+
+.klas-meta-row {
+  font-size: 12px;
+  color: var(--ink-muted);
+  margin-bottom: 14px;
+}
+
+.klas-progress { height: 5px; background: var(--border); border-radius: 3px; margin-bottom: 6px; }
+.klas-progress-fill { height: 100%; border-radius: 3px; background: var(--accent); transition: width .4s; }
+.klas-progress-label { display: flex; justify-content: space-between; font-size: 11px; color: var(--ink-muted); }
+
+/* ---- PROGRESS BAR ---- */
+.prog-bar { height: 6px; background: var(--border); border-radius: 3px; }
+.prog-fill { height: 100%; border-radius: 3px; background: var(--accent); }
+
+/* ---- FORM GRID ---- */
+.form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.form-grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; }
+.form-full { grid-column: 1 / -1; }
+
+/* ---- MODAL ---- */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(26,23,20,0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  animation: fadeIn .2s ease;
+}
+
+.modal-box {
+  background: var(--cream);
+  border-radius: var(--radius-lg);
+  padding: 36px;
+  width: 560px;
+  max-width: 95vw;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: var(--shadow-lg);
+  animation: slideUp .25s ease;
+}
+
+.modal-box h2 {
+  font-family: 'DM Serif Display', serif;
+  font-size: 22px;
+  font-weight: 400;
+  margin-bottom: 6px;
+}
+
+.modal-box .modal-sub {
+  font-size: 13px;
+  color: var(--ink-muted);
+  margin-bottom: 24px;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+}
+
+/* ---- UPLOAD ZONE ---- */
+.upload-zone {
+  border: 2px dashed var(--border-med);
+  border-radius: var(--radius);
+  padding: 24px;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color .15s, background .15s;
+  color: var(--ink-muted);
+  font-size: 13px;
+}
+
+.upload-zone:hover { border-color: var(--accent); background: var(--accent-light); color: var(--accent); }
+
+.upload-zone .upload-icon { font-size: 28px; margin-bottom: 8px; opacity: .5; }
+
+/* ---- TABS ---- */
+.tabs { display: flex; gap: 0; border-bottom: 1px solid var(--border); margin-bottom: 24px; }
+
+.tab-btn {
+  padding: 11px 18px;
+  font-size: 13.5px;
+  font-family: 'DM Sans', sans-serif;
+  cursor: pointer;
+  color: var(--ink-muted);
+  border: none;
+  border-bottom: 2.5px solid transparent;
+  background: transparent;
+  font-weight: 400;
+  transition: color .15s;
+  margin-bottom: -1px;
+}
+
+.tab-btn:hover { color: var(--ink); }
+.tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); font-weight: 600; }
+
+/* ---- PLANNING TABLE SPECIAL ---- */
+.planning-row-active td { background: rgba(45,90,61,0.04); }
+
+/* ---- EMPTY STATE ---- */
+.empty-state {
+  text-align: center;
+  padding: 60px 20px;
+  color: var(--ink-muted);
+}
+
+.empty-state h3 {
+  font-family: 'DM Serif Display', serif;
+  font-size: 20px;
+  font-weight: 400;
+  color: var(--ink-light);
+  margin-bottom: 8px;
+}
+
+.empty-state p { font-size: 13px; margin-bottom: 20px; }
+
+/* ---- LINK STYLE ---- */
+.text-link { color: var(--blue); font-size: 12px; cursor: pointer; text-decoration: none; }
+.text-link:hover { text-decoration: underline; }
+
+/* ---- ROLE BADGE ---- */
+.role-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.role-admin { background: #F0EAF7; color: #5A2D8A; }
+.role-docent { background: var(--accent-light); color: var(--accent); }
+.role-management { background: var(--blue-light); color: var(--blue); }
+
+/* ---- DIVIDER ---- */
+.divider { height: 1px; background: var(--border); margin: 20px 0; }
+
+/* ---- ALERT ---- */
+.alert { padding: 12px 16px; border-radius: var(--radius); font-size: 13px; margin-bottom: 16px; }
+.alert-info { background: var(--blue-light); color: var(--blue); border: 1px solid rgba(26,74,122,0.15); }
+.alert-success { background: var(--accent-light); color: var(--accent); border: 1px solid rgba(45,90,61,0.15); }
+
+/* ---- ICON BUTTON ---- */
+.icon-btn {
+  width: 30px; height: 30px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: transparent;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--ink-muted);
+  transition: all .12s;
+}
+.icon-btn:hover { background: var(--cream); color: var(--ink); border-color: var(--border-med); }
+.icon-btn svg { width: 14px; height: 14px; }
+
+/* ---- RESPONSIVE ---- */
+@media (max-width: 1100px) {
+  .stat-grid { grid-template-columns: repeat(2, 1fr); }
+  .klas-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+/* READONLY OVERLAY */
+.readonly-notice {
+  background: var(--blue-light);
+  color: var(--blue);
+  border: 1px solid rgba(26,74,122,0.2);
+  border-radius: var(--radius);
+  padding: 10px 16px;
+  font-size: 13px;
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+</style>
+</head>
+<body>
+
+<!-- LOGIN SCREEN -->
+<div id="login-screen" class="login-screen">
+  <div class="login-bg">
+    <div class="login-grid"></div>
+  </div>
+  <div class="login-card">
+    <div class="login-logo">
+      <span class="logo-mark">JP</span>
+      <div>
+        <div class="logo-title">JaarPlan</div>
+        <div class="logo-sub">Docentenplatform</div>
+      </div>
+    </div>
+    <h1 class="login-heading">Welkom terug</h1>
+    <p class="login-desc">Log in om je jaarplanning te bekijken en te beheren.</p>
+    <div id="login-error" class="login-error" style="display:none"></div>
+    <div class="form-field">
+      <label>E-mailadres</label>
+      <input type="email" id="login-email" placeholder="naam@school.nl" autocomplete="email">
+    </div>
+    <div class="form-field">
+      <label>Wachtwoord</label>
+      <input type="password" id="login-password" placeholder="••••••••" autocomplete="current-password">
+    </div>
+    <button class="btn-login" onclick="doLogin()">Inloggen</button>
+    <div class="login-demo">
+      <p>Demo accounts:</p>
+      <div class="demo-accounts">
+        <button onclick="fillDemo('admin@school.nl','admin123')">🔑 Beheerder</button>
+        <button onclick="fillDemo('docent@school.nl','docent123')">👨‍🏫 Docent</button>
+        <button onclick="fillDemo('management@school.nl','mgmt123')">👔 Management</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- APP SHELL -->
+<div id="app-shell" class="app-shell" style="display:none">
+
+  <!-- SIDEBAR -->
+  <nav class="sidebar" id="sidebar">
+    <div class="sidebar-logo">
+      <span class="logo-mark-sm">JP</span>
+      <span class="logo-text">JaarPlan</span>
+    </div>
+
+    <div class="nav-group" id="nav-main">
+      <div class="nav-label">Overzicht</div>
+      <a class="nav-item" data-view="dashboard" onclick="showView('dashboard')">
+        <svg viewBox="0 0 20 20" fill="none"><rect x="2" y="2" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.5"/><rect x="11" y="2" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.5"/><rect x="2" y="11" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.5"/><rect x="11" y="11" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.5"/></svg>
+        Dashboard
+      </a>
+      <a class="nav-item" data-view="klassen" onclick="showView('klassen')">
+        <svg viewBox="0 0 20 20" fill="none"><path d="M3 5h14M3 10h14M3 15h9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        Klassen
+      </a>
+    </div>
+
+    <div class="nav-group" id="nav-planning">
+      <div class="nav-label">Planning</div>
+      <a class="nav-item" data-view="jaarplanning" onclick="showView('jaarplanning')">
+        <svg viewBox="0 0 20 20" fill="none"><rect x="2" y="3" width="16" height="15" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M6 2v2M14 2v2M2 8h16" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        Jaarplanning
+      </a>
+      <a class="nav-item" data-view="opdrachten" onclick="showView('opdrachten')">
+        <svg viewBox="0 0 20 20" fill="none"><path d="M5 5h10M5 9h10M5 13h6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><rect x="2" y="2" width="16" height="16" rx="2" stroke="currentColor" stroke-width="1.5"/></svg>
+        Opdrachten
+      </a>
+      <a class="nav-item" data-view="toetsen" onclick="showView('toetsen')">
+        <svg viewBox="0 0 20 20" fill="none"><path d="M4 10l4 4 8-8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><rect x="2" y="2" width="16" height="16" rx="2" stroke="currentColor" stroke-width="1.5"/></svg>
+        Toetsen & Materialen
+      </a>
+    </div>
+
+    <div class="nav-group" id="nav-admin" style="display:none">
+      <div class="nav-label">Beheer</div>
+      <a class="nav-item" data-view="gebruikers" onclick="showView('gebruikers')">
+        <svg viewBox="0 0 20 20" fill="none"><circle cx="10" cy="6" r="3.5" stroke="currentColor" stroke-width="1.5"/><path d="M3 18c0-4 3-6 7-6s7 2 7 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        Gebruikers
+      </a>
+      <a class="nav-item" data-view="vakken" onclick="showView('vakken')">
+        <svg viewBox="0 0 20 20" fill="none"><path d="M10 2l2.5 5H18l-4.5 3.5 1.5 5.5L10 13l-5 3 1.5-5.5L2 7h5.5L10 2z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>
+        Vakken & Koppelingen
+      </a>
+    </div>
+
+    <div class="sidebar-footer">
+      <div class="user-info" id="user-info-sidebar"></div>
+      <button class="btn-logout" onclick="doLogout()">
+        <svg viewBox="0 0 20 20" fill="none"><path d="M13 3h4v14h-4M8 14l4-4-4-4M12 10H3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Uitloggen
+      </button>
+    </div>
+  </nav>
+
+  <!-- MAIN CONTENT -->
+  <main class="main-content">
+    <div id="view-dashboard" class="view"></div>
+    <div id="view-klassen" class="view" style="display:none"></div>
+    <div id="view-jaarplanning" class="view" style="display:none"></div>
+    <div id="view-opdrachten" class="view" style="display:none"></div>
+    <div id="view-toetsen" class="view" style="display:none"></div>
+    <div id="view-gebruikers" class="view" style="display:none"></div>
+    <div id="view-vakken" class="view" style="display:none"></div>
+  </main>
+</div>
+
+<!-- MODAL -->
+<div id="modal-overlay" class="modal-overlay" style="display:none" onclick="closeModal(event)">
+  <div class="modal-box" id="modal-box"></div>
+</div>
+
+<script>
+// === js/db.js ===
+// ============================================================
+// DB.JS — In-browser database using localStorage
+// In production this would be replaced by real API calls
+// ============================================================
+
+const DB = {
+  // ---------- SEED DATA ----------
+  seed() {
+    if (localStorage.getItem('jp_seeded')) return;
+
+    const users = [
+      { id: 'u1', naam: 'Beheerder', achternaam: 'School', email: 'admin@school.nl', wachtwoord: 'admin123', rol: 'admin', vakken: [] },
+      { id: 'u2', naam: 'Jan', achternaam: 'Jansen', email: 'docent@school.nl', wachtwoord: 'docent123', rol: 'docent', vakken: ['v1','v2'] },
+      { id: 'u3', naam: 'Fatima', achternaam: 'El Amrani', email: 'felam@school.nl', wachtwoord: 'docent123', rol: 'docent', vakken: ['v1'] },
+      { id: 'u4', naam: 'Management', achternaam: 'Viewer', email: 'management@school.nl', wachtwoord: 'mgmt123', rol: 'management', vakken: [] },
+    ];
+
+    const vakken = [
+      { id: 'v1', naam: 'PIE', volledig: 'Produceren, Installeren & Energie', kleur: '#2D5A3D' },
+      { id: 'v2', naam: 'M&O', volledig: 'Management & Organisatie', kleur: '#1A4A7A' },
+      { id: 'v3', naam: 'Economie', volledig: 'Economie', kleur: '#C4821A' },
+    ];
+
+    const klassen = [
+      { id: 'k1', naam: '3 HAVO A', leerjaar: 3, niveau: 'HAVO', vakId: 'v1', docentId: 'u2', schooljaar: '2025-2026', aantalWeken: 38 },
+      { id: 'k2', naam: '3 HAVO B', leerjaar: 3, niveau: 'HAVO', vakId: 'v1', docentId: 'u2', schooljaar: '2025-2026', aantalWeken: 38 },
+      { id: 'k3', naam: '4 VWO A', leerjaar: 4, niveau: 'VWO', vakId: 'v1', docentId: 'u3', schooljaar: '2025-2026', aantalWeken: 38 },
+      { id: 'k4', naam: '5 HAVO A', leerjaar: 5, niveau: 'HAVO', vakId: 'v2', docentId: 'u2', schooljaar: '2025-2026', aantalWeken: 38 },
+    ];
+
+    const opdrachten = [
+      { id: 'o1', klasId: 'k1', naam: 'Introductie PIE & oriëntatie', beschrijving: 'Kennismaking met het vak en beroepsoriëntatie', syllabuscodes: 'PIE-1.1', weken: '36-37', type: 'Theorie', werkboekLink: 'H1 p.4–12', theorieLink: 'https://example.com/theorie/1', toetsBestand: null, periode: 1, actief: false },
+      { id: 'o2', klasId: 'k1', naam: 'Ondernemersplan opstellen', beschrijving: 'Individuele opdracht: schrijf een basisondernemersplan', syllabuscodes: 'PIE-1.2, PIE-1.3', weken: '38-39', type: 'Opdracht', werkboekLink: 'H2 opdracht 3', theorieLink: 'https://example.com/canvas', toetsBestand: null, periode: 1, actief: false },
+      { id: 'o3', klasId: 'k1', naam: 'Toets periode 1', beschrijving: 'Schriftelijke toets, 60 minuten', syllabuscodes: 'PIE-1.1, PIE-1.2, PIE-1.3', weken: '40', type: 'Toets', werkboekLink: '', theorieLink: '', toetsBestand: 'toets_p1_2025.pdf', periode: 1, actief: false },
+      { id: 'o4', klasId: 'k1', naam: 'Businessmodel Canvas', beschrijving: 'Groepsopdracht: ontwikkel een volledig businessmodel', syllabuscodes: 'PIE-2.1', weken: '47-49', type: 'Groepsopdracht', werkboekLink: 'H3 p.20–28', theorieLink: 'https://example.com/bmc', toetsBestand: null, periode: 2, actief: false },
+      { id: 'o5', klasId: 'k1', naam: 'Marktonderzoek uitvoeren', beschrijving: 'Voer een eenvoudig marktonderzoek uit voor je product', syllabuscodes: 'PIE-2.2', weken: '50-51', type: 'Opdracht', werkboekLink: 'H3 p.29–36', theorieLink: '', toetsBestand: null, periode: 2, actief: true },
+      { id: 'o6', klasId: 'k2', naam: 'Introductie PIE & oriëntatie', beschrijving: 'Kennismaking met het vak', syllabuscodes: 'PIE-1.1', weken: '36-37', type: 'Theorie', werkboekLink: 'H1 p.4–12', theorieLink: '', toetsBestand: null, periode: 1, actief: false },
+      { id: 'o7', klasId: 'k3', naam: 'Introductie PIE gevorderd', beschrijving: 'Verdieping in PIE voor VWO niveau', syllabuscodes: 'PIE-1.1, PIE-1.2', weken: '36-38', type: 'Theorie', werkboekLink: 'H1–H2', theorieLink: '', toetsBestand: null, periode: 1, actief: false },
+    ];
+
+    this.set('gebruikers', users);
+    this.set('vakken', vakken);
+    this.set('klassen', klassen);
+    this.set('opdrachten', opdrachten);
+    localStorage.setItem('jp_seeded', '1');
+  },
+
+  // ---------- CRUD HELPERS ----------
+  get(key) {
+    try { return JSON.parse(localStorage.getItem('jp_' + key) || '[]'); }
+    catch { return []; }
+  },
+
+  set(key, data) {
+    localStorage.setItem('jp_' + key, JSON.stringify(data));
+  },
+
+  genId() {
+    return Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  },
+
+  // ---------- GEBRUIKERS ----------
+  getGebruikers() { return this.get('gebruikers'); },
+
+  getGebruiker(id) { return this.getGebruikers().find(u => u.id === id) || null; },
+
+  addGebruiker(data) {
+    const users = this.getGebruikers();
+    if (users.find(u => u.email === data.email)) return { error: 'E-mail bestaat al' };
+    const user = { ...data, id: this.genId() };
+    users.push(user);
+    this.set('gebruikers', users);
+    return user;
+  },
+
+  updateGebruiker(id, data) {
+    const users = this.getGebruikers().map(u => u.id === id ? { ...u, ...data } : u);
+    this.set('gebruikers', users);
+  },
+
+  deleteGebruiker(id) {
+    this.set('gebruikers', this.getGebruikers().filter(u => u.id !== id));
+  },
+
+  // ---------- VAKKEN ----------
+  getVakken() { return this.get('vakken'); },
+
+  getVak(id) { return this.getVakken().find(v => v.id === id) || null; },
+
+  addVak(data) {
+    const vakken = this.getVakken();
+    const vak = { ...data, id: this.genId() };
+    vakken.push(vak);
+    this.set('vakken', vakken);
+    return vak;
+  },
+
+  deleteVak(id) {
+    this.set('vakken', this.getVakken().filter(v => v.id !== id));
+  },
+
+  // ---------- KLASSEN ----------
+  getKlassen(docentId = null, vakId = null) {
+    let k = this.get('klassen');
+    if (docentId) k = k.filter(x => x.docentId === docentId);
+    if (vakId) k = k.filter(x => x.vakId === vakId);
+    return k;
+  },
+
+  getKlas(id) { return this.getKlassen().find(k => k.id === id) || null; },
+
+  addKlas(data) {
+    const klassen = this.getKlassen();
+    const klas = { ...data, id: this.genId() };
+    klassen.push(klas);
+    this.set('klassen', klassen);
+    return klas;
+  },
+
+  updateKlas(id, data) {
+    const klassen = this.getKlassen().map(k => k.id === id ? { ...k, ...data } : k);
+    this.set('klassen', klassen);
+  },
+
+  deleteKlas(id) {
+    this.set('klassen', this.getKlassen().filter(k => k.id !== id));
+    this.set('opdrachten', this.getOpdrachten().filter(o => o.klasId !== id));
+  },
+
+  // ---------- OPDRACHTEN ----------
+  getOpdrachten(klasId = null) {
+    let o = this.get('opdrachten');
+    if (klasId) o = o.filter(x => x.klasId === klasId);
+    return o;
+  },
+
+  getOpdracht(id) { return this.getOpdrachten().find(o => o.id === id) || null; },
+
+  addOpdracht(data) {
+    const list = this.getOpdrachten();
+    const item = { ...data, id: this.genId() };
+    list.push(item);
+    this.set('opdrachten', list);
+    return item;
+  },
+
+  updateOpdracht(id, data) {
+    const list = this.getOpdrachten().map(o => o.id === id ? { ...o, ...data } : o);
+    this.set('opdrachten', list);
+  },
+
+  deleteOpdracht(id) {
+    this.set('opdrachten', this.getOpdrachten().filter(o => o.id !== id));
+  },
+
+  // ---------- STATS ----------
+  getStats(docentId = null) {
+    const klassen = docentId ? this.getKlassen(docentId) : this.getKlassen();
+    const klasIds = klassen.map(k => k.id);
+    const opdrachten = this.getOpdrachten().filter(o => klasIds.includes(o.klasId));
+    const toetsen = opdrachten.filter(o => o.toetsBestand);
+    return {
+      aantalKlassen: klassen.length,
+      aantalOpdrachten: opdrachten.length,
+      aantalToetsen: toetsen.length,
+      aantalVakken: [...new Set(klassen.map(k => k.vakId))].length,
+    };
+  }
+};
+
+// Init on load
+DB.seed();
+
+
+// === js/auth.js ===
+// ============================================================
+// AUTH.JS — Authenticatie
+// ============================================================
+
+const Auth = {
+  currentUser: null,
+
+  init() {
+    const saved = sessionStorage.getItem('jp_session');
+    if (saved) {
+      this.currentUser = JSON.parse(saved);
+      return true;
+    }
+    return false;
+  },
+
+  login(email, wachtwoord) {
+    const users = DB.getGebruikers();
+    const user = users.find(u =>
+      u.email.toLowerCase() === email.toLowerCase() &&
+      u.wachtwoord === wachtwoord
+    );
+    if (!user) return { error: 'Onjuist e-mailadres of wachtwoord.' };
+    const session = { id: user.id, naam: user.naam + ' ' + user.achternaam, rol: user.rol, email: user.email, vakken: user.vakken || [] };
+    this.currentUser = session;
+    sessionStorage.setItem('jp_session', JSON.stringify(session));
+    return { success: true, user: session };
+  },
+
+  logout() {
+    this.currentUser = null;
+    sessionStorage.removeItem('jp_session');
+  },
+
+  isAdmin() { return this.currentUser?.rol === 'admin'; },
+  isDocent() { return this.currentUser?.rol === 'docent'; },
+  isManagement() { return this.currentUser?.rol === 'management'; },
+  canEdit() { return this.isAdmin() || this.isDocent(); },
+
+  // Docent can only see/edit their own klassen; admin sees all
+  getZichtbareKlassen() {
+    if (this.isAdmin() || this.isManagement()) return DB.getKlassen();
+    return DB.getKlassen(this.currentUser.id);
+  }
+};
+
+// ---- Login UI functions (global) ----
+function doLogin() {
+  const email = document.getElementById('login-email').value.trim();
+  const pw = document.getElementById('login-password').value;
+  const errEl = document.getElementById('login-error');
+  errEl.style.display = 'none';
+
+  if (!email || !pw) {
+    errEl.textContent = 'Vul e-mailadres en wachtwoord in.';
+    errEl.style.display = 'block';
+    return;
+  }
+
+  const result = Auth.login(email, pw);
+  if (result.error) {
+    errEl.textContent = result.error;
+    errEl.style.display = 'block';
+    return;
+  }
+
+  startApp();
+}
+
+function fillDemo(email, pw) {
+  document.getElementById('login-email').value = email;
+  document.getElementById('login-password').value = pw;
+}
+
+function doLogout() {
+  Auth.logout();
+  document.getElementById('app-shell').style.display = 'none';
+  document.getElementById('login-screen').style.display = 'flex';
+  document.getElementById('login-password').value = '';
+  document.getElementById('login-error').style.display = 'none';
+}
+
+// Enter key on password
+document.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && document.getElementById('login-screen').style.display !== 'none') {
+    doLogin();
+  }
+});
+
+
+// === js/views/dashboard.js ===
+function renderDashboard() {
+  const u = Auth.currentUser;
+  const stats = DB.getStats(Auth.isDocent() ? u.id : null);
+  const klassen = Auth.getZichtbareKlassen();
+  const opdrachten = DB.getOpdrachten().filter(o => klassen.find(k => k.id === o.klasId));
+  const cw = getCurrentWeek();
+  const huidigeOpdrachten = opdrachten.filter(o => weekInRange(o.weken, cw) || weekInRange(o.weken, cw + 1) || weekInRange(o.weken, cw + 2));
+  const komend = opdrachten.filter(o => {
+    const start = parseInt((o.weken || '').split('-')[0]);
+    return start >= cw && start <= cw + 6;
+  }).sort((a, b) => parseInt(a.weken) - parseInt(b.weken)).slice(0, 6);
+
+  const readonlyNotice = Auth.isManagement() ? `<div class="readonly-notice">
+    <svg width="16" height="16" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="8" stroke="currentColor" stroke-width="1.5"/><path d="M10 6v4M10 14h.01" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+    U bent ingelogd als management — u kunt alles bekijken maar niet wijzigen.
+  </div>` : '';
+
+  document.getElementById('view-dashboard').innerHTML = `
+    ${readonlyNotice}
+    <div class="page-header">
+      <div class="page-header-left">
+        <div class="breadcrumb">Schooljaar 2025–2026 · Week ${cw}</div>
+        <h1>Goedendag, ${u.naam.split(' ')[0]}</h1>
+      </div>
+      ${Auth.canEdit() ? `<button class="btn btn-primary" onclick="showView('klassen')">
+        <svg viewBox="0 0 20 20" fill="none"><path d="M10 4v12M4 10h12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        Nieuwe klas
+      </button>` : ''}
+    </div>
+
+    <div class="stat-grid">
+      <div class="stat-card">
+        <div class="stat-label">Klassen</div>
+        <div class="stat-value">${stats.aantalKlassen}</div>
+        <div class="stat-sub">actief schooljaar</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Opdrachten</div>
+        <div class="stat-value">${stats.aantalOpdrachten}</div>
+        <div class="stat-sub">gepland dit jaar</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Toetsen geüpload</div>
+        <div class="stat-value">${stats.aantalToetsen}</div>
+        <div class="stat-sub">beschikbaar</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Vakken</div>
+        <div class="stat-value">${stats.aantalVakken}</div>
+        <div class="stat-sub">in gebruik</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div>
+          <h2>Mijn klassen</h2>
+          <div class="card-meta">Klik op een klas om de jaarplanning te openen</div>
+        </div>
+        ${Auth.canEdit() ? `<button class="btn btn-sm" onclick="showView('klassen')">Alle klassen beheren</button>` : ''}
+      </div>
+      <div style="padding:20px">
+        ${klassen.length === 0 ? `<div class="empty-state"><h3>Nog geen klassen</h3><p>Maak een klas aan om te starten.</p><button class="btn btn-primary" onclick="showView('klassen')">Klas aanmaken</button></div>` :
+          `<div class="klas-grid">${klassen.slice(0, 6).map(k => {
+            const vak = DB.getVak(k.vakId);
+            const opd = DB.getOpdrachten(k.id);
+            const pct = opd.length > 0 ? Math.min(100, Math.round((opd.filter(o => {
+              const end = parseInt((o.weken || '99').split('-').pop());
+              return end < cw;
+            }).length / opd.length) * 100)) : 0;
+            const docent = DB.getGebruiker(k.docentId);
+            return `<div class="klas-card" onclick="window._selectedKlas='${k.id}'; showView('jaarplanning')">
+              <div class="klas-card-top">
+                <div class="klas-naam">${escHtml(k.naam)}</div>
+                <span class="badge badge-green">${escHtml(vak?.naam || '—')}</span>
+              </div>
+              <div class="klas-meta-row">Leerjaar ${k.leerjaar} · ${escHtml(k.niveau)} · ${escHtml(k.schooljaar)}
+              ${docent ? `<br><span style="color:var(--ink-muted)">${escHtml(docent.naam)} ${escHtml(docent.achternaam)}</span>` : ''}</div>
+              <div class="klas-progress"><div class="klas-progress-fill" style="width:${pct}%"></div></div>
+              <div class="klas-progress-label"><span>${opd.length} opdrachten gepland</span><span>${pct}% afgerond</span></div>
+            </div>`;
+          }).join('')}</div>`
+        }
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <h2>Komende activiteiten</h2>
+        <div class="card-meta">Week ${cw} – ${cw + 6}</div>
+      </div>
+      ${komend.length === 0 ? `<div class="empty-state"><p>Geen activiteiten gepland voor de komende weken.</p></div>` : `
+      <table class="data-table">
+        <thead><tr><th>Week</th><th>Klas</th><th>Opdracht / activiteit</th><th>Type</th><th>Syllabus</th></tr></thead>
+        <tbody>${komend.map(o => {
+          const klas = DB.getKlas(o.klasId);
+          const isNu = weekInRange(o.weken, cw);
+          return `<tr class="${isNu ? 'planning-row-active' : ''}">
+            <td><span class="week-pill ${isNu ? 'current' : ''}">Wk ${o.weken}</span></td>
+            <td style="font-weight:500">${escHtml(klas?.naam || '—')}</td>
+            <td>
+              <div style="font-weight:500">${escHtml(o.naam)}</div>
+              ${o.beschrijving ? `<div style="font-size:12px;color:var(--ink-muted)">${escHtml(o.beschrijving.slice(0, 70))}${o.beschrijving.length > 70 ? '…' : ''}</div>` : ''}
+            </td>
+            <td><span class="badge ${typeKleur(o.type)}">${escHtml(o.type)}</span></td>
+            <td><span style="font-size:12px;color:var(--ink-muted)">${escHtml(o.syllabuscodes)}</span></td>
+          </tr>`;
+        }).join('')}</tbody>
+      </table>`}
+    </div>
+  `;
+}
+
+
+// === js/views/klassen.js ===
+function renderKlassen() {
+  const klassen = Auth.getZichtbareKlassen();
+  const vakken = DB.getVakken();
+  const readonly = !Auth.canEdit();
+
+  document.getElementById('view-klassen').innerHTML = `
+    <div class="page-header">
+      <div class="page-header-left">
+        <h1>Klassen</h1>
+      </div>
+      ${!readonly ? `<div class="page-header-actions">
+        <button class="btn btn-primary" onclick="openKlasModal()">
+          <svg viewBox="0 0 20 20" fill="none"><path d="M10 4v12M4 10h12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+          Nieuwe klas aanmaken
+        </button>
+      </div>` : ''}
+    </div>
+
+    ${readonly ? `<div class="readonly-notice"><svg width="16" height="16" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="8" stroke="currentColor" stroke-width="1.5"/><path d="M10 6v4M10 14h.01" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>Leesmodus — u kunt klassen bekijken maar niet wijzigen.</div>` : ''}
+
+    <div class="card">
+      <div class="card-header">
+        <h2>Overzicht klassen (${klassen.length})</h2>
+      </div>
+      ${klassen.length === 0 ? `<div class="empty-state">
+        <h3>Nog geen klassen</h3>
+        <p>Maak uw eerste klas aan om te beginnen met plannen.</p>
+        ${!readonly ? `<button class="btn btn-primary" onclick="openKlasModal()">Eerste klas aanmaken</button>` : ''}
+      </div>` : `
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Klasnaam</th>
+            <th>Leerjaar · Niveau</th>
+            <th>Vak</th>
+            <th>Docent</th>
+            <th>Schooljaar</th>
+            <th>Opdrachten</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          ${klassen.map(k => {
+            const vak = DB.getVak(k.vakId);
+            const docent = DB.getGebruiker(k.docentId);
+            const opd = DB.getOpdrachten(k.id);
+            return `<tr>
+              <td style="font-weight:600">${escHtml(k.naam)}</td>
+              <td>Leerjaar ${k.leerjaar} · ${escHtml(k.niveau)}</td>
+              <td><span class="badge badge-green">${escHtml(vak?.naam || '—')}</span></td>
+              <td>${docent ? escHtml(docent.naam + ' ' + docent.achternaam) : '<span style="color:var(--ink-muted)">—</span>'}</td>
+              <td>${escHtml(k.schooljaar)}</td>
+              <td>${opd.length} gepland</td>
+              <td>
+                <div style="display:flex;gap:6px;justify-content:flex-end">
+                  <button class="btn btn-sm" onclick="window._selectedKlas='${k.id}'; showView('jaarplanning')">
+                    Planning openen
+                  </button>
+                  ${!readonly ? `
+                  <button class="icon-btn" title="Bewerken" onclick="openKlasModal('${k.id}')">
+                    <svg viewBox="0 0 20 20" fill="none"><path d="M14.5 3.5l2 2L7 15l-3 1 1-3 9.5-9.5z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                  </button>
+                  <button class="icon-btn" title="Verwijderen" onclick="deleteKlas('${k.id}')" style="color:var(--red)">
+                    <svg viewBox="0 0 20 20" fill="none"><path d="M5 5l10 10M15 5L5 15" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+                  </button>` : ''}
+                </div>
+              </td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>`}
+    </div>
+  `;
+}
+
+function openKlasModal(klasId = null) {
+  const klas = klasId ? DB.getKlas(klasId) : null;
+  const vakken = DB.getVakken();
+  const docenten = DB.getGebruikers().filter(u => u.rol === 'docent' || u.rol === 'admin');
+
+  openModal(`
+    <h2>${klas ? 'Klas bewerken' : 'Nieuwe klas aanmaken'}</h2>
+    <p class="modal-sub">${klas ? 'Pas de gegevens van deze klas aan.' : 'Vul de gegevens in om een nieuwe klas aan te maken.'}</p>
+
+    <div class="form-grid">
+      <div class="form-field">
+        <label>Klasnaam *</label>
+        <input type="text" id="klas-naam" placeholder="bijv. 3 HAVO A" value="${escHtml(klas?.naam || '')}">
+      </div>
+      <div class="form-field">
+        <label>Schooljaar *</label>
+        <input type="text" id="klas-schooljaar" placeholder="2025-2026" value="${escHtml(klas?.schooljaar || '2025-2026')}">
+      </div>
+      <div class="form-field">
+        <label>Leerjaar *</label>
+        <select id="klas-leerjaar">
+          ${[1,2,3,4,5,6].map(n => `<option value="${n}" ${klas?.leerjaar == n ? 'selected' : ''}>Leerjaar ${n}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-field">
+        <label>Niveau *</label>
+        <select id="klas-niveau">
+          ${['VMBO-B','VMBO-K','VMBO-GT','HAVO','VWO'].map(n => `<option value="${n}" ${klas?.niveau === n ? 'selected' : ''}>${n}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-field">
+        <label>Vak *</label>
+        <select id="klas-vak">
+          ${vakken.map(v => `<option value="${v.id}" ${klas?.vakId === v.id ? 'selected' : ''}>${v.naam} — ${v.volledig}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-field">
+        <label>Koppel docent</label>
+        <select id="klas-docent">
+          <option value="">— Geen docent —</option>
+          ${docenten.map(d => `<option value="${d.id}" ${klas?.docentId === d.id ? 'selected' : ''}>${d.naam} ${d.achternaam}</option>`).join('')}
+        </select>
+      </div>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModalDirect()">Annuleren</button>
+      <button class="btn btn-primary" onclick="saveKlas('${klasId || ''}')">
+        ${klas ? 'Wijzigingen opslaan' : 'Klas aanmaken'}
+      </button>
+    </div>
+  `);
+}
+
+function saveKlas(klasId) {
+  const naam = document.getElementById('klas-naam').value.trim();
+  const schooljaar = document.getElementById('klas-schooljaar').value.trim();
+  const leerjaar = parseInt(document.getElementById('klas-leerjaar').value);
+  const niveau = document.getElementById('klas-niveau').value;
+  const vakId = document.getElementById('klas-vak').value;
+  const docentId = document.getElementById('klas-docent').value;
+
+  if (!naam || !schooljaar || !vakId) {
+    alert('Vul alle verplichte velden in (*)');
+    return;
+  }
+
+  const data = { naam, schooljaar, leerjaar, niveau, vakId, docentId: docentId || null };
+
+  if (klasId) {
+    DB.updateKlas(klasId, data);
+  } else {
+    DB.addKlas(data);
+  }
+
+  closeModalDirect();
+  renderKlassen();
+}
+
+function deleteKlas(id) {
+  const klas = DB.getKlas(id);
+  const opd = DB.getOpdrachten(id);
+  if (!confirm(`Weet u zeker dat u "${klas?.naam}" wilt verwijderen?\n\nDit verwijdert ook ${opd.length} gekoppelde opdrachten.`)) return;
+  DB.deleteKlas(id);
+  renderKlassen();
+}
+
+
+// === js/views/jaarplanning.js ===
+function renderJaarplanning() {
+  const readonly = !Auth.canEdit();
+  const klassen = Auth.getZichtbareKlassen();
+
+  if (klassen.length === 0) {
+    document.getElementById('view-jaarplanning').innerHTML = `
+      <div class="page-header"><div class="page-header-left"><h1>Jaarplanning</h1></div></div>
+      <div class="empty-state"><h3>Geen klassen beschikbaar</h3><p>Maak eerst een klas aan.</p>
+      ${!readonly ? `<button class="btn btn-primary" onclick="showView('klassen')">Klas aanmaken</button>` : ''}</div>
+    `;
+    return;
+  }
+
+  // Determine selected class
+  if (!window._selectedKlas || !klassen.find(k => k.id === window._selectedKlas)) {
+    window._selectedKlas = klassen[0].id;
+  }
+
+  const klas = DB.getKlas(window._selectedKlas);
+  const vak = DB.getVak(klas?.vakId);
+  const docent = DB.getGebruiker(klas?.docentId);
+  const opdrachten = DB.getOpdrachten(window._selectedKlas);
+  const cw = getCurrentWeek();
+
+  // Group by periode
+  const periodes = {};
+  opdrachten.forEach(o => {
+    const p = o.periode || 1;
+    if (!periodes[p]) periodes[p] = [];
+    periodes[p].push(o);
+  });
+
+  const periodeNamen = { 1: 'Periode 1 — september t/m november', 2: 'Periode 2 — december t/m februari', 3: 'Periode 3 — maart t/m mei', 4: 'Periode 4 — juni t/m juli' };
+
+  document.getElementById('view-jaarplanning').innerHTML = `
+    <div class="page-header">
+      <div class="page-header-left">
+        <div class="breadcrumb">
+          <span onclick="showView('klassen')" style="cursor:pointer;color:var(--accent)">Klassen</span>
+          <span>›</span>
+          <span>Jaarplanning</span>
+        </div>
+        <h1>${escHtml(klas?.naam || '—')}</h1>
+      </div>
+      <div class="page-header-actions">
+        <select id="klas-select" onchange="window._selectedKlas=this.value; renderJaarplanning()" style="padding:9px 14px;border:1.5px solid var(--border-med);border-radius:var(--radius);font-family:'DM Sans',sans-serif;font-size:13.5px;background:#fff;color:var(--ink);font-weight:500">
+          ${klassen.map(k => `<option value="${k.id}" ${k.id === window._selectedKlas ? 'selected' : ''}>${escHtml(k.naam)}</option>`).join('')}
+        </select>
+        ${!readonly ? `<button class="btn btn-primary" onclick="openOpdrachtModal(null,'${window._selectedKlas}')">
+          <svg viewBox="0 0 20 20" fill="none"><path d="M10 4v12M4 10h12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+          Opdracht toevoegen
+        </button>` : ''}
+      </div>
+    </div>
+
+    ${readonly ? `<div class="readonly-notice"><svg width="16" height="16" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="8" stroke="currentColor" stroke-width="1.5"/><path d="M10 6v4M10 14h.01" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>Leesmodus — alle planning is zichtbaar maar niet aanpasbaar.</div>` : ''}
+
+    <div class="card" style="margin-bottom:16px;padding:0">
+      <div style="display:flex;align-items:center;gap:24px;padding:16px 24px;flex-wrap:wrap">
+        <div><div style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;font-weight:700;color:var(--ink-muted);margin-bottom:3px">Vak</div><span class="badge badge-green">${escHtml(vak?.naam || '—')} — ${escHtml(vak?.volledig || '')}</span></div>
+        <div><div style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;font-weight:700;color:var(--ink-muted);margin-bottom:3px">Niveau</div><span style="font-weight:500">Leerjaar ${klas?.leerjaar} · ${escHtml(klas?.niveau)}</span></div>
+        <div><div style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;font-weight:700;color:var(--ink-muted);margin-bottom:3px">Docent</div><span>${docent ? escHtml(docent.naam + ' ' + docent.achternaam) : '—'}</span></div>
+        <div><div style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;font-weight:700;color:var(--ink-muted);margin-bottom:3px">Schooljaar</div><span>${escHtml(klas?.schooljaar)}</span></div>
+        <div><div style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;font-weight:700;color:var(--ink-muted);margin-bottom:3px">Opdrachten</div><span>${opdrachten.length} gepland</span></div>
+      </div>
+    </div>
+
+    ${opdrachten.length === 0 ? `<div class="card"><div class="empty-state">
+      <h3>Nog geen opdrachten</h3>
+      <p>Voeg opdrachten toe om de jaarplanning op te bouwen.</p>
+      ${!readonly ? `<button class="btn btn-primary" onclick="openOpdrachtModal(null,'${window._selectedKlas}')">Eerste opdracht toevoegen</button>` : ''}
+    </div></div>` :
+
+    [1,2,3,4].map(p => {
+      const po = periodes[p] || [];
+      if (po.length === 0 && !(!readonly)) return '';
+      return `
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <h2>${periodeNamen[p]}</h2>
+            <div class="card-meta">${po.length} opdrachten / activiteiten</div>
+          </div>
+          ${!readonly ? `<button class="btn btn-sm" onclick="openOpdrachtModal(null,'${window._selectedKlas}',${p})">
+            + Opdracht aan periode ${p}
+          </button>` : ''}
+        </div>
+        ${po.length === 0 ? `<div style="padding:20px 24px;color:var(--ink-muted);font-size:13px">Nog geen opdrachten in deze periode. <span style="cursor:pointer;color:var(--accent)" onclick="openOpdrachtModal(null,'${window._selectedKlas}',${p})">Voeg er een toe</span></div>` : `
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th style="width:90px">Week(en)</th>
+              <th>Opdracht / activiteit</th>
+              <th>Type</th>
+              <th>Syllabuscodes</th>
+              <th>Werkboek</th>
+              <th>Theorie</th>
+              <th>Toets</th>
+              ${!readonly ? '<th style="width:80px"></th>' : ''}
+            </tr>
+          </thead>
+          <tbody>
+            ${po.sort((a,b) => parseInt(a.weken||0) - parseInt(b.weken||0)).map(o => {
+              const isNu = weekInRange(o.weken, cw);
+              return `<tr class="${isNu ? 'planning-row-active' : ''}">
+                <td><span class="week-pill ${isNu ? 'current' : ''}">Wk ${o.weken}</span>${isNu ? ' <span style="font-size:10px;color:var(--accent);font-weight:700">NU</span>' : ''}</td>
+                <td>
+                  <div style="font-weight:500">${escHtml(o.naam)}</div>
+                  ${o.beschrijving ? `<div style="font-size:12px;color:var(--ink-muted);margin-top:2px">${escHtml(o.beschrijving.slice(0,80))}${o.beschrijving.length > 80 ? '…' : ''}</div>` : ''}
+                </td>
+                <td><span class="badge ${typeKleur(o.type)}">${escHtml(o.type)}</span></td>
+                <td style="font-size:12px;color:var(--ink-muted);max-width:120px">${escHtml(o.syllabuscodes) || '—'}</td>
+                <td>${o.werkboekLink ? `<span style="font-size:12px;color:var(--blue)">${escHtml(o.werkboekLink)}</span>` : '<span style="color:var(--ink-muted)">—</span>'}</td>
+                <td>${o.theorieLink ? `<a href="${escHtml(o.theorieLink)}" class="text-link" target="_blank">Bekijken ↗</a>` : '<span style="color:var(--ink-muted)">—</span>'}</td>
+                <td>${o.toetsBestand ? `<span class="badge badge-amber">📄 ${escHtml(o.toetsBestand)}</span>` : '<span style="color:var(--ink-muted)">—</span>'}</td>
+                ${!readonly ? `<td>
+                  <div style="display:flex;gap:4px">
+                    <button class="icon-btn" title="Bewerken" onclick="openOpdrachtModal('${o.id}','${window._selectedKlas}')">
+                      <svg viewBox="0 0 20 20" fill="none"><path d="M14.5 3.5l2 2L7 15l-3 1 1-3 9.5-9.5z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    </button>
+                    <button class="icon-btn" title="Verwijderen" onclick="deleteOpdracht('${o.id}')" style="color:var(--red)">
+                      <svg viewBox="0 0 20 20" fill="none"><path d="M5 5l10 10M15 5L5 15" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+                    </button>
+                  </div>
+                </td>` : ''}
+              </tr>`;
+            }).join('')}
+          </tbody>
+        </table>`}
+      </div>`;
+    }).join('')}
+  `;
+}
+
+function openOpdrachtModal(opdrachtId = null, klasId = null, defaultPeriode = 1) {
+  const o = opdrachtId ? DB.getOpdracht(opdrachtId) : null;
+  const klassen = Auth.getZichtbareKlassen();
+
+  openModal(`
+    <h2>${o ? 'Opdracht bewerken' : 'Opdracht toevoegen'}</h2>
+    <p class="modal-sub">Vul alle velden in voor de jaarplanning.</p>
+
+    <div class="form-grid">
+      <div class="form-field form-full">
+        <label>Naam opdracht / activiteit *</label>
+        <input type="text" id="o-naam" placeholder="bijv. Businessmodel Canvas" value="${escHtml(o?.naam || '')}">
+      </div>
+      <div class="form-field">
+        <label>Klas *</label>
+        <select id="o-klas">
+          ${klassen.map(k => `<option value="${k.id}" ${(klasId && k.id === klasId) || o?.klasId === k.id ? 'selected' : ''}>${escHtml(k.naam)}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-field">
+        <label>Periode *</label>
+        <select id="o-periode">
+          ${[1,2,3,4].map(p => `<option value="${p}" ${(o?.periode || defaultPeriode) == p ? 'selected' : ''}>Periode ${p}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-field">
+        <label>Week(en) * (bijv. 36 of 36-38)</label>
+        <input type="text" id="o-weken" placeholder="bijv. 36 of 36-38" value="${escHtml(o?.weken || '')}">
+      </div>
+      <div class="form-field">
+        <label>Type *</label>
+        <select id="o-type">
+          ${['Theorie','Opdracht','Groepsopdracht','Toets','Presentatie'].map(t => `<option value="${t}" ${o?.type === t ? 'selected' : ''}>${t}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-field">
+        <label>Syllabuscodes (bijv. PIE-1.1, PIE-1.2)</label>
+        <input type="text" id="o-syllabus" placeholder="PIE-1.1, PIE-1.2" value="${escHtml(o?.syllabuscodes || '')}">
+      </div>
+      <div class="form-field">
+        <label>Werkboek / pagina</label>
+        <input type="text" id="o-werkboek" placeholder="H1 p.4–12 of opdracht 3" value="${escHtml(o?.werkboekLink || '')}">
+      </div>
+      <div class="form-field form-full">
+        <label>Beschrijving</label>
+        <textarea id="o-beschrijving" placeholder="Korte omschrijving van de opdracht...">${escHtml(o?.beschrijving || '')}</textarea>
+      </div>
+      <div class="form-field form-full">
+        <label>Link theorieMateriaal (URL)</label>
+        <input type="text" id="o-theorie" placeholder="https://..." value="${escHtml(o?.theorieLink || '')}">
+      </div>
+      <div class="form-field form-full">
+        <label>Toetsbestand / naam (upload simulatie)</label>
+        <input type="text" id="o-toets" placeholder="bijv. toets_periode1.pdf" value="${escHtml(o?.toetsBestand || '')}">
+        <div style="font-size:11px;color:var(--ink-muted);margin-top:4px">In de productieverisie kunt u hier een PDF uploaden.</div>
+      </div>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModalDirect()">Annuleren</button>
+      <button class="btn btn-primary" onclick="saveOpdracht('${opdrachtId || ''}')">
+        ${o ? 'Wijzigingen opslaan' : 'Toevoegen aan planning'}
+      </button>
+    </div>
+  `);
+}
+
+function saveOpdracht(opdrachtId) {
+  const naam = document.getElementById('o-naam').value.trim();
+  const klasId = document.getElementById('o-klas').value;
+  const periode = parseInt(document.getElementById('o-periode').value);
+  const weken = document.getElementById('o-weken').value.trim();
+  const type = document.getElementById('o-type').value;
+  const syllabuscodes = document.getElementById('o-syllabus').value.trim();
+  const werkboekLink = document.getElementById('o-werkboek').value.trim();
+  const beschrijving = document.getElementById('o-beschrijving').value.trim();
+  const theorieLink = document.getElementById('o-theorie').value.trim();
+  const toetsBestand = document.getElementById('o-toets').value.trim() || null;
+
+  if (!naam || !klasId || !weken || !type) {
+    alert('Vul alle verplichte velden in (naam, klas, week(en), type).');
+    return;
+  }
+
+  const data = { naam, klasId, periode, weken, type, syllabuscodes, werkboekLink, beschrijving, theorieLink, toetsBestand };
+
+  if (opdrachtId) {
+    DB.updateOpdracht(opdrachtId, data);
+  } else {
+    DB.addOpdracht(data);
+  }
+
+  window._selectedKlas = klasId;
+  closeModalDirect();
+  renderJaarplanning();
+}
+
+function deleteOpdracht(id) {
+  const o = DB.getOpdracht(id);
+  if (!confirm(`Opdracht "${o?.naam}" verwijderen?`)) return;
+  DB.deleteOpdracht(id);
+  renderJaarplanning();
+}
+
+
+// === js/views/opdrachten.js ===
+// ============================================================
+// OPDRACHTEN VIEW — alle opdrachten overzicht
+// ============================================================
+function renderOpdrachten() {
+  const readonly = !Auth.canEdit();
+  const klassen = Auth.getZichtbareKlassen();
+  const klasIds = klassen.map(k => k.id);
+  let opdrachten = DB.getOpdrachten().filter(o => klasIds.includes(o.klasId));
+
+  const filterKlas = window._filterOpdKlas || '';
+  const filterType = window._filterOpdType || '';
+  if (filterKlas) opdrachten = opdrachten.filter(o => o.klasId === filterKlas);
+  if (filterType) opdrachten = opdrachten.filter(o => o.type === filterType);
+  opdrachten.sort((a,b) => parseInt(a.weken||0) - parseInt(b.weken||0));
+
+  document.getElementById('view-opdrachten').innerHTML = `
+    <div class="page-header">
+      <div class="page-header-left"><h1>Alle opdrachten</h1></div>
+      ${!readonly ? `<button class="btn btn-primary" onclick="openOpdrachtModal()">
+        <svg viewBox="0 0 20 20" fill="none"><path d="M10 4v12M4 10h12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        Opdracht toevoegen
+      </button>` : ''}
+    </div>
+
+    <div class="card" style="margin-bottom:16px">
+      <div style="display:flex;gap:12px;padding:16px 20px;align-items:center;flex-wrap:wrap">
+        <span style="font-size:12px;font-weight:600;color:var(--ink-muted);text-transform:uppercase;letter-spacing:.04em">Filter:</span>
+        <select onchange="window._filterOpdKlas=this.value; renderOpdrachten()" style="padding:8px 12px;border:1.5px solid var(--border-med);border-radius:var(--radius);font-family:'DM Sans',sans-serif;font-size:13px;background:#fff">
+          <option value="">Alle klassen</option>
+          ${klassen.map(k => `<option value="${k.id}" ${filterKlas===k.id?'selected':''}>${escHtml(k.naam)}</option>`).join('')}
+        </select>
+        <select onchange="window._filterOpdType=this.value; renderOpdrachten()" style="padding:8px 12px;border:1.5px solid var(--border-med);border-radius:var(--radius);font-family:'DM Sans',sans-serif;font-size:13px;background:#fff">
+          <option value="">Alle typen</option>
+          ${['Theorie','Opdracht','Groepsopdracht','Toets','Presentatie'].map(t => `<option value="${t}" ${filterType===t?'selected':''}>${t}</option>`).join('')}
+        </select>
+        <span style="font-size:13px;color:var(--ink-muted)">${opdrachten.length} resultaten</span>
+      </div>
+    </div>
+
+    <div class="card">
+      ${opdrachten.length === 0 ? `<div class="empty-state"><h3>Geen opdrachten gevonden</h3><p>Pas de filter aan of voeg een opdracht toe.</p></div>` : `
+      <table class="data-table">
+        <thead><tr><th>Week</th><th>Klas</th><th>Naam</th><th>Type</th><th>Periode</th><th>Syllabus</th><th>Toets</th>${!readonly ? '<th></th>' : ''}</tr></thead>
+        <tbody>
+          ${opdrachten.map(o => {
+            const klas = DB.getKlas(o.klasId);
+            return `<tr>
+              <td><span class="week-pill">Wk ${o.weken}</span></td>
+              <td style="font-weight:500">${escHtml(klas?.naam || '—')}</td>
+              <td>
+                <div style="font-weight:500">${escHtml(o.naam)}</div>
+                ${o.beschrijving ? `<div style="font-size:12px;color:var(--ink-muted)">${escHtml(o.beschrijving.slice(0,60))}…</div>` : ''}
+              </td>
+              <td><span class="badge ${typeKleur(o.type)}">${escHtml(o.type)}</span></td>
+              <td>P${o.periode || 1}</td>
+              <td style="font-size:12px;color:var(--ink-muted)">${escHtml(o.syllabuscodes) || '—'}</td>
+              <td>${o.toetsBestand ? `<span class="badge badge-amber">📄</span>` : '—'}</td>
+              ${!readonly ? `<td>
+                <div style="display:flex;gap:4px">
+                  <button class="btn btn-sm" onclick="window._selectedKlas='${o.klasId}'; openOpdrachtModal('${o.id}','${o.klasId}')">Bewerk</button>
+                </div>
+              </td>` : ''}
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>`}
+    </div>
+  `;
+}
+
+
+// === js/views/toetsen.js ===
+function renderToetsen() {
+  const readonly = !Auth.canEdit();
+  const klassen = Auth.getZichtbareKlassen();
+  const klasIds = klassen.map(k => k.id);
+  const metToets = DB.getOpdrachten().filter(o => klasIds.includes(o.klasId) && o.toetsBestand);
+  const metTheorie = DB.getOpdrachten().filter(o => klasIds.includes(o.klasId) && o.theorieLink);
+
+  document.getElementById('view-toetsen').innerHTML = `
+    <div class="page-header">
+      <div class="page-header-left"><h1>Toetsen & Materialen</h1></div>
+      ${!readonly ? `<button class="btn btn-primary" onclick="openOpdrachtModal()">+ Materiaal koppelen</button>` : ''}
+    </div>
+
+    <div class="card" style="margin-bottom:20px">
+      <div class="card-header">
+        <h2>Toetsen (${metToets.length})</h2>
+      </div>
+      ${metToets.length === 0 ? `<div class="empty-state"><h3>Geen toetsen</h3><p>Koppel een toetsbestand aan een opdracht.</p></div>` : `
+      <table class="data-table">
+        <thead><tr><th>Bestand</th><th>Klas</th><th>Week</th><th>Syllabuscodes</th>${!readonly ? '<th></th>' : ''}</tr></thead>
+        <tbody>
+          ${metToets.sort((a,b) => parseInt(a.weken||0)-parseInt(b.weken||0)).map(o => {
+            const klas = DB.getKlas(o.klasId);
+            return `<tr>
+              <td>
+                <span style="display:inline-flex;align-items:center;gap:6px">
+                  <span style="font-size:18px">📄</span>
+                  <span style="font-weight:500">${escHtml(o.toetsBestand)}</span>
+                </span>
+              </td>
+              <td>${escHtml(klas?.naam || '—')}</td>
+              <td><span class="week-pill">Wk ${o.weken}</span></td>
+              <td style="font-size:12px;color:var(--ink-muted)">${escHtml(o.syllabuscodes) || '—'}</td>
+              ${!readonly ? `<td>
+                <button class="btn btn-sm" onclick="openOpdrachtModal('${o.id}','${o.klasId}')">Bewerk</button>
+              </td>` : ''}
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>`}
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <h2>Theorie & links (${metTheorie.length})</h2>
+      </div>
+      ${metTheorie.length === 0 ? `<div class="empty-state"><h3>Geen theorie-links</h3><p>Voeg theorie-links toe bij opdrachten.</p></div>` : `
+      <table class="data-table">
+        <thead><tr><th>Opdracht</th><th>Klas</th><th>Week</th><th>Link</th>${!readonly ? '<th></th>' : ''}</tr></thead>
+        <tbody>
+          ${metTheorie.sort((a,b) => parseInt(a.weken||0)-parseInt(b.weken||0)).map(o => {
+            const klas = DB.getKlas(o.klasId);
+            return `<tr>
+              <td style="font-weight:500">${escHtml(o.naam)}</td>
+              <td>${escHtml(klas?.naam || '—')}</td>
+              <td><span class="week-pill">Wk ${o.weken}</span></td>
+              <td><a href="${escHtml(o.theorieLink)}" class="text-link" target="_blank">${escHtml(o.theorieLink.slice(0,50))}${o.theorieLink.length>50?'…':''}</a></td>
+              ${!readonly ? `<td>
+                <button class="btn btn-sm" onclick="openOpdrachtModal('${o.id}','${o.klasId}')">Bewerk</button>
+              </td>` : ''}
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>`}
+    </div>
+
+    ${!readonly ? `
+    <div class="card">
+      <div class="card-header"><h2>Bestand uploaden (simulatie)</h2></div>
+      <div style="padding:24px">
+        <div class="upload-zone" onclick="alert('In de productieversie kunt u hier bestanden uploaden naar de server.')">
+          <div class="upload-icon">↑</div>
+          <div style="font-weight:500;margin-bottom:4px">Sleep een bestand hierheen</div>
+          <div style="font-size:12px">PDF, Word of PowerPoint — max 25 MB</div>
+        </div>
+        <div style="font-size:12px;color:var(--ink-muted);margin-top:12px">Koppel het bestand daarna aan een opdracht via de jaarplanning.</div>
+      </div>
+    </div>` : ''}
+  `;
+}
+
+
+// === js/views/gebruikers.js ===
+function renderGebruikers() {
+  if (!Auth.isAdmin()) {
+    document.getElementById('view-gebruikers').innerHTML = `<div class="empty-state"><h3>Geen toegang</h3><p>Alleen beheerders kunnen gebruikers beheren.</p></div>`;
+    return;
+  }
+
+  const gebruikers = DB.getGebruikers();
+
+  document.getElementById('view-gebruikers').innerHTML = `
+    <div class="page-header">
+      <div class="page-header-left"><h1>Gebruikers beheren</h1></div>
+      <button class="btn btn-primary" onclick="openGebruikerModal()">
+        <svg viewBox="0 0 20 20" fill="none"><path d="M10 4v12M4 10h12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        Gebruiker toevoegen
+      </button>
+    </div>
+
+    <div class="alert alert-info" style="margin-bottom:20px">
+      <strong>Rollen:</strong> Beheerder kan alles. Docent kan eigen klassen beheren. Management kan alles bekijken maar niet wijzigen.
+    </div>
+
+    <div class="card">
+      <div class="card-header"><h2>Alle gebruikers (${gebruikers.length})</h2></div>
+      <table class="data-table">
+        <thead><tr><th>Naam</th><th>E-mail</th><th>Rol</th><th>Gekoppelde vakken</th><th></th></tr></thead>
+        <tbody>
+          ${gebruikers.map(u => {
+            const vakken = (u.vakken || []).map(vid => DB.getVak(vid)?.naam || vid).join(', ');
+            return `<tr>
+              <td style="font-weight:500">${escHtml(u.naam)} ${escHtml(u.achternaam)}</td>
+              <td style="color:var(--ink-muted)">${escHtml(u.email)}</td>
+              <td><span class="role-badge role-${u.rol}">${getRolLabel(u.rol)}</span></td>
+              <td style="font-size:12px;color:var(--ink-muted)">${vakken || '—'}</td>
+              <td>
+                <div style="display:flex;gap:6px;justify-content:flex-end">
+                  <button class="icon-btn" onclick="openGebruikerModal('${u.id}')">
+                    <svg viewBox="0 0 20 20" fill="none"><path d="M14.5 3.5l2 2L7 15l-3 1 1-3 9.5-9.5z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                  </button>
+                  ${u.id !== Auth.currentUser.id ? `
+                  <button class="icon-btn" onclick="deleteGebruiker('${u.id}')" style="color:var(--red)">
+                    <svg viewBox="0 0 20 20" fill="none"><path d="M5 5l10 10M15 5L5 15" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+                  </button>` : ''}
+                </div>
+              </td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+function openGebruikerModal(userId = null) {
+  const u = userId ? DB.getGebruiker(userId) : null;
+  const vakken = DB.getVakken();
+
+  openModal(`
+    <h2>${u ? 'Gebruiker bewerken' : 'Gebruiker toevoegen'}</h2>
+    <p class="modal-sub">${u ? 'Pas de gegevens en rol aan.' : 'Vul de gegevens in voor de nieuwe gebruiker.'}</p>
+
+    <div class="form-grid">
+      <div class="form-field">
+        <label>Voornaam *</label>
+        <input type="text" id="g-naam" value="${escHtml(u?.naam || '')}">
+      </div>
+      <div class="form-field">
+        <label>Achternaam *</label>
+        <input type="text" id="g-achternaam" value="${escHtml(u?.achternaam || '')}">
+      </div>
+      <div class="form-field">
+        <label>E-mailadres *</label>
+        <input type="email" id="g-email" value="${escHtml(u?.email || '')}">
+      </div>
+      <div class="form-field">
+        <label>Rol *</label>
+        <select id="g-rol">
+          <option value="docent" ${u?.rol==='docent'?'selected':''}>Docent</option>
+          <option value="admin" ${u?.rol==='admin'?'selected':''}>Beheerder</option>
+          <option value="management" ${u?.rol==='management'?'selected':''}>Management</option>
+        </select>
+      </div>
+      <div class="form-field">
+        <label>${u ? 'Nieuw wachtwoord (leeg = ongewijzigd)' : 'Wachtwoord *'}</label>
+        <input type="password" id="g-wachtwoord" placeholder="${u ? 'Leeg laten om niet te wijzigen' : 'Wachtwoord'}">
+      </div>
+    </div>
+
+    <div class="form-field" style="margin-top:4px">
+      <label>Vakken koppelen</label>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:6px">
+        ${vakken.map(v => `
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;padding:6px 12px;border:1.5px solid var(--border-med);border-radius:var(--radius);font-size:13px">
+            <input type="checkbox" id="g-vak-${v.id}" ${(u?.vakken||[]).includes(v.id) ? 'checked' : ''}>
+            ${escHtml(v.naam)}
+          </label>
+        `).join('')}
+      </div>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModalDirect()">Annuleren</button>
+      <button class="btn btn-primary" onclick="saveGebruiker('${userId || ''}')">
+        ${u ? 'Opslaan' : 'Gebruiker aanmaken'}
+      </button>
+    </div>
+  `);
+}
+
+function saveGebruiker(userId) {
+  const naam = document.getElementById('g-naam').value.trim();
+  const achternaam = document.getElementById('g-achternaam').value.trim();
+  const email = document.getElementById('g-email').value.trim();
+  const rol = document.getElementById('g-rol').value;
+  const ww = document.getElementById('g-wachtwoord').value;
+  const vakken = DB.getVakken().map(v => v.id).filter(vid => document.getElementById('g-vak-'+vid)?.checked);
+
+  if (!naam || !achternaam || !email || (!userId && !ww)) {
+    alert('Vul alle verplichte velden in.');
+    return;
+  }
+
+  const data = { naam, achternaam, email, rol, vakken };
+  if (ww) data.wachtwoord = ww;
+
+  if (userId) {
+    DB.updateGebruiker(userId, data);
+  } else {
+    const result = DB.addGebruiker(data);
+    if (result.error) { alert(result.error); return; }
+  }
+
+  closeModalDirect();
+  renderGebruikers();
+}
+
+function deleteGebruiker(id) {
+  const u = DB.getGebruiker(id);
+  if (!confirm(`Gebruiker "${u?.naam} ${u?.achternaam}" verwijderen?`)) return;
+  DB.deleteGebruiker(id);
+  renderGebruikers();
+}
+
+
+// === js/views/vakken.js ===
+function renderVakken() {
+  if (!Auth.isAdmin()) {
+    document.getElementById('view-vakken').innerHTML = `<div class="empty-state"><h3>Geen toegang</h3></div>`;
+    return;
+  }
+
+  const vakken = DB.getVakken();
+  const gebruikers = DB.getGebruikers().filter(u => u.rol === 'docent' || u.rol === 'admin');
+
+  document.getElementById('view-vakken').innerHTML = `
+    <div class="page-header">
+      <div class="page-header-left"><h1>Vakken & Koppelingen</h1></div>
+      <button class="btn btn-primary" onclick="openVakModal()">
+        <svg viewBox="0 0 20 20" fill="none"><path d="M10 4v12M4 10h12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        Vak toevoegen
+      </button>
+    </div>
+
+    <div class="card" style="margin-bottom:20px">
+      <div class="card-header"><h2>Vakken (${vakken.length})</h2></div>
+      ${vakken.length === 0 ? `<div class="empty-state"><h3>Geen vakken</h3></div>` : `
+      <table class="data-table">
+        <thead><tr><th>Afkorting</th><th>Volledige naam</th><th>Klassen</th><th>Docenten gekoppeld</th><th></th></tr></thead>
+        <tbody>
+          ${vakken.map(v => {
+            const klassen = DB.getKlassen(null, v.id);
+            const gekoppeld = gebruikers.filter(u => (u.vakken||[]).includes(v.id));
+            return `<tr>
+              <td><span class="badge badge-green">${escHtml(v.naam)}</span></td>
+              <td style="font-weight:500">${escHtml(v.volledig)}</td>
+              <td>${klassen.length} klassen</td>
+              <td style="font-size:12px;color:var(--ink-muted)">${gekoppeld.map(u => escHtml(u.naam+' '+u.achternaam)).join(', ') || '—'}</td>
+              <td>
+                <div style="display:flex;gap:6px;justify-content:flex-end">
+                  <button class="icon-btn" onclick="openVakModal('${v.id}')">
+                    <svg viewBox="0 0 20 20" fill="none"><path d="M14.5 3.5l2 2L7 15l-3 1 1-3 9.5-9.5z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                  </button>
+                  ${klassen.length === 0 ? `
+                  <button class="icon-btn" onclick="deleteVak('${v.id}')" style="color:var(--red)">
+                    <svg viewBox="0 0 20 20" fill="none"><path d="M5 5l10 10M15 5L5 15" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+                  </button>` : ''}
+                </div>
+              </td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>`}
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <h2>Docenten koppelen aan vakken</h2>
+        <div class="card-meta">Koppel welke docenten bij welk vak horen</div>
+      </div>
+      <div style="padding:20px 24px">
+        ${gebruikers.map(u => {
+          const uVakken = (u.vakken || []).map(vid => DB.getVak(vid)?.naam).filter(Boolean);
+          return `<div style="display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--border)">
+            <div>
+              <div style="font-weight:500">${escHtml(u.naam)} ${escHtml(u.achternaam)}</div>
+              <div style="font-size:12px;color:var(--ink-muted)">${escHtml(u.email)} · <span class="role-badge role-${u.rol}">${getRolLabel(u.rol)}</span></div>
+            </div>
+            <div style="display:flex;gap:6px;align-items:center">
+              ${uVakken.length > 0 ? uVakken.map(n => `<span class="badge badge-green">${escHtml(n)}</span>`).join('') : `<span style="font-size:12px;color:var(--ink-muted)">Geen vakken</span>`}
+              <button class="btn btn-sm" onclick="openGebruikerModal('${u.id}')">Beheer</button>
+            </div>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>
+  `;
+}
+
+function openVakModal(vakId = null) {
+  const v = vakId ? DB.getVak(vakId) : null;
+
+  openModal(`
+    <h2>${v ? 'Vak bewerken' : 'Vak toevoegen'}</h2>
+    <p class="modal-sub">Vul de gegevens van het vak in.</p>
+
+    <div class="form-field">
+      <label>Afkorting *</label>
+      <input type="text" id="v-naam" placeholder="bijv. PIE" value="${escHtml(v?.naam || '')}">
+    </div>
+    <div class="form-field">
+      <label>Volledige naam *</label>
+      <input type="text" id="v-volledig" placeholder="bijv. Produceren, Installeren & Energie" value="${escHtml(v?.volledig || '')}">
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModalDirect()">Annuleren</button>
+      <button class="btn btn-primary" onclick="saveVak('${vakId || ''}')">
+        ${v ? 'Opslaan' : 'Vak aanmaken'}
+      </button>
+    </div>
+  `);
+}
+
+function saveVak(vakId) {
+  const naam = document.getElementById('v-naam').value.trim().toUpperCase();
+  const volledig = document.getElementById('v-volledig').value.trim();
+  if (!naam || !volledig) { alert('Vul alle velden in.'); return; }
+  const data = { naam, volledig };
+  if (vakId) {
+    const vakken = DB.getVakken().map(v => v.id === vakId ? { ...v, ...data } : v);
+    DB.set('vakken', vakken);
+  } else {
+    DB.addVak(data);
+  }
+  closeModalDirect();
+  renderVakken();
+}
+
+function deleteVak(id) {
+  const v = DB.getVak(id);
+  if (!confirm(`Vak "${v?.naam}" verwijderen?`)) return;
+  DB.deleteVak(id);
+  renderVakken();
+}
+
+
+// === js/app.js ===
+// ============================================================
+// APP.JS — Main router & shell
+// ============================================================
+
+function startApp() {
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('app-shell').style.display = 'flex';
+
+  const u = Auth.currentUser;
+
+  // Update sidebar user info
+  document.getElementById('user-info-sidebar').innerHTML = `
+    <strong>${u.naam}</strong>
+    ${getRolLabel(u.rol)}
+  `;
+
+  // Show/hide admin nav
+  if (Auth.isAdmin()) {
+    document.getElementById('nav-admin').style.display = 'block';
+  } else {
+    document.getElementById('nav-admin').style.display = 'none';
+  }
+
+  // Management: hide edit nav items
+  if (Auth.isManagement()) {
+    // still show planning views but read-only
+  }
+
+  showView('dashboard');
+}
+
+function getRolLabel(rol) {
+  const map = { admin: 'Beheerder', docent: 'Docent', management: 'Management' };
+  return map[rol] || rol;
+}
+
+function showView(name) {
+  const views = ['dashboard','klassen','jaarplanning','opdrachten','toetsen','gebruikers','vakken'];
+  views.forEach(v => {
+    const el = document.getElementById('view-' + v);
+    if (el) el.style.display = v === name ? 'block' : 'none';
+  });
+
+  // Update active nav
+  document.querySelectorAll('.nav-item').forEach(el => {
+    el.classList.toggle('active', el.getAttribute('data-view') === name);
+  });
+
+  // Render the view
+  const renderers = {
+    dashboard: renderDashboard,
+    klassen: renderKlassen,
+    jaarplanning: renderJaarplanning,
+    opdrachten: renderOpdrachten,
+    toetsen: renderToetsen,
+    gebruikers: renderGebruikers,
+    vakken: renderVakken,
+  };
+
+  if (renderers[name]) renderers[name]();
+}
+
+// ---- MODAL ----
+function openModal(html) {
+  document.getElementById('modal-box').innerHTML = html;
+  document.getElementById('modal-overlay').style.display = 'flex';
+}
+
+function closeModal(e) {
+  if (!e || e.target === document.getElementById('modal-overlay')) {
+    document.getElementById('modal-overlay').style.display = 'none';
+  }
+}
+
+function closeModalDirect() {
+  document.getElementById('modal-overlay').style.display = 'none';
+}
+
+// ---- UTILITY ----
+function escHtml(str) {
+  if (!str) return '';
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function typeKleur(type) {
+  const map = {
+    'Theorie': 'badge-blue',
+    'Opdracht': 'badge-green',
+    'Groepsopdracht': 'badge-green',
+    'Toets': 'badge-amber',
+    'Presentatie': 'badge-gray',
+  };
+  return map[type] || 'badge-gray';
+}
+
+function getCurrentWeek() {
+  const now = new Date();
+  const start = new Date(now.getFullYear(), 0, 1);
+  return Math.ceil(((now - start) / 86400000 + start.getDay() + 1) / 7);
+}
+
+function weekInRange(wekenStr, targetWeek) {
+  if (!wekenStr) return false;
+  const parts = wekenStr.split('-').map(s => parseInt(s.trim()));
+  if (parts.length === 1) return parts[0] === targetWeek;
+  return targetWeek >= parts[0] && targetWeek <= parts[1];
+}
+
+// ---- INIT ----
+window.addEventListener('DOMContentLoaded', () => {
+  if (Auth.init()) {
+    startApp();
+  }
+});
+
+</script>
+</body>
+</html>
