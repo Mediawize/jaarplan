@@ -102,11 +102,18 @@ function renderShell() {
       <div class="nav-group" id="nav-main">
         <div class="nav-label">Overzicht</div>
         <a class="nav-item" data-view="dashboard" onclick="showView('dashboard')">
-          <svg viewBox="0 0 20 20" fill="none"><rect x="2" y="2" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.5"/><rect x="11" y="2" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.5"/><rect x="2" y="11" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.5"/><rect x="11" y="11" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.5"/></svg>
+          <svg viewBox="0 0 20 20" fill="none">
+            <rect x="2" y="2" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.5"/>
+            <rect x="11" y="2" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.5"/>
+            <rect x="2" y="11" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.5"/>
+            <rect x="11" y="11" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.5"/>
+          </svg>
           Dashboard
         </a>
         <a class="nav-item" data-view="klassen" onclick="showView('klassen')">
-          <svg viewBox="0 0 20 20" fill="none"><path d="M3 5h14M3 10h14M3 15h9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+          <svg viewBox="0 0 20 20" fill="none">
+            <path d="M3 5h14M3 10h14M3 15h9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
           Klassen
         </a>
       </div>
@@ -114,23 +121,51 @@ function renderShell() {
       <div class="nav-group" id="nav-planning">
         <div class="nav-label">Planning</div>
         <a class="nav-item" data-view="jaarplanning" onclick="showView('jaarplanning')">
-          <svg viewBox="0 0 20 20" fill="none"><rect x="2" y="3" width="16" height="15" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M6 2v2M14 2v2M2 8h16" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+          <svg viewBox="0 0 20 20" fill="none">
+            <rect x="2" y="3" width="16" height="15" rx="2" stroke="currentColor" stroke-width="1.5"/>
+            <path d="M6 2v2M14 2v2M2 8h16" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
           Jaarplanning
+        </a>
+        <a class="nav-item" data-view="opdrachten" onclick="showView('opdrachten')">
+          <svg viewBox="0 0 20 20" fill="none">
+            <path d="M5 5h10M5 9h10M5 13h6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            <rect x="2" y="2" width="16" height="16" rx="2" stroke="currentColor" stroke-width="1.5"/>
+          </svg>
+          Opdrachten
+        </a>
+        <a class="nav-item" data-view="toetsen" onclick="showView('toetsen')">
+          <svg viewBox="0 0 20 20" fill="none">
+            <path d="M4 10l4 4 8-8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            <rect x="2" y="2" width="16" height="16" rx="2" stroke="currentColor" stroke-width="1.5"/>
+          </svg>
+          Toetsen & Materialen
         </a>
       </div>
 
       <div class="nav-group" id="nav-admin" style="display:none">
         <div class="nav-label">Beheer</div>
         <a class="nav-item" data-view="gebruikers" onclick="showView('gebruikers')">
-          <svg viewBox="0 0 20 20" fill="none"><circle cx="10" cy="6" r="3.5" stroke="currentColor" stroke-width="1.5"/><path d="M3 18c0-4 3-6 7-6s7 2 7 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+          <svg viewBox="0 0 20 20" fill="none">
+            <circle cx="10" cy="6" r="3.5" stroke="currentColor" stroke-width="1.5"/>
+            <path d="M3 18c0-4 3-6 7-6s7 2 7 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
           Gebruikers
+        </a>
+        <a class="nav-item" data-view="vakken" onclick="showView('vakken')">
+          <svg viewBox="0 0 20 20" fill="none">
+            <path d="M10 2l2.5 5H18l-4.5 3.5 1.5 5.5L10 13l-5 3 1.5-5.5L2 7h5.5L10 2z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+          </svg>
+          Vakken
         </a>
       </div>
 
       <div class="sidebar-footer">
         <div class="user-info" id="user-info-sidebar"></div>
         <button class="btn-logout" onclick="doLogout()">
-          <svg viewBox="0 0 20 20" fill="none"><path d="M13 3h4v14h-4M8 14l4-4-4-4M12 10H3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <svg viewBox="0 0 20 20" fill="none">
+            <path d="M13 3h4v14h-4M8 14l4-4-4-4M12 10H3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
           Uitloggen
         </button>
       </div>
@@ -151,6 +186,7 @@ function renderShell() {
 function updateSidebar() {
   const user = Auth.currentUser;
   const info = document.getElementById('user-info-sidebar');
+
   if (info && user) {
     info.innerHTML = `<strong>${escHtml(user.naam)}</strong>${escHtml(user.email)}<br>${escHtml(user.rol)}`;
   }
@@ -184,6 +220,7 @@ function showView(view) {
   if (view === 'dashboard') renderDashboard();
   if (view === 'klassen') renderKlassen();
   if (view === 'jaarplanning') renderJaarplanning();
+  if (view === 'vakken') renderVakken();
 
   if (view === 'gebruikers') {
     const el = document.getElementById('view-gebruikers');
@@ -197,11 +234,6 @@ function showView(view) {
 
   if (view === 'toetsen') {
     const el = document.getElementById('view-toetsen');
-    el.innerHTML = `<div class="empty-state"><h3>Nog niet gekoppeld</h3><p>Dit onderdeel voeg je later toe.</p></div>`;
-  }
-
-  if (view === 'vakken') {
-    const el = document.getElementById('view-vakken');
     el.innerHTML = `<div class="empty-state"><h3>Nog niet gekoppeld</h3><p>Dit onderdeel voeg je later toe.</p></div>`;
   }
 }
