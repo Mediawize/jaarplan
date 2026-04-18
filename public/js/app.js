@@ -40,7 +40,15 @@ function weekInRange(weken, week) {
 
 function openModal(content) {
   const overlay = document.getElementById('modal-overlay');
-  overlay.innerHTML = `<div class="modal-box" id="modal-box">${content}</div>`;
+
+  overlay.innerHTML = `
+    <div class="modal-overlay" onclick="closeModal(event)">
+      <div class="modal-box">
+        ${content}
+      </div>
+    </div>
+  `;
+
   overlay.style.display = 'flex';
 }
 
