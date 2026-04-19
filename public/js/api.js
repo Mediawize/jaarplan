@@ -26,6 +26,7 @@ const API = {
   async addGebruiker(data) { return this._fetch('/api/gebruikers', { method: 'POST', body: data }); },
   async updateGebruiker(id, data) { return this._fetch(`/api/gebruikers/${id}`, { method: 'PUT', body: data }); },
   async deleteGebruiker(id) { return this._fetch(`/api/gebruikers/${id}`, { method: 'DELETE' }); },
+  async setHoofdklassen(id, hoofdklassen) { return this._fetch(`/api/gebruikers/${id}/hoofdklassen`, { method: 'PUT', body: { hoofdklassen } }); },
 
   // VAKKEN
   async getVakken() { return this._fetch('/api/vakken'); },
