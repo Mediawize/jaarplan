@@ -54,11 +54,17 @@ app.post('/api/login', (req, res) => {
   if (!email || !wachtwoord) return res.status(400).json({ error: 'Vul e-mail en wachtwoord in' });
   const user = db.verifyWachtwoord(email, wachtwoord);
   if (!user) return res.status(401).json({ error: 'Onjuist e-mailadres of wachtwoord' });
-  req.session.user = { id: user.id, naam: user.naam + ' ' + user.achternaam, rol: user.rol, email: user.email, vakken: user.vakken || [], initialen: user.initialen };
+  req.session.user = { id: user.id, naam: user.naam + ' ' + user.achternaam, rol: user.rol, email: user.email, vakken: user.vakken || [], initialen: user.initialen, hoofdklassen: user.hoofdklassen || [] };
   res.json({ success: true, user: req.session.user });
 });
 app.post('/api/logout', (req, res) => { req.session.destroy(); res.json({ success: true }); });
-app.get('/api/session', (req, res) => res.json({ user: req.session.user || null }));
+app.get('/api/session', (req, res) => {
+  if (!req.session.user) return res.json({ user: null });
+  // Haal actuele hoofdklassen op uit database
+  const u = db.getGebruiker(req.session.user.id);
+  if (u) req.session.user.hoofdklassen = u.hoofdklassen || [];
+  res.json({ user: req.session.user || null });
+});
 
 // ---- GEBRUIKERS ----
 app.get('/api/gebruikers', requireAuth, (req, res) => res.json(db.getGebruikers().map(u => ({ ...u, wachtwoord: undefined }))));
@@ -67,6 +73,18 @@ app.put('/api/gebruikers/:id', requireAdmin, (req, res) => { db.updateGebruiker(
 app.delete('/api/gebruikers/:id', requireAdmin, (req, res) => {
   if (req.params.id === req.session.user.id) return res.status(400).json({ error: 'Kan jezelf niet verwijderen' });
   db.deleteGebruiker(req.params.id); res.json({ success: true });
+});
+
+// Docent stelt eigen hoofdklassen in
+app.put('/api/gebruikers/:id/hoofdklassen', requireAuth, (req, res) => {
+  const u = req.session.user;
+  if (u.id !== req.params.id && u.rol !== 'admin') return res.status(403).json({ error: 'Geen toegang' });
+  const gebruiker = db.getGebruiker(req.params.id);
+  if (!gebruiker) return res.status(404).json({ error: 'Niet gevonden' });
+  db.updateGebruiker(req.params.id, { ...gebruiker, hoofdklassen: req.body.hoofdklassen || [] });
+  // Update sessie als het de ingelogde gebruiker is
+  if (u.id === req.params.id) req.session.user.hoofdklassen = req.body.hoofdklassen || [];
+  res.json({ success: true });
 });
 
 // ---- VAKKEN ----
