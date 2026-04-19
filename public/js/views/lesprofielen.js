@@ -57,10 +57,10 @@ async function renderLesprofielen() {
     document.getElementById('view-lesprofielen').innerHTML = `
       <div class="page-header">
         <div class="page-header-left"><h1>Lesprofielen</h1></div>
-        <div style="display:flex;gap:8px">
-          <a href="/api/lesprofiel-template" class="btn" download>⬇ Template downloaden</a>
-          <button class="btn" onclick="openImportModal()">↑ Importeren uit Word</button>
-          <button class="btn btn-primary" onclick="openProfielModal()">+ Nieuw lesprofiel</button>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+          <a href="/api/lesprofiel-template" class="btn btn-sm" download>⬇ Template</a>
+          <button class="btn btn-sm" onclick="openImportModal()">↑ Importeren</button>
+          <button class="btn btn-sm btn-primary" onclick="openProfielModal()">+ Nieuw lesprofiel</button>
         </div>
       </div>
       <div class="alert alert-info" style="margin-bottom:20px">
@@ -111,7 +111,7 @@ async function openProfielModal(vakId=null, profielId=null) {
       <div class="form-field"><label>Naam *</label><input id="prof-naam" placeholder="bijv. Introductie ondernemen" value="${escHtml(p?.naam||'')}"></div>
       <div class="form-field"><label>Vak *</label><select id="prof-vak">${vakken.map(v=>`<option value="${v.id}" ${v.id===selectedVak?'selected':''}>${escHtml(v.naam)} — ${escHtml(v.volledig)}</option>`).join('')}</select></div>
       <div class="form-field"><label>Aantal weken *</label><select id="prof-weken">${[1,2,3,4,5,6,7,8,9,10].map(n=>`<option value="${n}" ${(p?.aantalWeken||4)===n?'selected':''}>${n} ${n===1?'week':'weken'}</option>`).join('')}</select></div>
-      <div class="form-field"><label>Uren per week</label><select id="prof-uren">${[1,2,3,4,5,6,7,8,9,10].map(n=>`<option value="${n}" ${(p?.urenPerWeek||3)===n?'selected':''}>${n} uur/week</option>`).join('')}</select></div>
+      <div class="form-field"><label>Uren per week</label><select id="prof-uren">${[1,2,3,4,5,6].map(n=>`<option value="${n}" ${(p?.urenPerWeek||3)===n?'selected':''}>${n} uur/week</option>`).join('')}</select></div>
       <div class="form-field form-full"><label>Beschrijving</label><textarea id="prof-beschrijving">${escHtml(p?.beschrijving||'')}</textarea></div>
     </div>
     <div class="modal-actions">
@@ -154,18 +154,19 @@ async function openProfielDetail(profielId) {
 
   const overlay = document.createElement('div');
   overlay.id = 'profiel-detail-overlay';
-  overlay.style.cssText = 'position:fixed;inset:0;background:var(--cream);z-index:500;overflow-y:auto;padding:36px 40px';
+  const isMobiel = window.innerWidth <= 768;
+  overlay.style.cssText = `position:fixed;top:${isMobiel?'56px':'0'};left:${isMobiel?'0':'var(--sidebar-w,256px)'};right:0;bottom:0;background:#F8F7F4;z-index:400;overflow-y:auto;padding:${isMobiel?'16px':'28px 36px'}`;
   overlay.innerHTML = `
     <div style="max-width:960px;margin:0 auto">
-      <div style="display:flex;align-items:center;gap:16px;margin-bottom:28px">
-        <button class="btn" onclick="document.getElementById('profiel-detail-overlay').remove();renderLesprofielen()">← Terug</button>
-        <div>
-          <div style="font-size:12px;color:var(--ink-muted)">Lesprofiel · ${escHtml(vak?.naam||'')}</div>
-          <h1 style="font-family:'DM Serif Display',serif;font-size:24px;font-weight:400">${escHtml(p.naam)}</h1>
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:24px;flex-wrap:wrap">
+        <button class="btn btn-sm" onclick="document.getElementById('profiel-detail-overlay').remove();renderLesprofielen()">← Terug</button>
+        <div style="flex:1;min-width:200px">
+          <div style="font-size:11px;color:#78716C">Lesprofiel · ${escHtml(vak?.naam||'')}</div>
+          <div style="font-size:20px;font-weight:600;letter-spacing:-0.4px;color:#1C1917">${escHtml(p.naam)}</div>
         </div>
-        <div style="margin-left:auto;display:flex;gap:8px;align-items:center">
-          <span style="font-size:13px;color:var(--ink-muted)">${p.aantalWeken} weken · ${p.urenPerWeek} uur/week</span>
-          <button class="btn btn-primary" onclick="openKoppelModal('${p.id}')">Koppelen aan planning →</button>
+        <div style="display:flex;align-items:center;gap:10px;flex-shrink:0;flex-wrap:wrap">
+          <span style="font-size:12px;color:#78716C">${p.aantalWeken} weken · ${p.urenPerWeek} uur/week</span>
+          <button class="btn btn-sm btn-primary" onclick="openKoppelModal('${p.id}')">Koppelen aan planning →</button>
         </div>
       </div>
       <div id="profiel-weken-container">
@@ -236,7 +237,7 @@ function openActiviteitModal(profielId, weekIdx) {
         <option>Theorie</option><option>Praktijk</option><option>Toets</option><option>Presentatie</option><option>Overig</option>
       </select></div>
       <div class="form-field"><label>Uren *</label><select id="act-uren">
-        ${[0.5,1,1.5,2,2.5,3,4,5,6,7,8].map(u=>`<option value="${u}" ${u===1?'selected':''}>${u} uur</option>`).join('')}
+        ${[0.5,1,1.5,2,2.5,3,4].map(u=>`<option value="${u}" ${u===1?'selected':''}>${u} uur</option>`).join('')}
       </select></div>
       <div class="form-field form-full"><label>Omschrijving</label><input id="act-omschrijving" placeholder="bijv. Uitleg businessmodel canvas"></div>
       <div class="form-field form-full"><label>Link</label><input id="act-link" type="url" placeholder="https://..."></div>
