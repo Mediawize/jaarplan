@@ -111,7 +111,7 @@ async function openProfielModal(vakId=null, profielId=null) {
       <div class="form-field"><label>Naam *</label><input id="prof-naam" placeholder="bijv. Introductie ondernemen" value="${escHtml(p?.naam||'')}"></div>
       <div class="form-field"><label>Vak *</label><select id="prof-vak">${vakken.map(v=>`<option value="${v.id}" ${v.id===selectedVak?'selected':''}>${escHtml(v.naam)} — ${escHtml(v.volledig)}</option>`).join('')}</select></div>
       <div class="form-field"><label>Aantal weken *</label><select id="prof-weken">${[1,2,3,4,5,6,7,8,9,10].map(n=>`<option value="${n}" ${(p?.aantalWeken||4)===n?'selected':''}>${n} ${n===1?'week':'weken'}</option>`).join('')}</select></div>
-      <div class="form-field"><label>Uren per week</label><select id="prof-uren">${[1,2,3,4,5,6].map(n=>`<option value="${n}" ${(p?.urenPerWeek||3)===n?'selected':''}>${n} uur/week</option>`).join('')}</select></div>
+      <div class="form-field"><label>Uren per week</label><select id="prof-uren">${[1,2,3,4,5,6,7,8,9,10].map(n=>`<option value="${n}" ${(p?.urenPerWeek||3)===n?'selected':''}>${n} uur/week</option>`).join('')}</select></div>
       <div class="form-field form-full"><label>Beschrijving</label><textarea id="prof-beschrijving">${escHtml(p?.beschrijving||'')}</textarea></div>
     </div>
     <div class="modal-actions">
