@@ -142,26 +142,41 @@ document.addEventListener('keydown', e => {
 // ---- APP SHELL ----
 function renderAppShell() {
   document.getElementById('app-shell').innerHTML = `
-    <div id="global-error" style="display:none;position:fixed;top:16px;right:16px;z-index:9999;background:var(--red-light);color:var(--red);border:1px solid rgba(176,58,46,0.3);border-radius:var(--radius);padding:10px 16px;font-size:13px;max-width:320px"></div>
+    <div id="global-error" style="display:none;position:fixed;top:70px;right:16px;z-index:9999;background:var(--red-dim);color:var(--red-text);border:1px solid rgba(220,38,38,0.2);border-radius:var(--radius-sm);padding:10px 14px;font-size:13px;max-width:320px;box-shadow:var(--shadow)"></div>
+
+    <!-- Mobiele header -->
+    <div class="mobile-header">
+      <div class="mobile-logo">
+        <div class="logo-mark-sm">JP</div>
+        JaarPlan
+      </div>
+      <button class="hamburger" onclick="toggleSidebar()" aria-label="Menu">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+
+    <!-- Sidebar overlay voor mobiel -->
+    <div class="sidebar-overlay" id="sidebar-overlay" onclick="closeSidebar()"></div>
+
     <nav class="sidebar" id="sidebar">
       <div class="sidebar-logo"><span class="logo-mark-sm">JP</span><span class="logo-text">JaarPlan</span></div>
       <div class="nav-group">
         <div class="nav-label">Overzicht</div>
-        <a class="nav-item" data-view="dashboard" onclick="showView('dashboard')"><svg viewBox="0 0 20 20" fill="none"><rect x="2" y="2" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.5"/><rect x="11" y="2" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.5"/><rect x="2" y="11" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.5"/><rect x="11" y="11" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.5"/></svg>Dashboard</a>
-        <a class="nav-item" data-view="klassen" onclick="showView('klassen')"><svg viewBox="0 0 20 20" fill="none"><path d="M3 5h14M3 10h14M3 15h9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>Klassen</a>
+        <a class="nav-item" data-view="dashboard" onclick="showView('dashboard');closeSidebar()"><svg viewBox="0 0 20 20" fill="none"><rect x="2" y="2" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.5"/><rect x="11" y="2" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.5"/><rect x="2" y="11" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.5"/><rect x="11" y="11" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.5"/></svg>Dashboard</a>
+        <a class="nav-item" data-view="klassen" onclick="showView('klassen');closeSidebar()"><svg viewBox="0 0 20 20" fill="none"><path d="M3 5h14M3 10h14M3 15h9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>Klassen</a>
       </div>
       <div class="nav-group">
         <div class="nav-label">Planning</div>
-        <a class="nav-item" data-view="jaarplanning" onclick="showView('jaarplanning')"><svg viewBox="0 0 20 20" fill="none"><rect x="2" y="3" width="16" height="15" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M6 2v2M14 2v2M2 8h16" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>Jaarplanning</a>
-        <a class="nav-item" data-view="lesprofielen" onclick="showView('lesprofielen')"><svg viewBox="0 0 20 20" fill="none"><rect x="2" y="2" width="16" height="16" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M6 7h8M6 11h8M6 15h4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>Lesprofielen</a>
-        <a class="nav-item" data-view="opdrachten" onclick="showView('opdrachten')"><svg viewBox="0 0 20 20" fill="none"><path d="M5 5h10M5 9h10M5 13h6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><rect x="2" y="2" width="16" height="16" rx="2" stroke="currentColor" stroke-width="1.5"/></svg>Opdrachten</a>
-        <a class="nav-item" data-view="toetsen" onclick="showView('toetsen')"><svg viewBox="0 0 20 20" fill="none"><path d="M4 10l4 4 8-8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><rect x="2" y="2" width="16" height="16" rx="2" stroke="currentColor" stroke-width="1.5"/></svg>Toetsen & Materialen</a>
+        <a class="nav-item" data-view="jaarplanning" onclick="showView('jaarplanning');closeSidebar()"><svg viewBox="0 0 20 20" fill="none"><rect x="2" y="3" width="16" height="15" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M6 2v2M14 2v2M2 8h16" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>Jaarplanning</a>
+        <a class="nav-item" data-view="lesprofielen" onclick="showView('lesprofielen');closeSidebar()"><svg viewBox="0 0 20 20" fill="none"><rect x="2" y="2" width="16" height="16" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M6 7h8M6 11h8M6 15h4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>Lesprofielen</a>
+        <a class="nav-item" data-view="opdrachten" onclick="showView('opdrachten');closeSidebar()"><svg viewBox="0 0 20 20" fill="none"><path d="M5 5h10M5 9h10M5 13h6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><rect x="2" y="2" width="16" height="16" rx="2" stroke="currentColor" stroke-width="1.5"/></svg>Opdrachten</a>
+        <a class="nav-item" data-view="toetsen" onclick="showView('toetsen');closeSidebar()"><svg viewBox="0 0 20 20" fill="none"><path d="M4 10l4 4 8-8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><rect x="2" y="2" width="16" height="16" rx="2" stroke="currentColor" stroke-width="1.5"/></svg>Toetsen & Materialen</a>
       </div>
       <div class="nav-group" id="nav-admin" style="display:none">
         <div class="nav-label">Beheer</div>
-        <a class="nav-item" data-view="schooljaren" onclick="showView('schooljaren')"><svg viewBox="0 0 20 20" fill="none"><rect x="2" y="3" width="16" height="15" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M6 2v2M14 2v2M2 8h16M6 12h2M10 12h2M6 15h2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>Schooljaren</a>
-        <a class="nav-item" data-view="gebruikers" onclick="showView('gebruikers')"><svg viewBox="0 0 20 20" fill="none"><circle cx="10" cy="6" r="3.5" stroke="currentColor" stroke-width="1.5"/><path d="M3 18c0-4 3-6 7-6s7 2 7 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>Gebruikers</a>
-        <a class="nav-item" data-view="vakken" onclick="showView('vakken')"><svg viewBox="0 0 20 20" fill="none"><path d="M10 2l2.5 5H18l-4.5 3.5 1.5 5.5L10 13l-5 3 1.5-5.5L2 7h5.5L10 2z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>Vakken</a>
+        <a class="nav-item" data-view="schooljaren" onclick="showView('schooljaren');closeSidebar()"><svg viewBox="0 0 20 20" fill="none"><rect x="2" y="3" width="16" height="15" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M6 2v2M14 2v2M2 8h16M6 12h2M10 12h2M6 15h2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>Schooljaren</a>
+        <a class="nav-item" data-view="gebruikers" onclick="showView('gebruikers');closeSidebar()"><svg viewBox="0 0 20 20" fill="none"><circle cx="10" cy="6" r="3.5" stroke="currentColor" stroke-width="1.5"/><path d="M3 18c0-4 3-6 7-6s7 2 7 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>Gebruikers</a>
+        <a class="nav-item" data-view="vakken" onclick="showView('vakken');closeSidebar()"><svg viewBox="0 0 20 20" fill="none"><path d="M10 2l2.5 5H18l-4.5 3.5 1.5 5.5L10 13l-5 3 1.5-5.5L2 7h5.5L10 2z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>Vakken</a>
       </div>
       <div class="sidebar-footer">
         <div class="user-info" id="user-info-sidebar"></div>
@@ -180,6 +195,16 @@ function renderAppShell() {
       <div id="view-vakken" class="view" style="display:none"></div>
     </main>
   `;
+}
+
+function toggleSidebar() {
+  document.getElementById('sidebar').classList.toggle('open');
+  document.getElementById('sidebar-overlay').classList.toggle('open');
+}
+
+function closeSidebar() {
+  document.getElementById('sidebar')?.classList.remove('open');
+  document.getElementById('sidebar-overlay')?.classList.remove('open');
 }
 
 function updateSidebar() {
