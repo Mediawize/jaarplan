@@ -15,7 +15,7 @@ async function renderKlassen() {
       <div class="klas-grid">
         ${klassen.map(k => {
           const vak = vakken.find(v=>v.id===k.vakId);
-          const docent = gebruikers.find(u=>u.id===k.docentId);
+          const klasDocenten = (k.docenten||[k.docentId]).filter(Boolean).map(id => gebruikers.find(u=>u.id===id)).filter(Boolean);
           const opd = alleOpd.filter(o=>o.klasId===k.id);
           const afg = opd.filter(o=>{const e=parseInt((o.weken||'99').split('-').pop().trim());return e<cw;}).length;
           const progress = opd.length?Math.round((afg/opd.length)*100):0;
@@ -23,7 +23,7 @@ async function renderKlassen() {
             <div class="klas-card-top">
               <div>
                 <div class="klas-naam">${escHtml(k.naam)}</div>
-                <div class="klas-meta-row">Leerjaar ${k.leerjaar||'?'} · ${escHtml(k.niveau)} · ${escHtml(vak?.naam||'—')}${docent?`<br>${escHtml(docent.naam)} ${escHtml(docent.achternaam)}`:''}${k.urenPerWeek?`<br>${k.urenPerWeek} uur/week`:''}</div>
+                <div class="klas-meta-row">Leerjaar ${k.leerjaar||'?'} · ${escHtml(k.niveau)} · ${escHtml(vak?.naam||'—')}${klasDocenten.length?`<br>${klasDocenten.map(d=>escHtml(d.naam+' '+d.achternaam)).join(', ')}`:''}${k.urenPerWeek?`<br>${k.urenPerWeek} uur/week`:''}</div>
               </div>
               ${!readonly?`<div style="display:flex;gap:6px">
                 <button class="icon-btn" onclick="openKlasModal('${k.id}')"><svg viewBox="0 0 20 20" fill="none"><path d="M14.5 3.5l2 2L7 15l-3 1 1-3 9.5-9.5z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
@@ -42,9 +42,10 @@ async function renderKlassen() {
 }
 
 async function openKlasModal(id = null) {
-  const [vakken, gebruikers, schooljaren] = await Promise.all([API.getVakken(), API.getGebruikers(), API.getSchooljaren()]);
-  const k = id ? (await API.getKlassen()).find(x=>x.id===id) : null;
+  const [vakken, gebruikers, schooljaren, alleKlassen] = await Promise.all([API.getVakken(), API.getGebruikers(), API.getSchooljaren(), API.getKlassen()]);
+  const k = id ? alleKlassen.find(x=>x.id===id) : null;
   const docenten = gebruikers.filter(u=>u.rol==='docent'||u.rol==='admin');
+  const gekoppeldeDocenten = k?.docenten || (k?.docentId ? [k.docentId] : []);
 
   openModal(`
     <h2>${k?'Klas bewerken':'Nieuwe klas aanmaken'}</h2>
@@ -58,24 +59,43 @@ async function openKlasModal(id = null) {
       <div class="form-field"><label>Leerjaar *</label><select id="klas-leerjaar">${[1,2,3,4,5,6].map(n=>`<option value="${n}" ${(k?.leerjaar||3)==n?'selected':''}>Leerjaar ${n}</option>`).join('')}</select></div>
       <div class="form-field"><label>Niveau *</label><select id="klas-niveau">${['VMBO-B','VMBO-K','VMBO-GT','HAVO','VWO'].map(n=>`<option value="${n}" ${k?.niveau===n?'selected':''}>${n}</option>`).join('')}</select></div>
       <div class="form-field"><label>Vak *</label><select id="klas-vak">${vakken.map(v=>`<option value="${v.id}" ${k?.vakId===v.id?'selected':''}>${escHtml(v.naam)} — ${escHtml(v.volledig||'')}</option>`).join('')}</select></div>
-      <div class="form-field"><label>Docent koppelen</label><select id="klas-docent"><option value="">— Geen docent —</option>${docenten.map(d=>`<option value="${d.id}" ${k?.docentId===d.id?'selected':''}>${escHtml(d.naam)} ${escHtml(d.achternaam)}</option>`).join('')}</select></div>
       <div class="form-field"><label>Uren per week</label><select id="klas-uren">${[1,2,3,4,5,6].map(n=>`<option value="${n}" ${(k?.urenPerWeek||3)===n?'selected':''}>${n} uur per week</option>`).join('')}</select></div>
+      <div class="form-field form-full">
+        <label>Docenten koppelen</label>
+        <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-top:6px">
+          ${docenten.map(d=>`<label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;padding:8px 10px;border:1.5px solid var(--border-med);border-radius:var(--radius);transition:border-color .12s" onclick="this.style.borderColor=document.getElementById('klas-doc-${d.id}').checked?'var(--accent)':'var(--border-med)'">
+            <input type="checkbox" id="klas-doc-${d.id}" class="klas-docent-cb" value="${d.id}" ${gekoppeldeDocenten.includes(d.id)?'checked':''}>
+            <span>${escHtml(d.naam)} ${escHtml(d.achternaam)}</span>
+            <span style="font-size:11px;color:var(--ink-muted);margin-left:auto">${escHtml(d.rol)}</span>
+          </label>`).join('')}
+        </div>
+        ${docenten.length===0?`<div style="color:var(--ink-muted);font-size:13px">Geen docenten beschikbaar.</div>`:''}
+      </div>
     </div>
     <div class="modal-actions">
       <button class="btn" onclick="closeModalDirect()">Annuleren</button>
       <button class="btn btn-primary" onclick="saveKlas('${id||''}')">Opslaan</button>
     </div>
   `);
+  // Fix border color for already checked items
+  setTimeout(() => {
+    docenten.forEach(d => {
+      const cb = document.getElementById(`klas-doc-${d.id}`);
+      if (cb?.checked) cb.closest('label').style.borderColor = 'var(--accent)';
+    });
+  }, 50);
 }
 
 async function saveKlas(id) {
+  const docenten = Array.from(document.querySelectorAll('.klas-docent-cb:checked')).map(cb => cb.value);
   const data = {
     naam: document.getElementById('klas-naam').value.trim(),
     schooljaar: document.getElementById('klas-schooljaar').value,
     leerjaar: parseInt(document.getElementById('klas-leerjaar').value),
     niveau: document.getElementById('klas-niveau').value,
     vakId: document.getElementById('klas-vak').value,
-    docentId: document.getElementById('klas-docent').value || null,
+    docentId: docenten[0] || null, // eerste docent blijft hoofddocent voor compatibiliteit
+    docenten,
     urenPerWeek: parseInt(document.getElementById('klas-uren').value),
   };
   if (!data.naam || !data.schooljaar || !data.vakId) { alert('Vul alle verplichte velden in.'); return; }
