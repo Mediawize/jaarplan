@@ -4,27 +4,20 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>JaarPlan — Docentenplatform</title>
-
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
-
   <link rel="stylesheet" href="/css/styles.css">
 </head>
 <body>
 
-<!-- LOGIN -->
 <div id="login-screen" class="login-screen"></div>
-
-<!-- APP -->
 <div id="app-shell" style="display:none"></div>
-
-<!-- MODAL -->
 <div id="modal-overlay" style="display:none"></div>
 
-<!-- JS — volgorde belangrijk -->
-<script src="/js/schooljaar.js"></script>
-<script src="/js/db.js"></script>
-<script src="/js/auth.js"></script>
+<!-- API laag (vervangt db.js + schooljaar.js) -->
+<script src="/js/api.js"></script>
+
+<!-- Views -->
 <script src="/js/views/dashboard.js"></script>
 <script src="/js/views/klassen.js"></script>
 <script src="/js/views/vakken.js"></script>
@@ -34,6 +27,8 @@
 <script src="/js/views/opdrachten.js"></script>
 <script src="/js/views/toetsen.js"></script>
 <script src="/js/views/gebruikers.js"></script>
+
+<!-- Hoofd app (auth + routing) -->
 <script src="/js/app.js"></script>
 
 </body>
