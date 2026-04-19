@@ -1,5 +1,6 @@
 async function renderJaarplanning() {
   const readonly = !Auth.canEdit();
+  const isMobiel = window.innerWidth <= 768;
   showLoading('jaarplanning');
   try {
     const klassen = await API.getKlassen();
@@ -16,135 +17,294 @@ async function renderJaarplanning() {
       API.getGebruikers(),
     ]);
     const vak = vakken.find(v=>v.id===klas.vakId);
-    const docent = gebruikers.find(u=>u.id===klas.docentId);
     const cw = getCurrentWeek();
     const heeftWeken = weken && weken.length > 0;
     const totaal = opdrachten.length;
     const afgevinktN = opdrachten.filter(o=>o.afgevinkt).length;
     const pct = totaal>0?Math.round((afgevinktN/totaal)*100):0;
-    const periodes={1:[],2:[],3:[],4:[]};
-    if(heeftWeken) weken.forEach(w=>{
-      const wn=w.weeknummer; let p=1;
-      if((wn>=44)||(wn<=8))p=2; else if(wn>=9&&wn<=18)p=3; else if(wn>=19&&wn<=26)p=4;
-      periodes[p].push(w);
-    });
-    const pNamen={1:'Periode 1 — september t/m november',2:'Periode 2 — december t/m februari',3:'Periode 3 — maart t/m mei',4:'Periode 4 — juni t/m juli'};
 
-    document.getElementById('view-jaarplanning').innerHTML = `
-      <div class="page-header">
-        <div class="page-header-left">
-          <div class="breadcrumb"><span onclick="showView('klassen')" style="cursor:pointer;color:var(--accent)">Klassen</span> › Jaarplanning</div>
-          <h1>${escHtml(klas.naam)}</h1>
-        </div>
-        <select id="klas-select" onchange="window._selectedKlas=this.value;renderJaarplanning()" style="padding:9px 14px;border:1.5px solid var(--border-med);border-radius:var(--radius);font-family:'DM Sans',sans-serif;font-size:13.5px;background:#fff;color:var(--ink);font-weight:500">
-          ${klassen.map(k=>`<option value="${k.id}" ${k.id===window._selectedKlas?'selected':''}>${escHtml(k.naam)}</option>`).join('')}
-        </select>
-      </div>
-      ${readonly?`<div class="readonly-notice"><svg width="16" height="16" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="8" stroke="currentColor" stroke-width="1.5"/><path d="M10 6v4M10 14h.01" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>Leesmodus</div>`:''}
-      <div class="card" style="margin-bottom:16px;padding:0">
-        <div style="display:flex;align-items:center;gap:24px;padding:16px 24px;flex-wrap:wrap">
-          <div><div style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;font-weight:700;color:var(--ink-muted);margin-bottom:3px">Vak</div><span class="badge badge-green">${escHtml(vak?.naam||'—')} — ${escHtml(vak?.volledig||'')}</span></div>
-          <div><div style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;font-weight:700;color:var(--ink-muted);margin-bottom:3px">Niveau</div><span style="font-weight:500">Leerjaar ${klas.leerjaar} · ${escHtml(klas.niveau)}</span></div>
-          <div><div style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;font-weight:700;color:var(--ink-muted);margin-bottom:3px">Docent</div><span>${docent?escHtml(docent.naam+' '+docent.achternaam):'—'}</span></div>
-          <div><div style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;font-weight:700;color:var(--ink-muted);margin-bottom:3px">Uren/week</div><span>${klas.urenPerWeek||'?'} uur</span></div>
-          <div><div style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;font-weight:700;color:var(--ink-muted);margin-bottom:3px">Voortgang</div><span style="font-weight:500;color:var(--accent)">${afgevinktN}/${totaal} (${pct}%)</span></div>
-          <div style="flex:1;min-width:120px"><div class="klas-progress" style="margin-bottom:0"><div class="klas-progress-fill" style="width:${pct}%"></div></div></div>
-        </div>
-      </div>
-      ${!heeftWeken?`<div class="card"><div class="empty-state"><h3>Geen weekstructuur</h3><p>Voor schooljaar <strong>${escHtml(klas.schooljaar)}</strong> zijn nog geen weken gegenereerd.</p>${Auth.isAdmin()?`<button class="btn btn-primary" onclick="showView('schooljaren')">Schooljaar aanmaken</button>`:'<p>Vraag de beheerder.</p>'}</div></div>`:`
-      ${[1,2,3,4].map(p=>{
-        const pw=periodes[p]; if(!pw.length)return '';
-        return `<div class="card">
-          <div class="card-header"><div><h2>${pNamen[p]}</h2><div class="card-meta">${pw.filter(w=>!w.isVakantie).length} schoolweken</div></div></div>
-          <table class="data-table">
-            <thead><tr>
-              <th style="width:70px">Week</th><th style="width:120px">Datum</th><th style="width:170px">Thema</th>
-              <th>Activiteiten</th>${!readonly?'<th style="width:90px"></th>':''}
-            </tr></thead>
-            <tbody>
-              ${pw.map(w=>{
-                const wOpd=opdrachten.filter(o=>{
-                  if(o.weeknummer===w.weeknummer&&o.schooljaar===klas.schooljaar)return true;
-                  if(o.weken)return weekInRange(o.weken,w.weeknummer);
-                  return false;
-                });
-                const isNu=w.weeknummer===cw;
-                const alleKlaar=wOpd.length>0&&wOpd.every(o=>o.afgevinkt);
-                if(w.isVakantie) return `<tr style="background:repeating-linear-gradient(45deg,transparent,transparent 4px,rgba(196,130,26,0.03) 4px,rgba(196,130,26,0.03) 8px)">
-                  <td><span class="week-pill">${w.weeknummer}</span></td>
-                  <td style="font-size:12px;color:var(--ink-muted)">${w.van} – ${w.tot}</td>
-                  <td colspan="${!readonly?3:2}"><span class="badge badge-amber">${w.vakantieNaam}</span></td>
-                </tr>`;
-                return `<tr class="${isNu?'planning-row-active':''}" style="${alleKlaar?'background:rgba(45,90,61,0.04)':''}">
-                  <td>
-                    <span class="week-pill ${isNu?'current':''}">${w.weeknummer}</span>
-                    ${isNu?'<div style="font-size:10px;color:var(--accent);font-weight:700;margin-top:2px">NU</div>':''}
-                    ${alleKlaar?'<div style="font-size:10px;color:var(--accent);margin-top:2px">✓ klaar</div>':''}
-                  </td>
-                  <td style="font-size:12px;color:var(--ink-muted)">${w.van}<br>${w.tot}</td>
-                  <td>${!readonly
-                    ?`<span class="week-thema-inline" data-weekid="${w.id}" onclick="editWeekThemaInline(this)" style="display:block;padding:4px 6px;border-radius:6px;border:1px dashed ${w.thema?'transparent':'var(--border-med)'};cursor:pointer;font-size:12px;color:${w.thema?'var(--ink)':'var(--ink-muted)'};min-height:28px">${escHtml(w.thema)||'<span style="opacity:.5">+ Thema</span>'}</span>`
-                    :`<span style="font-size:12px;color:var(--ink-muted)">${escHtml(w.thema)||'—'}</span>`
-                  }</td>
-                  <td>${wOpd.length===0?`<span style="font-size:12px;color:var(--border-med)">—</span>`:wOpd.map(o=>renderActiviteitRij(o,readonly,w.weeknummer)).join('')}</td>
-                  ${!readonly?`<td style="vertical-align:top;padding-top:14px"><button class="btn btn-sm" onclick="openOpdrachtModal(null,'${window._selectedKlas}',${p},${w.weeknummer})">+ Activiteit</button></td>`:''}
-                </tr>`;
-              }).join('')}
-            </tbody>
-          </table>
-        </div>`;
-      }).join('')}`}
-    `;
+    if (isMobiel) {
+      renderJaarplanningMobiel(klas, klassen, weken, opdrachten, vak, cw, heeftWeken, totaal, afgevinktN, pct, readonly);
+    } else {
+      renderJaarplanningDesktop(klas, klassen, weken, opdrachten, vak, vakken, gebruikers, cw, heeftWeken, totaal, afgevinktN, pct, readonly);
+    }
   } catch(e) { showError('Fout bij laden: ' + e.message); }
-  // Scroll naar huidige week na render
+
   setTimeout(() => {
-    const huidig = document.querySelector('.week-pill.current');
-    if (huidig) huidig.closest('tr')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    const huidig = document.querySelector('.week-kaart.nu, .week-pill.current');
+    if (huidig) (huidig.closest('[data-week]') || huidig.closest('tr'))?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, 150);
+}
+
+function renderJaarplanningMobiel(klas, klassen, weken, opdrachten, vak, cw, heeftWeken, totaal, afgevinktN, pct, readonly) {
+  document.getElementById('view-jaarplanning').innerHTML = `
+    <div style="background:#fff;border-bottom:1px solid rgba(28,25,23,0.08);padding:12px 16px;position:sticky;top:56px;z-index:50">
+      <select onchange="window._selectedKlas=this.value;renderJaarplanning()"
+        style="width:100%;padding:12px 13px;border:1.5px solid rgba(28,25,23,0.15);border-radius:10px;font-size:15px;background:#fff;color:#1C1917;font-weight:500;-webkit-appearance:none">
+        ${klassen.map(k=>`<option value="${k.id}" ${k.id===klas.id?'selected':''}>${escHtml(k.naam)}</option>`).join('')}
+      </select>
+    </div>
+    <div style="background:#fff;padding:12px 16px;border-bottom:1px solid rgba(28,25,23,0.08)">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <span style="font-size:13px;color:#44403C;font-weight:500">${escHtml(vak?.naam||'')} · ${escHtml(klas.niveau)} · Leerjaar ${klas.leerjaar}</span>
+        <span style="font-size:13px;font-weight:600;color:#16A34A">${afgevinktN}/${totaal}</span>
+      </div>
+      <div style="height:5px;background:#ECEAE5;border-radius:3px">
+        <div style="height:100%;width:${pct}%;background:#16A34A;border-radius:3px"></div>
+      </div>
+    </div>
+    ${heeftWeken ? renderPeriodeTabs(weken, cw) : ''}
+    <div id="week-kaarten-container" style="padding:12px 16px 100px">
+      ${!heeftWeken
+        ? `<div class="empty-state"><h3>Geen weekstructuur</h3><p>Vraag de beheerder een schooljaar aan te maken.</p></div>`
+        : renderWeekKaartenHTML(weken, opdrachten, klas, cw, readonly)
+      }
+    </div>
+    ${!readonly ? `
+    <button onclick="openOpdrachtModal(null,'${klas.id}')"
+      style="position:fixed;bottom:76px;right:16px;width:54px;height:54px;border-radius:50%;background:#16A34A;color:#fff;border:none;font-size:26px;line-height:1;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 16px rgba(22,163,74,0.4);z-index:100;cursor:pointer">+</button>` : ''}
+  `;
+  setTimeout(() => {
+    const nuKaart = document.querySelector('.week-kaart.nu');
+    if (nuKaart) nuKaart.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }, 100);
 }
 
-function renderActiviteitRij(o, readonly, weeknummer) {
+function renderPeriodeTabs(weken, cw) {
+  const huidigeP = getPeriodeVoorWeek(cw);
+  const pNamen = {1:'Sep–Nov',2:'Dec–Feb',3:'Mar–Mei',4:'Jun–Jul'};
+  return `<div style="display:flex;background:#fff;border-bottom:1px solid rgba(28,25,23,0.08);overflow-x:auto">
+    ${[1,2,3,4].map(p => {
+      const heeft = weken.some(w => !w.isVakantie && getPeriodeVoorWeek(w.weeknummer) === p);
+      if (!heeft) return '';
+      const actief = huidigeP === p;
+      return `<button onclick="scrollNaarPeriode(${p})"
+        style="flex:1;min-width:80px;padding:12px 8px;border:none;background:none;font-size:13px;font-weight:${actief?600:400};color:${actief?'#16A34A':'#78716C'};border-bottom:2px solid ${actief?'#16A34A':'transparent'};cursor:pointer">
+        P${p} <span style="font-size:11px;opacity:0.7">${pNamen[p]}</span>
+      </button>`;
+    }).join('')}
+  </div>`;
+}
+
+function getPeriodeVoorWeek(wn) {
+  if (wn >= 35 && wn <= 43) return 1;
+  if (wn >= 44 || wn <= 8) return 2;
+  if (wn >= 9 && wn <= 18) return 3;
+  return 4;
+}
+
+function scrollNaarPeriode(p) {
+  const el = document.querySelector(`[data-periode="${p}"]`);
+  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function renderWeekKaartenHTML(weken, opdrachten, klas, cw, readonly) {
+  let html = '';
+  let huidigePeriode = null;
+  const pNamen = {1:'Periode 1',2:'Periode 2',3:'Periode 3',4:'Periode 4'};
+  weken.forEach(w => {
+    const periode = getPeriodeVoorWeek(w.weeknummer);
+    if (periode !== huidigePeriode) {
+      huidigePeriode = periode;
+      html += `<div data-periode="${periode}" style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#78716C;margin:16px 0 8px">${pNamen[periode]}</div>`;
+    }
+    if (w.isVakantie) {
+      html += `<div style="display:flex;align-items:center;gap:10px;padding:11px 14px;background:#FEF3C7;border-radius:10px;margin-bottom:8px">
+        <span style="font-size:12px;font-weight:700;color:#B45309;min-width:38px">Wk ${w.weeknummer}</span>
+        <span style="font-size:13px;color:#B45309">🏖 ${escHtml(w.vakantieNaam)}</span>
+        <span style="font-size:11px;color:#B45309;margin-left:auto">${w.van}</span>
+      </div>`;
+      return;
+    }
+    const wOpd = opdrachten.filter(o => {
+      if (o.weeknummer === w.weeknummer && o.schooljaar === klas.schooljaar) return true;
+      if (o.weken) return weekInRange(o.weken, w.weeknummer);
+      return false;
+    });
+    const isNu = w.weeknummer === cw;
+    const weekVoorbij = w.weeknummer < cw;
+    const alleKlaar = wOpd.length > 0 && wOpd.every(o => o.afgevinkt);
+    const geenAfgevinkt = wOpd.length > 0 && weekVoorbij && !alleKlaar;
+    let kaartBorder = '1px solid rgba(28,25,23,0.1)';
+    let kaartBg = '#fff';
+    if (isNu) { kaartBorder = '2px solid #16A34A'; kaartBg = '#FAFFFE'; }
+    else if (alleKlaar) { kaartBorder = '1px solid rgba(22,163,74,0.25)'; kaartBg = '#FAFFFE'; }
+    else if (geenAfgevinkt) { kaartBorder = '1px solid rgba(220,38,38,0.2)'; kaartBg = '#FFFAFA'; }
+
+    const isOpen = isNu || (weekVoorbij && geenAfgevinkt);
+    html += `<div data-week="${w.weeknummer}" class="week-kaart${isNu?' nu':''}" style="background:${kaartBg};border:${kaartBorder};border-radius:12px;margin-bottom:10px;overflow:hidden">
+      <div onclick="toggleWeekKaart('${w.id}')" style="display:flex;align-items:center;gap:11px;padding:13px 14px;cursor:pointer;-webkit-tap-highlight-color:transparent">
+        <div style="min-width:40px;height:40px;border-radius:9px;background:${isNu?'#16A34A':weekVoorbij&&!alleKlaar&&wOpd.length>0?'#FEE2E2':alleKlaar?'#DCFCE7':'#F2F1EE'};display:flex;flex-direction:column;align-items:center;justify-content:center;flex-shrink:0">
+          <span style="font-size:9px;font-weight:700;text-transform:uppercase;color:${isNu?'rgba(255,255,255,0.7)':weekVoorbij&&!alleKlaar&&wOpd.length>0?'#B91C1C':alleKlaar?'#15803D':'#78716C'};line-height:1">wk</span>
+          <span style="font-size:15px;font-weight:700;color:${isNu?'#fff':weekVoorbij&&!alleKlaar&&wOpd.length>0?'#B91C1C':alleKlaar?'#15803D':'#1C1917'};line-height:1.1">${w.weeknummer}</span>
+        </div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:14px;font-weight:600;color:#1C1917;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${w.thema ? escHtml(w.thema) : '<span style="color:#A8A29E;font-weight:400;font-size:13px">Geen thema</span>'}</div>
+          <div style="font-size:12px;color:#78716C;margin-top:1px">${w.van} – ${w.tot}${wOpd.length > 0 ? ` · ${wOpd.length} activiteit${wOpd.length!==1?'en':''}` : ''}</div>
+        </div>
+        ${isNu ? `<span style="font-size:11px;font-weight:700;color:#16A34A;background:#DCFCE7;padding:3px 8px;border-radius:20px;flex-shrink:0">NU</span>` : ''}
+        ${alleKlaar ? `<span style="font-size:18px;flex-shrink:0">✓</span>` : ''}
+        <svg id="chevron-${w.id}" width="16" height="16" viewBox="0 0 20 20" fill="none" style="flex-shrink:0;color:#A8A29E;transform:${isOpen?'rotate(180deg)':'rotate(0deg)'};transition:transform 0.2s"><path d="M5 8l5 5 5-5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+      <div id="week-body-${w.id}" style="display:${isOpen?'block':'none'}">
+        <div style="border-top:1px solid rgba(28,25,23,0.07)">
+          ${wOpd.length === 0
+            ? `<div style="padding:14px;font-size:13px;color:#A8A29E;text-align:center">
+                Geen activiteiten${!readonly?` — <button onclick="openOpdrachtModal(null,'${klas.id}',1,${w.weeknummer})" style="background:none;border:none;color:#16A34A;font-size:13px;cursor:pointer;font-weight:600;text-decoration:underline">+ Toevoegen</button>`:''}
+              </div>`
+            : wOpd.map(o => renderActiviteitKaart(o, readonly, w.weeknummer, klas.id)).join('')
+          }
+          ${wOpd.length > 0 && !readonly ? `
+          <div style="padding:10px 14px">
+            <button onclick="openOpdrachtModal(null,'${klas.id}',1,${w.weeknummer})"
+              style="width:100%;padding:11px;border:1.5px dashed rgba(28,25,23,0.15);border-radius:9px;background:none;color:#78716C;font-size:13px;cursor:pointer;-webkit-tap-highlight-color:transparent">
+              + Activiteit toevoegen
+            </button>
+          </div>` : ''}
+          ${!readonly ? `
+          <div style="padding:0 14px 12px">
+            <input type="text" placeholder="+ Thema instellen..." value="${escHtml(w.thema||'')}"
+              onchange="API.updateWeekThema('${w.id}', this.value)"
+              style="width:100%;padding:10px 12px;border:1.5px solid rgba(28,25,23,0.1);border-radius:9px;font-size:13px;color:#1C1917;background:#F8F7F4;-webkit-appearance:none">
+          </div>` : ''}
+        </div>
+      </div>
+    </div>`;
+  });
+  return html;
+}
+
+function toggleWeekKaart(weekId) {
+  const body = document.getElementById(`week-body-${weekId}`);
+  const chevron = document.getElementById(`chevron-${weekId}`);
+  if (!body) return;
+  const open = body.style.display !== 'none';
+  body.style.display = open ? 'none' : 'block';
+  if (chevron) chevron.style.transform = open ? 'rotate(0deg)' : 'rotate(180deg)';
+}
+
+function renderActiviteitKaart(o, readonly, weeknummer, klasId) {
   const afgevinkt = o.afgevinkt || o.afgevinkt === 1;
-  const initialen = o.afgevinktDoor || '';
-  const datum = o.afgevinktOp ? new Date(o.afgevinktOp).toLocaleDateString('nl-NL', {day:'numeric', month:'short'}) : '';
   const heeftOpmerking = o.opmerking && o.opmerking.trim();
   const cw = getCurrentWeek();
   const weekVoorbij = weeknummer < cw;
-
-  // Kleurcodering
-  let bgKleur, borderKleur;
-  if (afgevinkt && heeftOpmerking) {
-    bgKleur = 'rgba(196,130,26,0.08)'; borderKleur = 'rgba(196,130,26,0.35)'; // oranje
-  } else if (afgevinkt) {
-    bgKleur = 'rgba(45,90,61,0.08)'; borderKleur = 'rgba(45,90,61,0.25)'; // groen
-  } else if (weekVoorbij) {
-    bgKleur = 'rgba(176,58,46,0.06)'; borderKleur = 'rgba(176,58,46,0.2)'; // rood
-  } else {
-    bgKleur = 'var(--cream)'; borderKleur = 'var(--border)'; // neutraal
-  }
-
-  return `<div style="display:flex;align-items:flex-start;gap:8px;margin-bottom:8px;padding:8px 10px;border-radius:8px;background:${bgKleur};border:1px solid ${borderKleur}">
-    ${!readonly
-      ?`<div style="flex-shrink:0;margin-top:1px"><button onclick="doAfvinken('${o.id}')" style="width:22px;height:22px;border-radius:5px;border:2px solid ${afgevinkt?'var(--accent)':'var(--border-med)'};background:${afgevinkt?'var(--accent)':'#fff'};cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;transition:all .15s">${afgevinkt?'<svg width="13" height="13" viewBox="0 0 20 20" fill="none"><path d="M4 10l5 5 7-8" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>':''}</button></div>`
-      :`<div style="flex-shrink:0;margin-top:1px"><div style="width:22px;height:22px;border-radius:5px;border:2px solid ${afgevinkt?'var(--accent)':'var(--border-med)'};background:${afgevinkt?'var(--accent)':'#fff'};display:flex;align-items:center;justify-content:center">${afgevinkt?'<svg width="13" height="13" viewBox="0 0 20 20" fill="none"><path d="M4 10l5 5 7-8" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>':''}</div></div>`
-    }
-    <div style="flex:1;min-width:0">
-      <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
-        <span class="badge ${typeKleur(o.type)}" style="font-size:10px;padding:2px 6px">${escHtml(o.type)}</span>
-        <span style="font-size:12px;font-weight:500;${afgevinkt&&!heeftOpmerking?'text-decoration:line-through;color:var(--ink-muted)':''}">${escHtml(o.naam)}</span>
-        ${o.uren?`<span style="font-size:11px;color:var(--ink-muted)">${o.uren}u</span>`:''}
-        ${o.syllabuscodes?`<span style="font-size:10px;color:var(--ink-muted)">${escHtml(o.syllabuscodes)}</span>`:''}
-        ${o.theorieLink?`<a href="${escHtml(o.theorieLink)}" class="text-link" target="_blank" style="font-size:11px">link ↗</a>`:''}
-        ${o.toetsBestand?`<span class="badge badge-amber" style="font-size:10px;padding:2px 5px">📄</span>`:''}
-        ${!afgevinkt && weekVoorbij ? `<span style="font-size:10px;color:var(--red);font-weight:600">● Niet afgevinkt</span>` : ''}
+  let bgKleur = '#F8F7F4', borderLinks = '3px solid #E5E3DF';
+  if (afgevinkt && heeftOpmerking) { bgKleur='#FFFBEB'; borderLinks='3px solid #D97706'; }
+  else if (afgevinkt) { bgKleur='#F0FDF4'; borderLinks='3px solid #16A34A'; }
+  else if (weekVoorbij) { bgKleur='#FFF5F5'; borderLinks='3px solid #DC2626'; }
+  const typeKleuren = {'Theorie':{bg:'#DBEAFE',text:'#1D4ED8'},'Praktijk':{bg:'#DCFCE7',text:'#15803D'},'Toets':{bg:'#FEF3C7',text:'#B45309'},'Presentatie':{bg:'#F3E8FF',text:'#7E22CE'},'Overig':{bg:'#F2F1EE',text:'#44403C'}};
+  const tk = typeKleuren[o.type] || typeKleuren['Overig'];
+  return `<div style="display:flex;border-bottom:1px solid rgba(28,25,23,0.06)">
+    ${!readonly ? `<button onclick="doAfvinken('${o.id}')"
+      style="width:60px;min-height:64px;border:none;background:${afgevinkt?'#DCFCE7':'#F8F7F4'};display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;border-right:1px solid rgba(28,25,23,0.06);-webkit-tap-highlight-color:transparent">
+      <div style="width:28px;height:28px;border-radius:50%;border:2px solid ${afgevinkt?'#16A34A':'rgba(28,25,23,0.2)'};background:${afgevinkt?'#16A34A':'#fff'};display:flex;align-items:center;justify-content:center">
+        ${afgevinkt?'<svg width="13" height="13" viewBox="0 0 20 20" fill="none"><path d="M4 10l5 5 7-8" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>':''}
       </div>
-      ${afgevinkt && initialen ? `<div style="display:flex;align-items:center;gap:5px;margin-top:4px"><span style="font-size:11px;font-weight:700;font-family:monospace;background:var(--accent);color:#fff;padding:1px 6px;border-radius:4px">${escHtml(initialen)}</span><span style="font-size:11px;color:var(--ink-muted)">${datum}</span></div>` : ''}
-      ${heeftOpmerking ? `
-        <div style="margin-top:5px;padding:5px 8px;background:#fff;border-left:3px solid var(--amber);border-radius:0 4px 4px 0;font-size:12px;color:var(--ink-light)">
-          💬 ${escHtml(o.opmerking)}
-          ${!readonly ? `<button onclick="vinktOpmerkingAf('${o.id}')" style="margin-left:8px;font-size:11px;color:var(--accent);background:none;border:1px solid var(--accent);border-radius:4px;padding:1px 6px;cursor:pointer;font-weight:600">✓ Opgelost</button>` : ''}
-        </div>` : ''}
-      ${!readonly ? `<button onclick="openOpmerkingModal('${o.id}','${escHtml(o.naam)}')" style="margin-top:5px;font-size:11px;color:${heeftOpmerking?'var(--amber)':'var(--ink-muted)'};background:none;border:none;cursor:pointer;padding:0;text-decoration:underline">${heeftOpmerking?'✏️ Opmerking bewerken':'+ Opmerking toevoegen'}</button>` : ''}
+    </button>` : ''}
+    <div style="flex:1;padding:12px 13px;background:${bgKleur};border-left:${borderLinks}" onclick="${!readonly?`openOpmerkingModal('${o.id}','${escHtml(o.naam.replace(/'/g,"\\'").replace(/"/g,'&quot;'))}')`:''}" style="cursor:${!readonly?'pointer':'default'}">
+      <div style="display:flex;align-items:flex-start;gap:8px;margin-bottom:4px">
+        <span style="font-size:11px;font-weight:600;padding:3px 8px;border-radius:20px;background:${tk.bg};color:${tk.text};flex-shrink:0;margin-top:1px">${escHtml(o.type)}</span>
+        <span style="font-size:14px;font-weight:500;color:#1C1917;line-height:1.4;${afgevinkt&&!heeftOpmerking?'text-decoration:line-through;color:#A8A29E':''}">${escHtml(o.naam)}</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-left:0">
+        ${o.uren?`<span style="font-size:12px;color:#78716C">${o.uren} uur</span>`:''}
+        ${o.syllabuscodes?`<span style="font-size:11px;color:#A8A29E">${escHtml(o.syllabuscodes)}</span>`:''}
+        ${o.theorieLink?`<a href="${escHtml(o.theorieLink)}" target="_blank" style="font-size:12px;color:#2563EB" onclick="event.stopPropagation()">↗ Link</a>`:''}
+        ${o.afgevinktDoor?`<span style="font-size:11px;font-weight:700;font-family:monospace;background:#16A34A;color:#fff;padding:1px 6px;border-radius:4px">${escHtml(o.afgevinktDoor)}</span>`:''}
+      </div>
+      ${heeftOpmerking?`<div style="margin-top:7px;padding:7px 10px;background:#fff;border-left:2px solid #D97706;border-radius:0 6px 6px 0;font-size:13px;color:#44403C">
+        💬 ${escHtml(o.opmerking)}
+        ${!readonly?`<button onclick="event.stopPropagation();vinktOpmerkingAf('${o.id}')" style="display:block;margin-top:5px;font-size:12px;color:#16A34A;background:none;border:1px solid #16A34A;border-radius:5px;padding:3px 10px;cursor:pointer">✓ Opgelost</button>`:''}
+      </div>`:''}
+      ${!readonly&&!heeftOpmerking?`<div style="font-size:11px;color:#C0BDB8;margin-top:4px">Tik voor opmerking</div>`:''}
+    </div>
+  </div>`;
+}
+
+function renderJaarplanningDesktop(klas, klassen, weken, opdrachten, vak, vakken, gebruikers, cw, heeftWeken, totaal, afgevinktN, pct, readonly) {
+  const periodes={1:[],2:[],3:[],4:[]};
+  if(heeftWeken) weken.forEach(w=>{
+    const wn=w.weeknummer; let p=1;
+    if((wn>=44)||(wn<=8))p=2; else if(wn>=9&&wn<=18)p=3; else if(wn>=19&&wn<=26)p=4;
+    periodes[p].push(w);
+  });
+  const pNamen={1:'Periode 1 — september t/m november',2:'Periode 2 — december t/m februari',3:'Periode 3 — maart t/m mei',4:'Periode 4 — juni t/m juli'};
+  document.getElementById('view-jaarplanning').innerHTML = `
+    <div class="page-header">
+      <div class="page-header-left">
+        <div class="breadcrumb"><span onclick="showView('klassen')" style="cursor:pointer;color:#16A34A">Klassen</span> › Jaarplanning</div>
+        <h1>${escHtml(klas.naam)}</h1>
+      </div>
+      <select id="klas-select" onchange="window._selectedKlas=this.value;renderJaarplanning()" style="padding:9px 14px;border:1.5px solid rgba(28,25,23,0.15);border-radius:10px;font-size:14px;background:#fff;color:#1C1917;font-weight:500">
+        ${klassen.map(k=>`<option value="${k.id}" ${k.id===klas.id?'selected':''}>${escHtml(k.naam)}</option>`).join('')}
+      </select>
+    </div>
+    ${readonly?`<div class="readonly-notice"><svg width="16" height="16" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="8" stroke="currentColor" stroke-width="1.5"/><path d="M10 6v4M10 14h.01" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>Leesmodus</div>`:''}
+    <div class="card" style="margin-bottom:16px">
+      <div style="display:flex;align-items:center;gap:20px;padding:14px 20px;flex-wrap:wrap">
+        <div><div style="font-size:10px;text-transform:uppercase;letter-spacing:.05em;font-weight:700;color:#78716C;margin-bottom:2px">Vak</div><span class="badge badge-green">${escHtml(vak?.naam||'—')}</span></div>
+        <div><div style="font-size:10px;text-transform:uppercase;font-weight:700;color:#78716C;margin-bottom:2px">Niveau</div><span style="font-size:13px;font-weight:500">Leerjaar ${klas.leerjaar} · ${escHtml(klas.niveau)}</span></div>
+        <div><div style="font-size:10px;text-transform:uppercase;font-weight:700;color:#78716C;margin-bottom:2px">Uren/week</div><span style="font-size:13px">${klas.urenPerWeek||'?'} uur</span></div>
+        <div><div style="font-size:10px;text-transform:uppercase;font-weight:700;color:#78716C;margin-bottom:2px">Voortgang</div><span style="font-size:13px;font-weight:600;color:#16A34A">${afgevinktN}/${totaal} (${pct}%)</span></div>
+        <div style="flex:1;min-width:100px"><div class="klas-progress"><div class="klas-progress-fill" style="width:${pct}%"></div></div></div>
+      </div>
+    </div>
+    ${!heeftWeken?`<div class="card"><div class="empty-state"><h3>Geen weekstructuur</h3>${Auth.isAdmin()?`<button class="btn btn-primary" onclick="showView('schooljaren')">Schooljaar aanmaken</button>`:'<p>Vraag de beheerder.</p>'}</div></div>`:`
+    ${[1,2,3,4].map(p=>{
+      const pw=periodes[p]; if(!pw.length)return '';
+      return `<div class="card">
+        <div class="card-header"><div><h2>${pNamen[p]}</h2><div class="card-meta">${pw.filter(w=>!w.isVakantie).length} schoolweken</div></div></div>
+        <table class="data-table">
+          <thead><tr><th style="width:65px">Week</th><th style="width:110px">Datum</th><th style="width:160px">Thema</th><th>Activiteiten</th>${!readonly?'<th style="width:90px"></th>':''}</tr></thead>
+          <tbody>${pw.map(w=>{
+            const wOpd=opdrachten.filter(o=>{
+              if(o.weeknummer===w.weeknummer&&o.schooljaar===klas.schooljaar)return true;
+              if(o.weken)return weekInRange(o.weken,w.weeknummer);
+              return false;
+            });
+            const isNu=w.weeknummer===cw;
+            const alleKlaar=wOpd.length>0&&wOpd.every(o=>o.afgevinkt);
+            if(w.isVakantie) return `<tr style="background:#FFFBEB"><td><span class="week-pill">${w.weeknummer}</span></td><td style="font-size:12px;color:#78716C">${w.van}</td><td colspan="${!readonly?3:2}"><span class="badge badge-amber">🏖 ${w.vakantieNaam}</span></td></tr>`;
+            return `<tr class="${isNu?'planning-row-active':''}" style="${alleKlaar?'background:rgba(22,163,74,0.03)':''}">
+              <td><span class="week-pill ${isNu?'current':''}">${w.weeknummer}</span>${isNu?'<div style="font-size:9px;color:#16A34A;font-weight:700;margin-top:2px">NU</div>':''}</td>
+              <td style="font-size:12px;color:#78716C">${w.van}<br>${w.tot}</td>
+              <td>${!readonly?`<span class="week-thema-inline" data-weekid="${w.id}" onclick="editWeekThemaInline(this)" style="display:block;padding:4px 6px;border-radius:6px;border:1px dashed ${w.thema?'transparent':'rgba(28,25,23,0.15)'};cursor:pointer;font-size:12px;color:${w.thema?'#1C1917':'#A8A29E'};min-height:28px">${escHtml(w.thema)||'<span style="opacity:.5">+ Thema</span>'}</span>`:`<span style="font-size:12px;color:#78716C">${escHtml(w.thema)||'—'}</span>`}</td>
+              <td>${wOpd.length===0?`<span style="font-size:12px;color:#D3D1C7">—</span>`:wOpd.map(o=>renderActiviteitRij(o,readonly,w.weeknummer)).join('')}</td>
+              ${!readonly?`<td style="vertical-align:top;padding-top:12px"><button class="btn btn-sm" onclick="openOpdrachtModal(null,'${klas.id}',${p},${w.weeknummer})">+ Activiteit</button></td>`:''}
+            </tr>`;
+          }).join('')}</tbody>
+        </table>
+      </div>`;
+    }).join('')}`}
+  `;
+}
+
+function renderActiviteitRij(o, readonly, weeknummer) {
+  const afgevinkt=o.afgevinkt||o.afgevinkt===1;
+  const initialen=o.afgevinktDoor||'';
+  const datum=o.afgevinktOp?new Date(o.afgevinktOp).toLocaleDateString('nl-NL',{day:'numeric',month:'short'}):'';
+  const heeftOpmerking=o.opmerking&&o.opmerking.trim();
+  const cw=getCurrentWeek(), weekVoorbij=weeknummer<cw;
+  let bgKleur,borderKleur;
+  if(afgevinkt&&heeftOpmerking){bgKleur='rgba(217,119,6,0.07)';borderKleur='rgba(217,119,6,0.3)';}
+  else if(afgevinkt){bgKleur='rgba(22,163,74,0.07)';borderKleur='rgba(22,163,74,0.2)';}
+  else if(weekVoorbij){bgKleur='rgba(220,38,38,0.05)';borderKleur='rgba(220,38,38,0.15)';}
+  else{bgKleur='#F8F7F4';borderKleur='rgba(28,25,23,0.1)';}
+  return `<div style="display:flex;align-items:flex-start;gap:8px;margin-bottom:7px;padding:8px 10px;border-radius:8px;background:${bgKleur};border:1px solid ${borderKleur}">
+    ${!readonly?`<button onclick="doAfvinken('${o.id}')" style="width:22px;height:22px;border-radius:50%;border:2px solid ${afgevinkt?'#16A34A':'rgba(28,25,23,0.2)'};background:${afgevinkt?'#16A34A':'#fff'};cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;flex-shrink:0;margin-top:1px">${afgevinkt?'<svg width="12" height="12" viewBox="0 0 20 20" fill="none"><path d="M4 10l5 5 7-8" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>':''}</button>`
+    :`<div style="width:22px;height:22px;border-radius:50%;border:2px solid ${afgevinkt?'#16A34A':'rgba(28,25,23,0.2)'};background:${afgevinkt?'#16A34A':'#fff'};display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px">${afgevinkt?'<svg width="12" height="12" viewBox="0 0 20 20" fill="none"><path d="M4 10l5 5 7-8" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>':''}</div>`}
+    <div style="flex:1;min-width:0">
+      <div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap">
+        <span class="badge ${typeKleur(o.type)}" style="font-size:10px;padding:1px 6px">${escHtml(o.type)}</span>
+        <span style="font-size:12px;font-weight:500;${afgevinkt&&!heeftOpmerking?'text-decoration:line-through;color:#A8A29E':''}">${escHtml(o.naam)}</span>
+        ${o.uren?`<span style="font-size:11px;color:#78716C">${o.uren}u</span>`:''}
+        ${o.syllabuscodes?`<span style="font-size:10px;color:#A8A29E">${escHtml(o.syllabuscodes)}</span>`:''}
+        ${o.theorieLink?`<a href="${escHtml(o.theorieLink)}" class="text-link" target="_blank" style="font-size:11px">↗</a>`:''}
+        ${!afgevinkt&&weekVoorbij?`<span style="font-size:10px;color:#DC2626;font-weight:600">● Niet afgevinkt</span>`:''}
+      </div>
+      ${afgevinkt&&initialen?`<div style="display:flex;align-items:center;gap:4px;margin-top:3px"><span style="font-size:11px;font-weight:700;font-family:monospace;background:#16A34A;color:#fff;padding:1px 5px;border-radius:4px">${escHtml(initialen)}</span><span style="font-size:11px;color:#78716C">${datum}</span></div>`:''}
+      ${heeftOpmerking?`<div style="margin-top:4px;padding:4px 8px;background:#fff;border-left:2px solid #D97706;border-radius:0 4px 4px 0;font-size:12px;color:#44403C">💬 ${escHtml(o.opmerking)}${!readonly?`<button onclick="vinktOpmerkingAf('${o.id}')" style="margin-left:6px;font-size:11px;color:#16A34A;background:none;border:1px solid #16A34A;border-radius:4px;padding:1px 5px;cursor:pointer">✓ Opgelost</button>`:''}</div>`:''}
+      ${!readonly?`<button onclick="openOpmerkingModal('${o.id}','${escHtml(o.naam)}')" style="margin-top:4px;font-size:11px;color:${heeftOpmerking?'#D97706':'#A8A29E'};background:none;border:none;cursor:pointer;padding:0;text-decoration:underline">${heeftOpmerking?'✏️ Bewerken':'+ Opmerking'}</button>`:''}
     </div>
   </div>`;
 }
@@ -155,27 +315,22 @@ async function doAfvinken(opdrachtId) {
 }
 
 async function vinktOpmerkingAf(opdrachtId) {
-  // Verwijder de opmerking zodat de activiteit groen wordt
   try { await API.setOpmerking(opdrachtId, null); renderJaarplanning(); }
   catch(e) { showError(e.message); }
 }
 
 function openOpmerkingModal(opdrachtId, naam) {
-  // Haal huidige opmerking op uit DOM
-  const btn = document.querySelector(`button[onclick="openOpmerkingModal('${opdrachtId}','${escHtml(naam)}')"]`);
-  const heeftOpmerking = btn && btn.textContent.includes('bewerken');
   openModal(`
     <h2>Opmerking</h2>
     <p class="modal-sub">${escHtml(naam)}</p>
     <div class="form-field"><label>Opmerking / bijzonderheden</label>
-      <textarea id="opmerking-tekst" placeholder="Bijv. 'Jan niet aanwezig', 'Iemand uitgestuurd'..." style="min-height:100px"></textarea>
+      <textarea id="opmerking-tekst" placeholder="Bijv. Jan niet aanwezig..." style="min-height:100px"></textarea>
     </div>
     <div class="modal-actions">
       <button class="btn" onclick="closeModalDirect()">Annuleren</button>
       <button class="btn btn-primary" onclick="saveOpmerking('${opdrachtId}')">Opslaan</button>
     </div>
   `);
-  // Laad bestaande opmerking
   API.getOpdrachten(window._selectedKlas).then(opds => {
     const o = opds.find(x=>x.id===opdrachtId);
     if (o?.opmerking) document.getElementById('opmerking-tekst').value = o.opmerking;
@@ -193,7 +348,7 @@ function editWeekThemaInline(el) {
   const huidig = el.querySelector('span[style*="opacity"]') ? '' : el.textContent.trim();
   const input = document.createElement('input');
   input.type='text'; input.value=huidig;
-  input.style.cssText='padding:4px 6px;border:1.5px solid var(--accent);border-radius:6px;font-size:12px;font-family:DM Sans,sans-serif;width:100%;outline:none';
+  input.style.cssText='padding:4px 6px;border:1.5px solid #16A34A;border-radius:6px;font-size:12px;width:100%;outline:none';
   el.replaceWith(input); input.focus(); input.select();
   async function opslaan() {
     const nieuw = input.value.trim();
@@ -201,7 +356,7 @@ function editWeekThemaInline(el) {
     const span=document.createElement('span');
     span.className='week-thema-inline'; span.dataset.weekid=weekId;
     span.onclick=function(){editWeekThemaInline(this);};
-    span.style.cssText=`display:block;padding:4px 6px;border-radius:6px;border:1px dashed ${nieuw?'transparent':'var(--border-med)'};cursor:pointer;font-size:12px;color:${nieuw?'var(--ink)':'var(--ink-muted)'};min-height:28px`;
+    span.style.cssText=`display:block;padding:4px 6px;border-radius:6px;border:1px dashed ${nieuw?'transparent':'rgba(28,25,23,0.15)'};cursor:pointer;font-size:12px;color:${nieuw?'#1C1917':'#A8A29E'};min-height:28px`;
     span.innerHTML=nieuw?escHtml(nieuw):'<span style="opacity:.5">+ Thema</span>';
     input.replaceWith(span);
   }
@@ -221,13 +376,13 @@ async function openOpdrachtModal(opdrachtId=null, klasId=null, defaultPeriode=1,
     <div class="form-grid">
       <div class="form-field form-full"><label>Naam *</label><input type="text" id="o-naam" value="${escHtml(o?.naam||'')}"></div>
       <div class="form-field"><label>Klas *</label><select id="o-klas" onchange="refreshWekenSelectAsync()">${klassen.map(k=>`<option value="${k.id}" ${k.id===selectedKlas?'selected':''}>${escHtml(k.naam)}</option>`).join('')}</select></div>
-      <div class="form-field"><label>Week *</label><select id="o-weeknummer"><option value="">— Selecteer week —</option>${weken.map(w=>`<option value="${w.weeknummer}" ${(o?.weeknummer===w.weeknummer)||defaultWeek===w.weeknummer?'selected':''}>Wk ${w.weeknummer} (${w.van} – ${w.tot})${w.thema?' · '+w.thema:''}</option>`).join('')}</select></div>
+      <div class="form-field"><label>Week *</label><select id="o-weeknummer"><option value="">— Selecteer week —</option>${weken.map(w=>`<option value="${w.weeknummer}" ${(o?.weeknummer===w.weeknummer)||defaultWeek===w.weeknummer?'selected':''}>Wk ${w.weeknummer} (${w.van})${w.thema?' · '+w.thema:''}</option>`).join('')}</select></div>
       <div class="form-field"><label>Type *</label><select id="o-type">${['Theorie','Praktijk','Toets','Opdracht','Groepsopdracht','Presentatie','Project','Overig'].map(t=>`<option value="${t}" ${o?.type===t?'selected':''}>${t}</option>`).join('')}</select></div>
       <div class="form-field"><label>Uren</label><select id="o-uren"><option value="">—</option>${[0.5,1,1.5,2,2.5,3,4].map(u=>`<option value="${u}" ${o?.uren==u?'selected':''}>${u} uur</option>`).join('')}</select></div>
       <div class="form-field"><label>Periode</label><select id="o-periode">${[1,2,3,4].map(p=>`<option value="${p}" ${(o?.periode||defaultPeriode)==p?'selected':''}>${p}</option>`).join('')}</select></div>
-      <div class="form-field form-full"><label>Syllabuscodes</label><input type="text" id="o-syllabus" placeholder="PIE-1.1, PIE-1.2" value="${escHtml(o?.syllabuscodes||'')}"></div>
+      <div class="form-field form-full"><label>Syllabuscodes</label><input type="text" id="o-syllabus" placeholder="PIE-1.1" value="${escHtml(o?.syllabuscodes||'')}"></div>
       <div class="form-field form-full"><label>Beschrijving</label><textarea id="o-beschrijving">${escHtml(o?.beschrijving||'')}</textarea></div>
-      <div class="form-field form-full"><label>Link (theorie/opdracht/toets)</label><input type="text" id="o-theorie" value="${escHtml(o?.theorieLink||'')}"></div>
+      <div class="form-field form-full"><label>Link</label><input type="url" id="o-theorie" value="${escHtml(o?.theorieLink||'')}"></div>
       <div class="form-field form-full"><label>Toetsbestand</label><input type="text" id="o-toets" placeholder="bijv. toets_p1.pdf" value="${escHtml(o?.toetsBestand||'')}"></div>
     </div>
     <div class="modal-actions">
@@ -246,34 +401,32 @@ async function refreshWekenSelectAsync() {
   const weken = (await API.getWeken(klas.schooljaar)).filter(w=>!w.isVakantie);
   const sel = document.getElementById('o-weeknummer');
   if (!sel) return;
-  sel.innerHTML = `<option value="">— Selecteer week —</option>`+weken.map(w=>`<option value="${w.weeknummer}">Wk ${w.weeknummer} (${w.van} – ${w.tot})${w.thema?' · '+w.thema:''}</option>`).join('');
+  sel.innerHTML = `<option value="">— Selecteer week —</option>`+weken.map(w=>`<option value="${w.weeknummer}">Wk ${w.weeknummer} (${w.van})${w.thema?' · '+w.thema:''}</option>`).join('');
 }
 
 async function saveOpdracht(opdrachtId, defaultKlasId) {
-  const naam = document.getElementById('o-naam').value.trim();
-  const klasId = document.getElementById('o-klas').value || defaultKlasId;
-  const weeknummer = parseInt(document.getElementById('o-weeknummer').value);
-  const type = document.getElementById('o-type').value;
-  const uren = document.getElementById('o-uren').value?parseFloat(document.getElementById('o-uren').value):null;
-  const periode = parseInt(document.getElementById('o-periode').value);
-  const syllabuscodes = document.getElementById('o-syllabus').value.trim();
-  const beschrijving = document.getElementById('o-beschrijving').value.trim();
-  const theorieLink = document.getElementById('o-theorie').value.trim();
-  const toetsBestand = document.getElementById('o-toets').value.trim()||null;
-  const klassen = await API.getKlassen();
-  const klas = klassen.find(k=>k.id===klasId);
-  if (!naam||!klasId||!weeknummer||!type) { alert('Vul naam, klas, week en type in.'); return; }
-  const data = { naam, klasId, periode, weeknummer, weken: String(weeknummer), schooljaar: klas?.schooljaar, type, uren, syllabuscodes, werkboekLink:'', beschrijving, theorieLink, toetsBestand };
+  const naam=document.getElementById('o-naam').value.trim();
+  const klasId=document.getElementById('o-klas').value||defaultKlasId;
+  const weeknummer=parseInt(document.getElementById('o-weeknummer').value);
+  const type=document.getElementById('o-type').value;
+  const uren=document.getElementById('o-uren').value?parseFloat(document.getElementById('o-uren').value):null;
+  const periode=parseInt(document.getElementById('o-periode').value);
+  const syllabuscodes=document.getElementById('o-syllabus').value.trim();
+  const beschrijving=document.getElementById('o-beschrijving').value.trim();
+  const theorieLink=document.getElementById('o-theorie').value.trim();
+  const toetsBestand=document.getElementById('o-toets').value.trim()||null;
+  const klassen=await API.getKlassen();
+  const klas=klassen.find(k=>k.id===klasId);
+  if(!naam||!klasId||!weeknummer||!type){alert('Vul naam, klas, week en type in.');return;}
+  const data={naam,klasId,periode,weeknummer,weken:String(weeknummer),schooljaar:klas?.schooljaar,type,uren,syllabuscodes,werkboekLink:'',beschrijving,theorieLink,toetsBestand};
   try {
-    if (opdrachtId) { await API.updateOpdracht(opdrachtId, data); } else { await API.addOpdracht(data); }
-    window._selectedKlas = klasId;
-    closeModalDirect();
-    renderJaarplanning();
-  } catch(e) { showError(e.message); }
+    if(opdrachtId){await API.updateOpdracht(opdrachtId,data);}else{await API.addOpdracht(data);}
+    window._selectedKlas=klasId; closeModalDirect(); renderJaarplanning();
+  } catch(e){showError(e.message);}
 }
 
 async function deleteOpdrachtFromModal(id) {
-  if (!confirm('Activiteit verwijderen?')) return;
-  try { await API.deleteOpdracht(id); closeModalDirect(); renderJaarplanning(); }
-  catch(e) { showError(e.message); }
+  if(!confirm('Activiteit verwijderen?'))return;
+  try{await API.deleteOpdracht(id);closeModalDirect();renderJaarplanning();}
+  catch(e){showError(e.message);}
 }
