@@ -52,10 +52,8 @@ function requireCanEdit(req, res, next) {
 app.post('/api/login', (req, res) => {
   const { email, wachtwoord } = req.body;
   if (!email || !wachtwoord) return res.status(400).json({ error: 'Vul e-mail en wachtwoord in' });
-  const bcrypt = require('bcryptjs');
-  const u = db.getGebruikerByEmail(email);
-  if (!u || !bcrypt.compareSync(wachtwoord, u.wachtwoord)) return res.status(401).json({ error: 'Onjuist e-mailadres of wachtwoord' });
-  const user = u;
+  const user = db.verifyWachtwoord(email, wachtwoord);
+  if (!user) return res.status(401).json({ error: 'Onjuist e-mailadres of wachtwoord' });
   req.session.user = { id: user.id, naam: user.naam + ' ' + user.achternaam, rol: user.rol, email: user.email, vakken: user.vakken || [], initialen: user.initialen };
   res.json({ success: true, user: req.session.user });
 });
@@ -152,13 +150,106 @@ app.post('/api/upload', requireCanEdit, upload.single('bestand'), (req, res) => 
   res.json({ bestandsnaam: req.file.filename, origineel: req.file.originalname });
 });
 
+// ---- IMPORT LESPROFIEL ----
+app.get('/api/lesprofiel-template', (req, res) => {
+  const templatePath = path.join(__dirname, 'public', 'lesprofiel_template.docx');
+  if (!fs.existsSync(templatePath)) return res.status(404).json({ error: 'Template niet gevonden' });
+  res.download(templatePath, 'lesprofiel_template.docx');
+});
+
+app.post('/api/import-lesprofiel', requireCanEdit, upload.single('bestand'), async (req, res) => {
+  if (!req.file) return res.status(400).json({ error: 'Geen bestand ontvangen' });
+  try {
+    const mammoth = require('mammoth');
+    const result = await mammoth.extractRawText({ path: req.file.path });
+    const tekst = result.value;
+    const regels = tekst.split('\n').map(r => r.trim()).filter(r => r);
+
+    function vindWaarde(sleutels) {
+      for (const sleutel of sleutels) {
+        const regel = regels.find(r => r.toLowerCase().startsWith(sleutel.toLowerCase()));
+        if (regel) { const val = regel.split(':').slice(1).join(':').trim(); if (val && !val.startsWith('[')) return val; }
+      }
+      return null;
+    }
+
+    const naam = vindWaarde(['naam lesprofiel', 'naam:']);
+    const vaknaamRaw = vindWaarde(['vaknaam', 'vak:']);
+    const aantalWeken = parseInt(vindWaarde(['aantal weken'])) || 4;
+    const urenPerWeek = parseInt(vindWaarde(['uren per week'])) || 3;
+    const beschrijving = vindWaarde(['beschrijving']);
+
+    if (!naam) return res.status(400).json({ error: 'Naam lesprofiel niet gevonden. Gebruik de juiste template.' });
+    if (!vaknaamRaw) return res.status(400).json({ error: 'Vaknaam niet gevonden in bestand.' });
+
+    const vakken = db.getVakken();
+    const vak = vakken.find(v =>
+      v.naam.toLowerCase() === vaknaamRaw.toLowerCase() ||
+      v.volledig.toLowerCase().includes(vaknaamRaw.toLowerCase()) ||
+      vaknaamRaw.toLowerCase().includes(v.naam.toLowerCase())
+    );
+    if (!vak) return res.status(400).json({ error: `Vak "${vaknaamRaw}" niet gevonden. Beschikbare vakken: ${vakken.map(v => v.naam).join(', ')}` });
+
+    const types = ['Theorie', 'Praktijk', 'Toets', 'Presentatie', 'Overig'];
+    const weken = [];
+    let huidigeWeek = null;
+
+    for (const regel of regels) {
+      const weekMatch = regel.match(/^week\s+(\d+)/i);
+      if (weekMatch) {
+        if (huidigeWeek) weken.push(huidigeWeek);
+        huidigeWeek = { weekIndex: parseInt(weekMatch[1]), thema: '', activiteiten: [] };
+        const themaMatch = regel.match(/^week\s+\d+\s*[-–]\s*(.+)/i);
+        if (themaMatch) huidigeWeek.thema = themaMatch[1].trim();
+        continue;
+      }
+      if (!huidigeWeek) continue;
+
+      if (regel.toLowerCase().startsWith('thema:')) {
+        const val = regel.split(':').slice(1).join(':').trim();
+        if (val && !val.startsWith('[')) huidigeWeek.thema = val;
+        continue;
+      }
+
+      if (regel.includes('|') || regel.includes('\t')) {
+        const delen = regel.split(/[|\t]/).map(d => d.trim()).filter(d => d);
+        if (delen.length >= 2) {
+          const type = types.find(t => t.toLowerCase() === delen[0].toLowerCase());
+          if (type) { huidigeWeek.activiteiten.push({ type, omschrijving: delen[1]||'', syllabus: delen[2]||'', uren: parseFloat(delen[3])||1, link:'', bestand:null }); continue; }
+        }
+      }
+
+      const typeColon = types.find(t => regel.toLowerCase().startsWith(t.toLowerCase() + ':'));
+      if (typeColon) {
+        const omschrijving = regel.split(':').slice(1).join(':').trim();
+        huidigeWeek.activiteiten.push({ type: typeColon, omschrijving: omschrijving && !omschrijving.startsWith('[') ? omschrijving : '', syllabus:'', uren:1, link:'', bestand:null });
+        continue;
+      }
+
+      const losType = types.find(t => regel.toLowerCase() === t.toLowerCase());
+      if (losType) huidigeWeek.activiteiten.push({ type: losType, omschrijving:'', syllabus:'', uren:1, link:'', bestand:null });
+    }
+    if (huidigeWeek) weken.push(huidigeWeek);
+
+    const wekenArray = Array.from({ length: aantalWeken }, (_, i) =>
+      weken.find(w => w.weekIndex === i + 1) || { weekIndex: i + 1, thema: '', activiteiten: [] }
+    );
+
+    const profiel = db.addLesprofiel({ naam, vakId: vak.id, docentId: req.session.user.id, aantalWeken, urenPerWeek, beschrijving: beschrijving||'', weken: wekenArray });
+    fs.unlinkSync(req.file.path);
+    res.json({ success: true, profiel, info: `Profiel "${naam}" aangemaakt met ${wekenArray.length} weken en ${wekenArray.reduce((t,w) => t + w.activiteiten.length, 0)} activiteiten.` });
+  } catch (e) {
+    if (req.file?.path && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
+    res.status(500).json({ error: 'Fout bij verwerken: ' + e.message });
+  }
+});
+
 // ---- HEALTH ----
 app.get('/health', (req, res) => res.json({ status: 'ok', db: 'sqlite' }));
 
 // ---- START ----
-
+db.seedIfEmpty();
 app.listen(PORT, () => {
   console.log(`\nJaarPlan draait op http://localhost:${PORT}`);
   console.log(`Database: data/jaarplan.db\n`);
 });
-
