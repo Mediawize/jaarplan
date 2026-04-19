@@ -202,23 +202,79 @@ function renderActiviteitenHTML(p, weekIdx) {
   if (!w?.activiteiten?.length) return '';
   const kleuren = {'Theorie':'badge-blue','Praktijk':'badge-green','Toets':'badge-amber','Presentatie':'badge-gray','Overig':'badge-gray'};
   return `<table class="data-table">
-    <thead><tr><th>Type</th><th>Uren</th><th>Omschrijving</th><th>Link / bestand</th><th style="width:60px"></th></tr></thead>
+    <thead><tr><th>Type</th><th>Uren</th><th>Omschrijving</th><th>Syllabus</th><th>Link / bestand</th><th style="width:80px"></th></tr></thead>
     <tbody>
       ${w.activiteiten.map((a,ai)=>`<tr>
         <td><span class="badge ${kleuren[a.type]||'badge-gray'}">${escHtml(a.type)}</span></td>
         <td style="font-size:13px;font-weight:500">${a.uren} uur</td>
         <td style="font-size:13px">${escHtml(a.omschrijving||'—')}</td>
+        <td style="font-size:12px;color:#78716C">${escHtml(a.syllabus||'—')}</td>
         <td>
-          ${a.link?`<a href="${escHtml(a.link)}" class="text-link" target="_blank">${escHtml(a.link.length>40?a.link.slice(0,40)+'…':a.link)}</a>`:''}
+          ${a.link?`<a href="${escHtml(a.link)}" class="text-link" target="_blank">${escHtml(a.link.length>35?a.link.slice(0,35)+'…':a.link)}</a>`:''}
           ${a.bestand?`<span class="badge badge-amber" style="font-size:11px">📄 ${escHtml(a.bestand)}</span>`:''}
-          ${!a.link&&!a.bestand?'<span style="color:var(--ink-muted)">—</span>':''}
+          ${!a.link&&!a.bestand?'<span style="color:#A8A29E">—</span>':''}
         </td>
-        <td><button class="icon-btn" onclick="verwijderActiviteit('${p.id}',${weekIdx},${ai})" style="color:var(--red)" title="Verwijderen">
-          <svg viewBox="0 0 20 20" fill="none"><path d="M5 5l10 10M15 5L5 15" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-        </button></td>
+        <td>
+          <div style="display:flex;gap:4px">
+            <button class="icon-btn" onclick="bewerkActiviteit('${p.id}',${weekIdx},${ai})" title="Bewerken">
+              <svg viewBox="0 0 20 20" fill="none"><path d="M14.5 3.5l2 2L7 15l-3 1 1-3 9.5-9.5z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+            <button class="icon-btn" onclick="verwijderActiviteit('${p.id}',${weekIdx},${ai})" style="color:#DC2626" title="Verwijderen">
+              <svg viewBox="0 0 20 20" fill="none"><path d="M5 5l10 10M15 5L5 15" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+            </button>
+          </div>
+        </td>
       </tr>`).join('')}
     </tbody>
   </table>`;
+}
+
+function bewerkActiviteit(profielId, weekIdx, actIdx) {
+  API.getLesprofielen().then(profielen => {
+    const p = profielen.find(x=>x.id===profielId);
+    if (!p) return;
+    const a = p.weken[weekIdx].activiteiten[actIdx];
+    openModal(`
+      <h2>Activiteit bewerken</h2>
+      <div class="form-grid">
+        <div class="form-field"><label>Type *</label><select id="act-type">
+          ${['Theorie','Praktijk','Toets','Presentatie','Overig'].map(t=>`<option value="${t}" ${a.type===t?'selected':''}>${t}</option>`).join('')}
+        </select></div>
+        <div class="form-field"><label>Uren *</label><select id="act-uren">
+          ${[0.5,1,1.5,2,2.5,3,4,5,6,7,8].map(u=>`<option value="${u}" ${a.uren==u?'selected':''}>${u} uur</option>`).join('')}
+        </select></div>
+        <div class="form-field form-full"><label>Omschrijving</label><input id="act-omschrijving" value="${escHtml(a.omschrijving||'')}"></div>
+        <div class="form-field form-full"><label>Link</label><input id="act-link" type="url" placeholder="https://..." value="${escHtml(a.link||'')}"></div>
+        <div class="form-field form-full"><label>Syllabuscodes</label><input id="act-syllabus" placeholder="bijv. PIE-1.1" value="${escHtml(a.syllabus||'')}"></div>
+        <div class="form-field form-full"><label>Bestandsnaam</label><input id="act-bestand" placeholder="bijv. toets_p1.pdf" value="${escHtml(a.bestand||'')}"></div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn" onclick="closeModalDirect()">Annuleren</button>
+        <button class="btn btn-primary" onclick="slaActiviteitBewerkingOp('${profielId}',${weekIdx},${actIdx})">Opslaan</button>
+      </div>
+    `);
+  });
+}
+
+async function slaActiviteitBewerkingOp(profielId, weekIdx, actIdx) {
+  const type = document.getElementById('act-type').value;
+  const uren = parseFloat(document.getElementById('act-uren').value);
+  const omschrijving = document.getElementById('act-omschrijving').value.trim();
+  const link = document.getElementById('act-link').value.trim();
+  const syllabus = document.getElementById('act-syllabus').value.trim();
+  const bestand = document.getElementById('act-bestand').value.trim();
+
+  const profielen = await API.getLesprofielen();
+  const p = profielen.find(x=>x.id===profielId);
+  if (!p) return;
+
+  p.weken[weekIdx].activiteiten[actIdx] = { type, uren, omschrijving, link, syllabus, bestand: bestand||null };
+  await API.updateLesprofiel(profielId, { weken: p.weken });
+
+  closeModalDirect();
+  const bijgewerkt = (await API.getLesprofielen()).find(x=>x.id===profielId);
+  const container = document.getElementById(`activiteiten-week-${profielId}-${weekIdx}`);
+  if (container && bijgewerkt) container.innerHTML = renderActiviteitenHTML(bijgewerkt, weekIdx);
 }
 
 async function updateProfielWeekThemaAsync(profielId, weekIdx, thema) {
