@@ -118,7 +118,7 @@ function renderWeekKaartenHTML(weken, opdrachten, klas, cw, readonly) {
       return;
     }
     const wOpd = opdrachten.filter(o => {
-      if (o.weeknummer === w.weeknummer && o.schooljaar === klas.schooljaar) return true;
+      if (parseInt(o.weeknummer) === parseInt(w.weeknummer) && o.schooljaar === klas.schooljaar) return true;
       if (o.weken) return weekInRange(o.weken, w.weeknummer);
       return false;
     });
@@ -274,7 +274,7 @@ function renderJaarplanningDesktop(klas, klassen, weken, opdrachten, vak, vakken
           <thead><tr><th style="width:65px">Week</th><th style="width:110px">Datum</th><th style="width:160px">Thema / Markering</th><th>Activiteiten</th><th style="width:${Auth.isAdmin()||Auth.isManagement()?'120':'90'}px"></th></tr></thead>
           <tbody>${pw.map(w=>{
             const wOpd=opdrachten.filter(o=>{
-              if(o.weeknummer===w.weeknummer&&o.schooljaar===klas.schooljaar)return true;
+              if(parseInt(o.weeknummer)===parseInt(w.weeknummer)&&o.schooljaar===klas.schooljaar)return true;
               if(o.weken)return weekInRange(o.weken,w.weeknummer);
               return false;
             });
