@@ -12,7 +12,7 @@ async function renderDashboard() {
       ${Auth.isManagement()?`<div class="readonly-notice"><svg width="16" height="16" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="8" stroke="currentColor" stroke-width="1.5"/><path d="M10 6v4M10 14h.01" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>U bent ingelogd als management — u kunt alles bekijken maar niet wijzigen.</div>`:''}
       <div class="page-header">
         <div class="page-header-left">
-          <div class="breadcrumb">Schooljaar 2025–2026 · Week ${cw}</div>
+          <div class="breadcrumb">${getSchooljaarLabel()} · Week ${cw}</div>
           <h1>Goedendag, ${escHtml(Auth.currentUser?.naam?.split(' ')[0]||'')}</h1>
         </div>
         ${Auth.canEdit()?`<button class="btn btn-primary" onclick="showView('klassen')"><svg viewBox="0 0 20 20" fill="none"><path d="M10 4v12M4 10h12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>Nieuwe klas</button>`:''}

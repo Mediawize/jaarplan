@@ -86,7 +86,7 @@ async function renderJaarplanning() {
                     ?`<span class="week-thema-inline" data-weekid="${w.id}" onclick="editWeekThemaInline(this)" style="display:block;padding:4px 6px;border-radius:6px;border:1px dashed ${w.thema?'transparent':'var(--border-med)'};cursor:pointer;font-size:12px;color:${w.thema?'var(--ink)':'var(--ink-muted)'};min-height:28px">${escHtml(w.thema)||'<span style="opacity:.5">+ Thema</span>'}</span>`
                     :`<span style="font-size:12px;color:var(--ink-muted)">${escHtml(w.thema)||'—'}</span>`
                   }</td>
-                  <td>${wOpd.length===0?`<span style="font-size:12px;color:var(--border-med)">—</span>`:wOpd.map(o=>renderActiviteitRij(o,readonly)).join('')}</td>
+                  <td>${wOpd.length===0?`<span style="font-size:12px;color:var(--border-med)">—</span>`:wOpd.map(o=>renderActiviteitRij(o,readonly,w.weeknummer)).join('')}</td>
                   ${!readonly?`<td style="vertical-align:top;padding-top:14px"><button class="btn btn-sm" onclick="openOpdrachtModal(null,'${window._selectedKlas}',${p},${w.weeknummer})">+ Activiteit</button></td>`:''}
                 </tr>`;
               }).join('')}
@@ -96,14 +96,34 @@ async function renderJaarplanning() {
       }).join('')}`}
     `;
   } catch(e) { showError('Fout bij laden: ' + e.message); }
+  // Scroll naar huidige week na render
+  setTimeout(() => {
+    const huidig = document.querySelector('.week-pill.current');
+    if (huidig) huidig.closest('tr')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, 100);
 }
 
-function renderActiviteitRij(o, readonly) {
-  const afgevinkt=o.afgevinkt||o.afgevinkt===1;
-  const initialen=o.afgevinktDoor||'';
-  const datum=o.afgevinktOp?new Date(o.afgevinktOp).toLocaleDateString('nl-NL',{day:'numeric',month:'short'}):'';
-  const heeftOpmerking=o.opmerking&&o.opmerking.trim();
-  return `<div style="display:flex;align-items:flex-start;gap:8px;margin-bottom:8px;padding:8px 10px;border-radius:8px;background:${afgevinkt?'rgba(45,90,61,0.06)':'var(--cream)'};border:1px solid ${afgevinkt?'rgba(45,90,61,0.15)':'var(--border)'}">
+function renderActiviteitRij(o, readonly, weeknummer) {
+  const afgevinkt = o.afgevinkt || o.afgevinkt === 1;
+  const initialen = o.afgevinktDoor || '';
+  const datum = o.afgevinktOp ? new Date(o.afgevinktOp).toLocaleDateString('nl-NL', {day:'numeric', month:'short'}) : '';
+  const heeftOpmerking = o.opmerking && o.opmerking.trim();
+  const cw = getCurrentWeek();
+  const weekVoorbij = weeknummer < cw;
+
+  // Kleurcodering
+  let bgKleur, borderKleur;
+  if (afgevinkt && heeftOpmerking) {
+    bgKleur = 'rgba(196,130,26,0.08)'; borderKleur = 'rgba(196,130,26,0.35)'; // oranje
+  } else if (afgevinkt) {
+    bgKleur = 'rgba(45,90,61,0.08)'; borderKleur = 'rgba(45,90,61,0.25)'; // groen
+  } else if (weekVoorbij) {
+    bgKleur = 'rgba(176,58,46,0.06)'; borderKleur = 'rgba(176,58,46,0.2)'; // rood
+  } else {
+    bgKleur = 'var(--cream)'; borderKleur = 'var(--border)'; // neutraal
+  }
+
+  return `<div style="display:flex;align-items:flex-start;gap:8px;margin-bottom:8px;padding:8px 10px;border-radius:8px;background:${bgKleur};border:1px solid ${borderKleur}">
     ${!readonly
       ?`<div style="flex-shrink:0;margin-top:1px"><button onclick="doAfvinken('${o.id}')" style="width:22px;height:22px;border-radius:5px;border:2px solid ${afgevinkt?'var(--accent)':'var(--border-med)'};background:${afgevinkt?'var(--accent)':'#fff'};cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;transition:all .15s">${afgevinkt?'<svg width="13" height="13" viewBox="0 0 20 20" fill="none"><path d="M4 10l5 5 7-8" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>':''}</button></div>`
       :`<div style="flex-shrink:0;margin-top:1px"><div style="width:22px;height:22px;border-radius:5px;border:2px solid ${afgevinkt?'var(--accent)':'var(--border-med)'};background:${afgevinkt?'var(--accent)':'#fff'};display:flex;align-items:center;justify-content:center">${afgevinkt?'<svg width="13" height="13" viewBox="0 0 20 20" fill="none"><path d="M4 10l5 5 7-8" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>':''}</div></div>`
@@ -111,21 +131,32 @@ function renderActiviteitRij(o, readonly) {
     <div style="flex:1;min-width:0">
       <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
         <span class="badge ${typeKleur(o.type)}" style="font-size:10px;padding:2px 6px">${escHtml(o.type)}</span>
-        <span style="font-size:12px;font-weight:500;${afgevinkt?'text-decoration:line-through;color:var(--ink-muted)':''}">${escHtml(o.naam)}</span>
+        <span style="font-size:12px;font-weight:500;${afgevinkt&&!heeftOpmerking?'text-decoration:line-through;color:var(--ink-muted)':''}">${escHtml(o.naam)}</span>
         ${o.uren?`<span style="font-size:11px;color:var(--ink-muted)">${o.uren}u</span>`:''}
         ${o.syllabuscodes?`<span style="font-size:10px;color:var(--ink-muted)">${escHtml(o.syllabuscodes)}</span>`:''}
         ${o.theorieLink?`<a href="${escHtml(o.theorieLink)}" class="text-link" target="_blank" style="font-size:11px">link ↗</a>`:''}
         ${o.toetsBestand?`<span class="badge badge-amber" style="font-size:10px;padding:2px 5px">📄</span>`:''}
+        ${!afgevinkt && weekVoorbij ? `<span style="font-size:10px;color:var(--red);font-weight:600">● Niet afgevinkt</span>` : ''}
       </div>
-      ${afgevinkt&&initialen?`<div style="display:flex;align-items:center;gap:5px;margin-top:4px"><span style="font-size:11px;font-weight:700;font-family:monospace;background:var(--accent);color:#fff;padding:1px 6px;border-radius:4px">${escHtml(initialen)}</span><span style="font-size:11px;color:var(--ink-muted)">${datum}</span></div>`:''}
-      ${heeftOpmerking?`<div style="margin-top:5px;padding:5px 8px;background:#fff;border-left:3px solid var(--amber);border-radius:0 4px 4px 0;font-size:12px;color:var(--ink-light)">💬 ${escHtml(o.opmerking)}</div>`:''}
-      ${!readonly?`<button onclick="openOpmerkingModal('${o.id}','${escHtml(o.naam)}')" style="margin-top:5px;font-size:11px;color:${heeftOpmerking?'var(--amber)':'var(--ink-muted)'};background:none;border:none;cursor:pointer;padding:0;text-decoration:underline">${heeftOpmerking?'✏️ Opmerking bewerken':'+ Opmerking toevoegen'}</button>`:''}
+      ${afgevinkt && initialen ? `<div style="display:flex;align-items:center;gap:5px;margin-top:4px"><span style="font-size:11px;font-weight:700;font-family:monospace;background:var(--accent);color:#fff;padding:1px 6px;border-radius:4px">${escHtml(initialen)}</span><span style="font-size:11px;color:var(--ink-muted)">${datum}</span></div>` : ''}
+      ${heeftOpmerking ? `
+        <div style="margin-top:5px;padding:5px 8px;background:#fff;border-left:3px solid var(--amber);border-radius:0 4px 4px 0;font-size:12px;color:var(--ink-light)">
+          💬 ${escHtml(o.opmerking)}
+          ${!readonly ? `<button onclick="vinktOpmerkingAf('${o.id}')" style="margin-left:8px;font-size:11px;color:var(--accent);background:none;border:1px solid var(--accent);border-radius:4px;padding:1px 6px;cursor:pointer;font-weight:600">✓ Opgelost</button>` : ''}
+        </div>` : ''}
+      ${!readonly ? `<button onclick="openOpmerkingModal('${o.id}','${escHtml(o.naam)}')" style="margin-top:5px;font-size:11px;color:${heeftOpmerking?'var(--amber)':'var(--ink-muted)'};background:none;border:none;cursor:pointer;padding:0;text-decoration:underline">${heeftOpmerking?'✏️ Opmerking bewerken':'+ Opmerking toevoegen'}</button>` : ''}
     </div>
   </div>`;
 }
 
 async function doAfvinken(opdrachtId) {
   try { await API.afvinken(opdrachtId); renderJaarplanning(); }
+  catch(e) { showError(e.message); }
+}
+
+async function vinktOpmerkingAf(opdrachtId) {
+  // Verwijder de opmerking zodat de activiteit groen wordt
+  try { await API.setOpmerking(opdrachtId, null); renderJaarplanning(); }
   catch(e) { showError(e.message); }
 }
 
