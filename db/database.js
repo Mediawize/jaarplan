@@ -17,6 +17,24 @@ db.pragma('journal_mode = WAL');
 db.pragma('foreign_keys = ON');
 
 // ============================================================
+// MIGRATIES — voeg kolommen toe als ze nog niet bestaan
+// ============================================================
+function migreer() {
+  const klasCols = db.prepare("PRAGMA table_info(klassen)").all().map(c => c.name);
+  if (!klasCols.includes('docenten')) {
+    db.exec("ALTER TABLE klassen ADD COLUMN docenten TEXT DEFAULT '[]'");
+    // Migreer bestaande docentId naar docenten array
+    db.exec("UPDATE klassen SET docenten = json_array(docentId) WHERE docentId IS NOT NULL AND docentId != ''");
+    console.log('Migratie: docenten kolom toegevoegd aan klassen');
+  }
+  const userCols = db.prepare("PRAGMA table_info(gebruikers)").all().map(c => c.name);
+  if (!userCols.includes('hoofdklassen')) {
+    db.exec("ALTER TABLE gebruikers ADD COLUMN hoofdklassen TEXT DEFAULT '[]'");
+    console.log('Migratie: hoofdklassen kolom toegevoegd aan gebruikers');
+  }
+}
+
+// ============================================================
 // SCHEMA
 // ============================================================
 db.exec(`
@@ -125,6 +143,9 @@ function parseJSON(val, fallback = []) {
   try { return val ? JSON.parse(val) : fallback; } catch { return fallback; }
 }
 
+// Voer migraties uit
+migreer();
+
 // ============================================================
 // SEED DATA (alleen als DB leeg is)
 // ============================================================
@@ -172,9 +193,9 @@ const Q = {
   getGebruikers: db.prepare('SELECT * FROM gebruikers ORDER BY naam'),
   getGebruiker: db.prepare('SELECT * FROM gebruikers WHERE id = ?'),
   getGebruikerByEmail: db.prepare('SELECT * FROM gebruikers WHERE LOWER(email) = LOWER(?)'),
-  insGebruiker: db.prepare('INSERT INTO gebruikers (id,naam,achternaam,email,wachtwoord,rol,initialen,vakken) VALUES (?,?,?,?,?,?,?,?)'),
-  updGebruiker: db.prepare('UPDATE gebruikers SET naam=?,achternaam=?,email=?,rol=?,initialen=?,vakken=? WHERE id=?'),
-  updGebruikerMetWW: db.prepare('UPDATE gebruikers SET naam=?,achternaam=?,email=?,wachtwoord=?,rol=?,initialen=?,vakken=? WHERE id=?'),
+  insGebruiker: db.prepare('INSERT INTO gebruikers (id,naam,achternaam,email,wachtwoord,rol,initialen,vakken,hoofdklassen) VALUES (?,?,?,?,?,?,?,?,?)'),
+  updGebruiker: db.prepare('UPDATE gebruikers SET naam=?,achternaam=?,email=?,rol=?,initialen=?,vakken=?,hoofdklassen=? WHERE id=?'),
+  updGebruikerMetWW: db.prepare('UPDATE gebruikers SET naam=?,achternaam=?,email=?,wachtwoord=?,rol=?,initialen=?,vakken=?,hoofdklassen=? WHERE id=?'),
   delGebruiker: db.prepare('DELETE FROM gebruikers WHERE id=?'),
 
   // VAKKEN
@@ -186,10 +207,10 @@ const Q = {
 
   // KLASSEN
   getKlassen: db.prepare('SELECT * FROM klassen ORDER BY naam'),
-  getKlassenByDocent: db.prepare('SELECT * FROM klassen WHERE docentId=? ORDER BY naam'),
+  getKlassenByDocent: db.prepare("SELECT * FROM klassen WHERE docentId=? OR docenten LIKE '%\"' || ? || '\"%' ORDER BY naam"),
   getKlas: db.prepare('SELECT * FROM klassen WHERE id=?'),
-  insKlas: db.prepare('INSERT INTO klassen (id,naam,leerjaar,niveau,vakId,docentId,schooljaar,aantalWeken,urenPerWeek) VALUES (?,?,?,?,?,?,?,?,?)'),
-  updKlas: db.prepare('UPDATE klassen SET naam=?,leerjaar=?,niveau=?,vakId=?,docentId=?,schooljaar=?,urenPerWeek=? WHERE id=?'),
+  insKlas: db.prepare('INSERT INTO klassen (id,naam,leerjaar,niveau,vakId,docentId,schooljaar,aantalWeken,urenPerWeek,docenten) VALUES (?,?,?,?,?,?,?,?,?,?)'),
+  updKlas: db.prepare('UPDATE klassen SET naam=?,leerjaar=?,niveau=?,vakId=?,docentId=?,schooljaar=?,urenPerWeek=?,docenten=? WHERE id=?'),
   delKlas: db.prepare('DELETE FROM klassen WHERE id=?'),
 
   // SCHOOLJAREN
@@ -231,28 +252,28 @@ module.exports = {
 
   // --- GEBRUIKERS ---
   getGebruikers() {
-    return Q.getGebruikers.all().map(u => ({ ...u, vakken: parseJSON(u.vakken) }));
+    return Q.getGebruikers.all().map(u => ({ ...u, vakken: parseJSON(u.vakken), hoofdklassen: parseJSON(u.hoofdklassen) }));
   },
   getGebruiker(id) {
     const u = Q.getGebruiker.get(id);
-    return u ? { ...u, vakken: parseJSON(u.vakken) } : null;
+    return u ? { ...u, vakken: parseJSON(u.vakken), hoofdklassen: parseJSON(u.hoofdklassen) } : null;
   },
   getGebruikerByEmail(email) {
     const u = Q.getGebruikerByEmail.get(email);
-    return u ? { ...u, vakken: parseJSON(u.vakken) } : null;
+    return u ? { ...u, vakken: parseJSON(u.vakken), hoofdklassen: parseJSON(u.hoofdklassen) } : null;
   },
-  addGebruiker({ naam, achternaam, email, wachtwoord, rol, initialen, vakken = [] }) {
+  addGebruiker({ naam, achternaam, email, wachtwoord, rol, initialen, vakken = [], hoofdklassen = [] }) {
     if (Q.getGebruikerByEmail.get(email)) return { error: 'E-mail bestaat al' };
     const id = genId();
     const hash = bcrypt.hashSync(wachtwoord, 10);
-    Q.insGebruiker.run(id, naam, achternaam, email, hash, rol, initialen || null, JSON.stringify(vakken));
+    Q.insGebruiker.run(id, naam, achternaam, email, hash, rol, initialen || null, JSON.stringify(vakken), JSON.stringify(hoofdklassen));
     return this.getGebruiker(id);
   },
   updateGebruiker(id, data) {
     if (data.wachtwoord) {
-      Q.updGebruikerMetWW.run(data.naam, data.achternaam, data.email, bcrypt.hashSync(data.wachtwoord, 10), data.rol, data.initialen || null, JSON.stringify(data.vakken || []), id);
+      Q.updGebruikerMetWW.run(data.naam, data.achternaam, data.email, bcrypt.hashSync(data.wachtwoord, 10), data.rol, data.initialen || null, JSON.stringify(data.vakken || []), JSON.stringify(data.hoofdklassen || []), id);
     } else {
-      Q.updGebruiker.run(data.naam, data.achternaam, data.email, data.rol, data.initialen || null, JSON.stringify(data.vakken || []), id);
+      Q.updGebruiker.run(data.naam, data.achternaam, data.email, data.rol, data.initialen || null, JSON.stringify(data.vakken || []), JSON.stringify(data.hoofdklassen || []), id);
     }
   },
   deleteGebruiker(id) { Q.delGebruiker.run(id); },
@@ -276,15 +297,24 @@ module.exports = {
 
   // --- KLASSEN ---
   getKlassen(docentId = null) {
-    return docentId ? Q.getKlassenByDocent.all(docentId) : Q.getKlassen.all();
+    const alle = Q.getKlassen.all().map(k => ({ ...k, docenten: parseJSON(k.docenten) }));
+    if (!docentId) return alle;
+    return alle.filter(k => k.docentId === docentId || (k.docenten || []).includes(docentId));
   },
-  getKlas(id) { return Q.getKlas.get(id) || null; },
+  getKlas(id) {
+    const k = Q.getKlas.get(id);
+    return k ? { ...k, docenten: parseJSON(k.docenten) } : null;
+  },
   addKlas(d) {
     const id = genId();
-    Q.insKlas.run(id, d.naam, d.leerjaar, d.niveau, d.vakId, d.docentId || null, d.schooljaar, d.aantalWeken || 38, d.urenPerWeek || 3);
-    return Q.getKlas.get(id);
+    const docenten = d.docenten || (d.docentId ? [d.docentId] : []);
+    Q.insKlas.run(id, d.naam, d.leerjaar, d.niveau, d.vakId, d.docentId || null, d.schooljaar, d.aantalWeken || 38, d.urenPerWeek || 3, JSON.stringify(docenten));
+    return this.getKlas(id);
   },
-  updateKlas(id, d) { Q.updKlas.run(d.naam, d.leerjaar, d.niveau, d.vakId, d.docentId || null, d.schooljaar, d.urenPerWeek || 3, id); },
+  updateKlas(id, d) {
+    const docenten = d.docenten || (d.docentId ? [d.docentId] : []);
+    Q.updKlas.run(d.naam, d.leerjaar, d.niveau, d.vakId, d.docentId || null, d.schooljaar, d.urenPerWeek || 3, JSON.stringify(docenten), id);
+  },
   deleteKlas(id) { Q.delOpdrachtenByKlas.run(id); Q.delKlas.run(id); },
 
   // --- SCHOOLJAREN ---
@@ -377,6 +407,3 @@ module.exports = {
     };
   }
 };
-
-// Auto-seed bij opstarten
-seedIfEmpty();
