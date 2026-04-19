@@ -1,3 +1,48 @@
+function openImportModal() {
+  openModal(`
+    <h2>Lesprofiel importeren</h2>
+    <p class="modal-sub">Upload een ingevuld Word bestand (.docx) om automatisch een lesprofiel aan te maken.</p>
+    <div class="alert alert-info" style="margin-bottom:16px">
+      <strong>Stap 1:</strong> Download de template via "⬇ Template downloaden"<br>
+      <strong>Stap 2:</strong> Laat ChatGPT of Claude hem invullen, of doe het zelf<br>
+      <strong>Stap 3:</strong> Upload het ingevulde bestand hier
+    </div>
+    <div class="upload-zone" onclick="document.getElementById('import-input').click()" id="import-zone">
+      <div class="upload-icon">↑</div>
+      <div style="font-weight:500;margin-bottom:4px">Klik om een ingevuld .docx bestand te kiezen</div>
+      <div style="font-size:12px">Alleen .docx bestanden</div>
+    </div>
+    <input type="file" id="import-input" accept=".docx" style="display:none" onchange="doImportLesprofiel(this)">
+    <div id="import-result" style="margin-top:12px;font-size:13px"></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModalDirect()">Sluiten</button>
+    </div>
+  `);
+}
+
+async function doImportLesprofiel(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const result = document.getElementById('import-result');
+  const zone = document.getElementById('import-zone');
+  zone.style.borderColor = 'var(--accent)';
+  result.innerHTML = `<span style="color:var(--amber)">⏳ Bestand wordt verwerkt...</span>`;
+  const formData = new FormData();
+  formData.append('bestand', file);
+  try {
+    const res = await fetch('/api/import-lesprofiel', { method: 'POST', body: formData });
+    const data = await res.json();
+    if (data.success) {
+      result.innerHTML = `<div class="alert alert-success">✓ ${escHtml(data.info)}</div>`;
+      setTimeout(() => { closeModalDirect(); renderLesprofielen(); }, 1500);
+    } else {
+      result.innerHTML = `<div class="alert" style="background:var(--red-light);color:var(--red);border:1px solid rgba(176,58,46,0.2)">✗ ${escHtml(data.error)}</div>`;
+    }
+  } catch(e) {
+    result.innerHTML = `<div class="alert" style="background:var(--red-light);color:var(--red);border:1px solid rgba(176,58,46,0.2)">✗ Upload mislukt: ${escHtml(e.message)}</div>`;
+  }
+}
+
 async function renderLesprofielen() {
   if (!Auth.canEdit()) {
     document.getElementById('view-lesprofielen').innerHTML = `<div class="empty-state"><h3>Geen toegang</h3></div>`;
@@ -12,7 +57,11 @@ async function renderLesprofielen() {
     document.getElementById('view-lesprofielen').innerHTML = `
       <div class="page-header">
         <div class="page-header-left"><h1>Lesprofielen</h1></div>
-        <button class="btn btn-primary" onclick="openProfielModal()">+ Nieuw lesprofiel</button>
+        <div style="display:flex;gap:8px">
+          <a href="/api/lesprofiel-template" class="btn" download>⬇ Template downloaden</a>
+          <button class="btn" onclick="openImportModal()">↑ Importeren uit Word</button>
+          <button class="btn btn-primary" onclick="openProfielModal()">+ Nieuw lesprofiel</button>
+        </div>
       </div>
       <div class="alert alert-info" style="margin-bottom:20px">
         Een lesprofiel is een blok van meerdere weken met activiteiten per week. Koppel het aan een startweek in de jaarplanning om het automatisch in te vullen.
