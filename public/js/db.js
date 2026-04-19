@@ -24,19 +24,20 @@ const DB = {
     ];
 
     const opdrachten = [
-      { id: 'o1', klasId: 'k1', naam: 'Introductie PIE & oriëntatie', beschrijving: 'Kennismaking met het vak en beroepsoriëntatie', syllabuscodes: 'PIE-1.1', weken: '36-37', type: 'Theorie', werkboekLink: 'H1 p.4–12', theorieLink: 'https://example.com/theorie/1', toetsBestand: null, periode: 1, actief: false },
-      { id: 'o2', klasId: 'k1', naam: 'Ondernemersplan opstellen', beschrijving: 'Individuele opdracht: schrijf een basisondernemersplan', syllabuscodes: 'PIE-1.2, PIE-1.3', weken: '38-39', type: 'Opdracht', werkboekLink: 'H2 opdracht 3', theorieLink: 'https://example.com/canvas', toetsBestand: null, periode: 1, actief: false },
-      { id: 'o3', klasId: 'k1', naam: 'Toets periode 1', beschrijving: 'Schriftelijke toets, 60 minuten', syllabuscodes: 'PIE-1.1, PIE-1.2, PIE-1.3', weken: '40', type: 'Toets', werkboekLink: '', theorieLink: '', toetsBestand: 'toets_p1_2025.pdf', periode: 1, actief: false },
-      { id: 'o4', klasId: 'k1', naam: 'Businessmodel Canvas', beschrijving: 'Groepsopdracht: ontwikkel een volledig businessmodel', syllabuscodes: 'PIE-2.1', weken: '47-49', type: 'Groepsopdracht', werkboekLink: 'H3 p.20–28', theorieLink: 'https://example.com/bmc', toetsBestand: null, periode: 2, actief: false },
-      { id: 'o5', klasId: 'k1', naam: 'Marktonderzoek uitvoeren', beschrijving: 'Voer een eenvoudig marktonderzoek uit voor je product', syllabuscodes: 'PIE-2.2', weken: '50-51', type: 'Opdracht', werkboekLink: 'H3 p.29–36', theorieLink: '', toetsBestand: null, periode: 2, actief: true },
-      { id: 'o6', klasId: 'k2', naam: 'Introductie PIE & oriëntatie', beschrijving: 'Kennismaking met het vak', syllabuscodes: 'PIE-1.1', weken: '36-37', type: 'Theorie', werkboekLink: 'H1 p.4–12', theorieLink: '', toetsBestand: null, periode: 1, actief: false },
-      { id: 'o7', klasId: 'k3', naam: 'Introductie PIE gevorderd', beschrijving: 'Verdieping in PIE voor VWO niveau', syllabuscodes: 'PIE-1.1, PIE-1.2', weken: '36-38', type: 'Theorie', werkboekLink: 'H1–H2', theorieLink: '', toetsBestand: null, periode: 1, actief: false },
+      { id: 'o1', klasId: 'k1', naam: 'Introductie PIE & oriëntatie', beschrijving: 'Kennismaking met het vak en beroepsoriëntatie', syllabuscodes: 'PIE-1.1', weken: '36-37', weekId: null, type: 'Theorie', werkboekLink: 'H1 p.4–12', theorieLink: 'https://example.com/theorie/1', toetsBestand: null, periode: 1, actief: false },
+      { id: 'o2', klasId: 'k1', naam: 'Ondernemersplan opstellen', beschrijving: 'Individuele opdracht: schrijf een basisondernemersplan', syllabuscodes: 'PIE-1.2, PIE-1.3', weken: '38-39', weekId: null, type: 'Opdracht', werkboekLink: 'H2 opdracht 3', theorieLink: 'https://example.com/canvas', toetsBestand: null, periode: 1, actief: false },
+      { id: 'o3', klasId: 'k1', naam: 'Toets periode 1', beschrijving: 'Schriftelijke toets, 60 minuten', syllabuscodes: 'PIE-1.1, PIE-1.2, PIE-1.3', weken: '40', weekId: null, type: 'Toets', werkboekLink: '', theorieLink: '', toetsBestand: 'toets_p1_2025.pdf', periode: 1, actief: false },
     ];
+
+    // Genereer schooljaar 2025-2026 weken
+    const weken2526 = Schooljaar.genereerWeken('2025-2026');
 
     this.set('gebruikers', users);
     this.set('vakken', vakken);
     this.set('klassen', klassen);
     this.set('opdrachten', opdrachten);
+    this.set('schooljaren', [{ id: 'sj1', naam: '2025-2026', aangemaakt: new Date().toISOString() }]);
+    this.set('weken_2025-2026', weken2526);
     localStorage.setItem('jp_seeded', '1');
   },
 
@@ -54,9 +55,49 @@ const DB = {
     return Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
   },
 
+  // ---------- SCHOOLJAREN ----------
+  getSchooljaren() { return this.get('schooljaren'); },
+
+  heeftSchooljaar(naam) {
+    return this.getSchooljaren().some(s => s.naam === naam);
+  },
+
+  addSchooljaar(naam) {
+    if (this.heeftSchooljaar(naam)) return { error: 'Schooljaar bestaat al' };
+    const weken = Schooljaar.genereerWeken(naam);
+    if (!weken.length) return { error: 'Geen vakantiedata beschikbaar voor dit schooljaar' };
+
+    const schooljaren = this.getSchooljaren();
+    const sj = { id: this.genId(), naam, aangemaakt: new Date().toISOString(), aantalWeken: weken.length };
+    schooljaren.push(sj);
+    this.set('schooljaren', schooljaren);
+    this.set(`weken_${naam}`, weken);
+    return sj;
+  },
+
+  deleteSchooljaar(naam) {
+    this.set('schooljaren', this.getSchooljaren().filter(s => s.naam !== naam));
+    localStorage.removeItem(`jp_weken_${naam}`);
+  },
+
+  // ---------- WEKEN ----------
+  getWeken(schooljaar) {
+    return this.get(`weken_${schooljaar}`);
+  },
+
+  getWeek(schooljaar, weekId) {
+    return this.getWeken(schooljaar).find(w => w.id === weekId) || null;
+  },
+
+  updateWeekThema(schooljaar, weekId, thema) {
+    const weken = this.getWeken(schooljaar).map(w =>
+      w.id === weekId ? { ...w, thema } : w
+    );
+    this.set(`weken_${schooljaar}`, weken);
+  },
+
   // ---------- GEBRUIKERS ----------
   getGebruikers() { return this.get('gebruikers'); },
-
   getGebruiker(id) { return this.getGebruikers().find(u => u.id === id) || null; },
 
   addGebruiker(data) {
@@ -79,7 +120,6 @@ const DB = {
 
   // ---------- VAKKEN ----------
   getVakken() { return this.get('vakken'); },
-
   getVak(id) { return this.getVakken().find(v => v.id === id) || null; },
 
   addVak(data) {
@@ -129,6 +169,15 @@ const DB = {
     return o;
   },
 
+  getOpdrachtenVoorWeek(klasId, weeknummer, schooljaar) {
+    return this.getOpdrachten(klasId).filter(o => {
+      if (o.weeknummer && o.schooljaar === schooljaar) return o.weeknummer === weeknummer;
+      // fallback op weken string
+      if (o.weken) return weekInRange(o.weken, weeknummer);
+      return false;
+    });
+  },
+
   getOpdracht(id) { return this.getOpdrachten().find(o => o.id === id) || null; },
 
   addOpdracht(data) {
@@ -159,9 +208,9 @@ const DB = {
       aantalOpdrachten: opdrachten.length,
       aantalToetsen: toetsen.length,
       aantalVakken: [...new Set(klassen.map(k => k.vakId))].length,
+      aantalSchooljaren: this.getSchooljaren().length,
     };
   }
 };
 
-// Init on load
 DB.seed();
