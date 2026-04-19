@@ -122,6 +122,12 @@ function openKlasModal(id = null) {
           ${docenten.map(d => `<option value="${d.id}" ${k?.docentId===d.id?'selected':''}>${escHtml(d.naam)} ${escHtml(d.achternaam)}</option>`).join('')}
         </select>
       </div>
+      <div class="form-field">
+        <label>Uren per week (voor dit vak)</label>
+        <select id="klas-uren">
+          ${[1,2,3,4,5,6].map(n => `<option value="${n}" ${(k?.urenPerWeek||3)===n?'selected':''}>${n} uur per week</option>`).join('')}
+        </select>
+      </div>
     </div>
 
     <div class="modal-actions">
@@ -146,7 +152,8 @@ function saveKlas(id) {
     return;
   }
 
-  const data = { naam, schooljaar, leerjaar, niveau, vakId, docentId };
+  const urenPerWeek = parseInt(document.getElementById('klas-uren').value);
+  const data = { naam, schooljaar, leerjaar, niveau, vakId, docentId, urenPerWeek };
 
   if (id) {
     DB.updateKlas(id, data);
