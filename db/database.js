@@ -21,6 +21,8 @@ db.pragma('foreign_keys = ON');
 // ============================================================
 function migreer() {
   const weekCols = db.prepare("PRAGMA table_info(weken)").all().map(c => c.name);
+  const klasCols = db.prepare("PRAGMA table_info(klassen)").all().map(c => c.name);
+  const userCols = db.prepare("PRAGMA table_info(gebruikers)").all().map(c => c.name);
   if (!weekCols.includes('weektype')) {
     db.exec("ALTER TABLE weken ADD COLUMN weektype TEXT DEFAULT 'normaal'");
     db.exec("UPDATE weken SET weektype = 'vakantie' WHERE isVakantie = 1");
@@ -36,7 +38,6 @@ function migreer() {
     db.exec("UPDATE klassen SET docenten = json_array(docentId) WHERE docentId IS NOT NULL AND docentId != ''");
     console.log('Migratie: docenten kolom toegevoegd aan klassen');
   }
-  const userCols = db.prepare("PRAGMA table_info(gebruikers)").all().map(c => c.name);
   if (!userCols.includes('hoofdklassen')) {
     db.exec("ALTER TABLE gebruikers ADD COLUMN hoofdklassen TEXT DEFAULT '[]'");
     console.log('Migratie: hoofdklassen kolom toegevoegd aan gebruikers');
