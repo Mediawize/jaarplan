@@ -48,6 +48,8 @@ const API = {
   // WEKEN
   async getWeken(schooljaar) { return this._fetch(`/api/weken/${encodeURIComponent(schooljaar)}`); },
   async updateWeekThema(weekId, thema) { return this._fetch(`/api/weken/${weekId}/thema`, { method: 'PUT', body: { thema } }); },
+  async updateWeekType(weekId, weektype, vakantieNaam) { return this._fetch(`/api/weken/${weekId}/type`, { method: 'PUT', body: { weektype, vakantieNaam } }); },
+  async updateDagnotities(weekId, dagnotities) { return this._fetch(`/api/weken/${weekId}/dagnotities`, { method: 'PUT', body: { dagnotities } }); },
 
   // OPDRACHTEN
   async getOpdrachten(klasId) { return this._fetch('/api/opdrachten' + (klasId ? `?klasId=${klasId}` : '')); },
