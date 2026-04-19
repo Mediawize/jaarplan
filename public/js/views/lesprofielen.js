@@ -236,7 +236,7 @@ function openActiviteitModal(profielId, weekIdx) {
         <option>Theorie</option><option>Praktijk</option><option>Toets</option><option>Presentatie</option><option>Overig</option>
       </select></div>
       <div class="form-field"><label>Uren *</label><select id="act-uren">
-        ${[0.5,1,1.5,2,2.5,3,4].map(u=>`<option value="${u}" ${u===1?'selected':''}>${u} uur</option>`).join('')}
+        ${[0.5,1,1.5,2,2.5,3,4,5,6,7,8].map(u=>`<option value="${u}" ${u===1?'selected':''}>${u} uur</option>`).join('')}
       </select></div>
       <div class="form-field form-full"><label>Omschrijving</label><input id="act-omschrijving" placeholder="bijv. Uitleg businessmodel canvas"></div>
       <div class="form-field form-full"><label>Link</label><input id="act-link" type="url" placeholder="https://..."></div>
