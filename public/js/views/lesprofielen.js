@@ -352,9 +352,20 @@ async function openKoppelModal(profielId) {
   const vak = vakken.find(v=>v.id===p.vakId);
   const relevante = klassen.filter(k=>k.vakId===p.vakId);
 
+  // Check of dit profiel al gekoppeld is aan een klas
+  const alleOpd = await API.getOpdrachten();
+  const alGekoppeld = alleOpd.filter(o => o.profielId === profielId);
+  const gekoppeldeKlassen = [...new Set(alGekoppeld.map(o => o.klasId))];
+  const gekoppeldeKlasNamen = gekoppeldeKlassen.map(id => klassen.find(k=>k.id===id)?.naam).filter(Boolean);
+
   openModal(`
     <h2>Profiel koppelen aan planning</h2>
     <p class="modal-sub">Koppel "<strong>${escHtml(p.naam)}</strong>" (${p.aantalWeken} weken) aan een startweek.</p>
+    ${gekoppeldeKlasNamen.length > 0 ? `
+    <div class="alert alert-info" style="margin-bottom:16px">
+      ⚠️ Dit profiel is al gekoppeld aan: <strong>${escHtml(gekoppeldeKlasNamen.join(', '))}</strong><br>
+      <span style="font-size:12px">Bij opnieuw koppelen aan dezelfde klas worden de oude opdrachten eerst verwijderd en opnieuw aangemaakt.</span>
+    </div>` : ''}
     <div class="form-grid">
       <div class="form-field"><label>Klas *</label><select id="koppel-klas" onchange="laadKoppelWeken('${p.id}')">
         ${relevante.length===0?`<option value="">Geen klassen met vak ${escHtml(vak?.naam)}</option>`:relevante.map(k=>`<option value="${k.id}">${escHtml(k.naam)} — ${escHtml(k.schooljaar)}</option>`).join('')}
@@ -397,6 +408,14 @@ async function slaKoppelingOp(profielId) {
   const [profielen, klassen] = await Promise.all([API.getLesprofielen(), API.getKlassen()]);
   const p = profielen.find(x=>x.id===profielId);
   const klas = klassen.find(k=>k.id===klasId);
+
+  // Verwijder bestaande opdrachten van dit profiel+klas combinatie
+  const bestaandeOpd = await API.getOpdrachten(klasId);
+  const teVerwijderen = bestaandeOpd.filter(o => o.profielId === profielId);
+  for (const o of teVerwijderen) {
+    await API.deleteOpdracht(o.id);
+  }
+
   const alleWeken = (await API.getWeken(klas.schooljaar)).filter(w=>!w.isVakantie);
   const startIdx = alleWeken.findIndex(w=>w.weeknummer===startweek);
   const schoolWeken = alleWeken.slice(startIdx, startIdx+p.aantalWeken);
