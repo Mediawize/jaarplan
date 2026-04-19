@@ -69,3 +69,13 @@ function showView(view){
 }
 function startApp(){renderShell();document.getElementById('login-screen').style.display='none';document.getElementById('app-shell').style.display='flex';updateSidebar();showView('dashboard');}
 document.addEventListener('DOMContentLoaded',()=>{renderShell();if(Auth.init()){startApp();}else{document.getElementById('login-screen').style.display='flex';document.getElementById('app-shell').style.display='none';}});
+
+function getInitialen(user) {
+  if (!user) return "???";
+  if (user.initialen) return user.initialen.toUpperCase().slice(0,3);
+  const delen = [(user.naam||""), (user.achternaam||"")].join(" ").trim().split(/\s+/);
+  if (delen.length >= 3) return (delen[0][0]+delen[1][0]+delen[2][0]).toUpperCase();
+  if (delen.length === 2) return (delen[0][0]+delen[0][1]+delen[1][0]).toUpperCase();
+  if (delen.length === 1 && delen[0].length >= 3) return delen[0].slice(0,3).toUpperCase();
+  return (delen.join("").slice(0,3)).toUpperCase().padEnd(3,"X");
+}
