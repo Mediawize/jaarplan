@@ -51,6 +51,15 @@ function getInitialen(user) {
   return (delen.join('').slice(0, 3)).toUpperCase().padEnd(3, 'X');
 }
 
+function getSchooljaarLabel() {
+  const nu = new Date();
+  const maand = nu.getMonth() + 1; // 1-12
+  const jaar = nu.getFullYear();
+  // Schooljaar start in augustus (maand 8)
+  const startJaar = maand >= 8 ? jaar : jaar - 1;
+  return `Schooljaar ${startJaar}–${startJaar + 1}`;
+}
+
 function showError(msg) {
   const el = document.getElementById('global-error');
   if (!el) return;
