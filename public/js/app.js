@@ -10,14 +10,20 @@ function escHtml(value) {
 
 function typeKleur(type) {
   switch (type) {
-    case 'Theorie': return 'badge-blue';
-    case 'Opdracht': return 'badge-green';
-    case 'Toets': return 'badge-amber';
-    case 'Praktijk': return 'badge-red';
-    case 'Project': return 'badge-blue';
-    case 'Groepsopdracht': return 'badge-green';
-    default: return 'badge-gray';
+    case 'Theorie':       return 'badge-blue';
+    case 'Opdracht':      return 'badge-green';
+    case 'Groepsopdracht':return 'badge-green';
+    case 'Toets':         return 'badge-amber';
+    case 'Praktijk':      return 'badge-red';
+    case 'Project':       return 'badge-blue';
+    case 'Presentatie':   return 'badge-gray';
+    default:              return 'badge-gray';
   }
+}
+
+function getRolLabel(rol) {
+  const map = { admin: 'Beheerder', docent: 'Docent', management: 'Management' };
+  return map[rol] || rol;
 }
 
 function getCurrentWeek() {
@@ -40,20 +46,21 @@ function weekInRange(weken, week) {
 
 function openModal(content) {
   const overlay = document.getElementById('modal-overlay');
-
   overlay.innerHTML = `
-    <div class="modal-overlay" onclick="closeModal(event)">
-      <div class="modal-box">
-        ${content}
-      </div>
+    <div class="modal-overlay-inner" onclick="closeModal(event)">
+      <div class="modal-box">${content}</div>
     </div>
   `;
-
   overlay.style.display = 'flex';
+  overlay.style.position = 'fixed';
+  overlay.style.inset = '0';
+  overlay.style.zIndex = '1000';
+  overlay.style.alignItems = 'center';
+  overlay.style.justifyContent = 'center';
 }
 
 function closeModal(event) {
-  if (event.target.id === 'modal-overlay') {
+  if (event.target.classList.contains('modal-overlay-inner')) {
     closeModalDirect();
   }
 }
@@ -65,10 +72,9 @@ function closeModalDirect() {
 }
 
 function renderShell() {
+  // LOGIN SCREEN
   document.getElementById('login-screen').innerHTML = `
-    <div class="login-bg">
-      <div class="login-grid"></div>
-    </div>
+    <div class="login-bg"><div class="login-grid"></div></div>
     <div class="login-card">
       <div class="login-logo">
         <span class="logo-mark">JP</span>
@@ -92,7 +98,7 @@ function renderShell() {
       <div class="login-demo">
         <p>Demo accounts:</p>
         <div class="demo-accounts">
-          <button onclick="fillDemo('admin@school.nl','admin123')">🔑 Beheerder</button>
+          <button onclick="fillDemo('t.nieuweboer@atlascollege.nl','admin123')">🔑 Beheerder</button>
           <button onclick="fillDemo('docent@school.nl','docent123')">👨‍🏫 Docent</button>
           <button onclick="fillDemo('management@school.nl','mgmt123')">👔 Management</button>
         </div>
@@ -100,6 +106,7 @@ function renderShell() {
     </div>
   `;
 
+  // APP SHELL
   document.getElementById('app-shell').innerHTML = `
     <nav class="sidebar" id="sidebar">
       <div class="sidebar-logo">
@@ -107,7 +114,7 @@ function renderShell() {
         <span class="logo-text">JaarPlan</span>
       </div>
 
-      <div class="nav-group" id="nav-main">
+      <div class="nav-group">
         <div class="nav-label">Overzicht</div>
         <a class="nav-item" data-view="dashboard" onclick="showView('dashboard')">
           <svg viewBox="0 0 20 20" fill="none">
@@ -126,7 +133,7 @@ function renderShell() {
         </a>
       </div>
 
-      <div class="nav-group" id="nav-planning">
+      <div class="nav-group">
         <div class="nav-label">Planning</div>
         <a class="nav-item" data-view="jaarplanning" onclick="showView('jaarplanning')">
           <svg viewBox="0 0 20 20" fill="none">
@@ -194,67 +201,45 @@ function renderShell() {
 function updateSidebar() {
   const user = Auth.currentUser;
   const info = document.getElementById('user-info-sidebar');
-
   if (info && user) {
-    info.innerHTML = `<strong>${escHtml(user.naam)}</strong>${escHtml(user.email)}<br>${escHtml(user.rol)}`;
+    info.innerHTML = `<strong>${escHtml(user.naam)}</strong>${escHtml(user.email)}<br><span style="opacity:.6">${getRolLabel(user.rol)}</span>`;
   }
-
   const navAdmin = document.getElementById('nav-admin');
-  if (navAdmin) {
-    navAdmin.style.display = Auth.isAdmin() ? 'block' : 'none';
-  }
+  if (navAdmin) navAdmin.style.display = Auth.isAdmin() ? 'block' : 'none';
 }
 
 function showView(view) {
-  const views = [
-    'dashboard',
-    'klassen',
-    'jaarplanning',
-    'opdrachten',
-    'toetsen',
-    'gebruikers',
-    'vakken'
-  ];
-
+  const views = ['dashboard','klassen','jaarplanning','opdrachten','toetsen','gebruikers','vakken'];
   views.forEach(v => {
     const el = document.getElementById(`view-${v}`);
     if (el) el.style.display = v === view ? 'block' : 'none';
   });
-
   document.querySelectorAll('.nav-item').forEach(item => {
     item.classList.toggle('active', item.dataset.view === view);
   });
 
-  if (view === 'dashboard') renderDashboard();
-  if (view === 'klassen') renderKlassen();
-  if (view === 'jaarplanning') renderJaarplanning();
-  if (view === 'vakken') renderVakken();
-  if (view === 'gebruikers') renderGebruikers();
-
-  if (view === 'opdrachten') {
-    const el = document.getElementById('view-opdrachten');
-    el.innerHTML = `<div class="empty-state"><h3>Nog niet gekoppeld</h3><p>Gebruik voorlopig Jaarplanning voor opdrachten.</p></div>`;
-  }
-
-  if (view === 'toetsen') {
-    const el = document.getElementById('view-toetsen');
-    el.innerHTML = `<div class="empty-state"><h3>Nog niet gekoppeld</h3><p>Dit onderdeel voeg je later toe.</p></div>`;
-  }
+  const renderers = {
+    dashboard:    renderDashboard,
+    klassen:      renderKlassen,
+    jaarplanning: renderJaarplanning,
+    opdrachten:   renderOpdrachten,
+    toetsen:      renderToetsen,
+    gebruikers:   renderGebruikers,
+    vakken:       renderVakken,
+  };
+  if (renderers[view]) renderers[view]();
 }
 
 function startApp() {
   renderShell();
-
   document.getElementById('login-screen').style.display = 'none';
   document.getElementById('app-shell').style.display = 'flex';
-
   updateSidebar();
   showView('dashboard');
 }
 
 document.addEventListener('DOMContentLoaded', () => {
   renderShell();
-
   if (Auth.init()) {
     startApp();
   } else {
