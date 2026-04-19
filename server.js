@@ -154,7 +154,7 @@ app.post('/api/upload', requireCanEdit, upload.single('bestand'), (req, res) => 
 app.get('/health', (req, res) => res.json({ status: 'ok', db: 'sqlite' }));
 
 // ---- START ----
-db.seedIfEmpty();
+
 app.listen(PORT, () => {
   console.log(`\nJaarPlan draait op http://localhost:${PORT}`);
   console.log(`Database: data/jaarplan.db\n`);
