@@ -52,8 +52,10 @@ function requireCanEdit(req, res, next) {
 app.post('/api/login', (req, res) => {
   const { email, wachtwoord } = req.body;
   if (!email || !wachtwoord) return res.status(400).json({ error: 'Vul e-mail en wachtwoord in' });
-  const user = db.verifyWachtwoord(email, wachtwoord);
-  if (!user) return res.status(401).json({ error: 'Onjuist e-mailadres of wachtwoord' });
+  const bcrypt = require('bcryptjs');
+  const u = db.getGebruikerByEmail(email);
+  if (!u || !bcrypt.compareSync(wachtwoord, u.wachtwoord)) return res.status(401).json({ error: 'Onjuist e-mailadres of wachtwoord' });
+  const user = u;
   req.session.user = { id: user.id, naam: user.naam + ' ' + user.achternaam, rol: user.rol, email: user.email, vakken: user.vakken || [], initialen: user.initialen };
   res.json({ success: true, user: req.session.user });
 });
@@ -159,3 +161,4 @@ app.listen(PORT, () => {
   console.log(`\nJaarPlan draait op http://localhost:${PORT}`);
   console.log(`Database: data/jaarplan.db\n`);
 });
+

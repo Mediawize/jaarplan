@@ -377,3 +377,6 @@ module.exports = {
     };
   }
 };
+
+// Auto-seed bij opstarten
+seedIfEmpty();
