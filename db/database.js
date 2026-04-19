@@ -20,7 +20,16 @@ db.pragma('foreign_keys = ON');
 // MIGRATIES — voeg kolommen toe als ze nog niet bestaan
 // ============================================================
 function migreer() {
-  const klasCols = db.prepare("PRAGMA table_info(klassen)").all().map(c => c.name);
+  const weekCols = db.prepare("PRAGMA table_info(weken)").all().map(c => c.name);
+  if (!weekCols.includes('weektype')) {
+    db.exec("ALTER TABLE weken ADD COLUMN weektype TEXT DEFAULT 'normaal'");
+    db.exec("UPDATE weken SET weektype = 'vakantie' WHERE isVakantie = 1");
+    console.log('Migratie: weektype kolom toegevoegd aan weken');
+  }
+  if (!weekCols.includes('dagnotities')) {
+    db.exec("ALTER TABLE weken ADD COLUMN dagnotities TEXT DEFAULT '[]'");
+    console.log('Migratie: dagnotities kolom toegevoegd aan weken');
+  }
   if (!klasCols.includes('docenten')) {
     db.exec("ALTER TABLE klassen ADD COLUMN docenten TEXT DEFAULT '[]'");
     // Migreer bestaande docentId naar docenten array
@@ -224,6 +233,8 @@ const Q = {
   getWeek: db.prepare('SELECT * FROM weken WHERE id=?'),
   insWeek: db.prepare('INSERT OR IGNORE INTO weken (id,schooljaar,weeknummer,van,tot,vanISO,totISO,isVakantie,vakantieNaam,thema) VALUES (?,?,?,?,?,?,?,?,?,?)'),
   updWeekThema: db.prepare('UPDATE weken SET thema=? WHERE id=?'),
+  updWeekType: db.prepare('UPDATE weken SET weektype=?, isVakantie=?, vakantieNaam=? WHERE id=?'),
+  updWeekDagnotities: db.prepare('UPDATE weken SET dagnotities=? WHERE id=?'),
   delWekenVoorSchooljaar: db.prepare('DELETE FROM weken WHERE schooljaar=?'),
 
   // OPDRACHTEN
@@ -333,9 +344,21 @@ module.exports = {
 
   // --- WEKEN ---
   getWeken(schooljaar) {
-    return Q.getWeken.all(schooljaar).map(w => ({ ...w, isVakantie: !!w.isVakantie }));
+    return Q.getWeken.all(schooljaar).map(w => ({
+      ...w,
+      isVakantie: !!w.isVakantie,
+      weektype: w.weektype || 'normaal',
+      dagnotities: parseJSON(w.dagnotities),
+    }));
   },
   updateWeekThema(weekId, thema) { Q.updWeekThema.run(thema, weekId); },
+  updateWeekType(weekId, weektype, vakantieNaam) {
+    const isVakantie = weektype === 'vakantie' ? 1 : 0;
+    Q.updWeekType.run(weektype, isVakantie, vakantieNaam || null, weekId);
+  },
+  updateDagnotities(weekId, dagnotities) {
+    Q.updWeekDagnotities.run(JSON.stringify(dagnotities || []), weekId);
+  },
 
   // --- OPDRACHTEN ---
   getOpdrachten(klasId = null) {
