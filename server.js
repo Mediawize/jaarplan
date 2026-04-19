@@ -117,6 +117,8 @@ app.delete('/api/schooljaren/:naam', requireAdmin, (req, res) => { db.deleteScho
 // ---- WEKEN ----
 app.get('/api/weken/:schooljaar', requireAuth, (req, res) => res.json(db.getWeken(req.params.schooljaar)));
 app.put('/api/weken/:weekId/thema', requireCanEdit, (req, res) => { db.updateWeekThema(req.params.weekId, req.body.thema || ''); res.json({ success: true }); });
+app.put('/api/weken/:weekId/type', requireAuth, (req, res) => { db.updateWeekType(req.params.weekId, req.body.weektype || 'normaal', req.body.vakantieNaam || null); res.json({ success: true }); });
+app.put('/api/weken/:weekId/dagnotities', requireAuth, (req, res) => { db.updateDagnotities(req.params.weekId, req.body.dagnotities || []); res.json({ success: true }); });
 
 // ---- OPDRACHTEN ----
 app.get('/api/opdrachten', requireAuth, (req, res) => res.json(db.getOpdrachten(req.query.klasId || null)));
