@@ -1,42 +1,13 @@
-function escHtml(value) {
-  if (value === null || value === undefined) return '';
-  return String(value).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
-}
-function typeKleur(type) {
-  const map = {'Theorie':'badge-blue','Opdracht':'badge-green','Groepsopdracht':'badge-green','Toets':'badge-amber','Praktijk':'badge-red','Project':'badge-blue','Presentatie':'badge-gray'};
-  return map[type] || 'badge-gray';
-}
-function getRolLabel(rol) {
-  return {'admin':'Beheerder','docent':'Docent','management':'Management'}[rol] || rol;
-}
-function getCurrentWeek() {
-  const now = new Date();
-  const date = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
-  const dayNum = date.getUTCDay() || 7;
-  date.setUTCDate(date.getUTCDate() + 4 - dayNum);
-  const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
-  return Math.ceil((((date - yearStart) / 86400000) + 1) / 7);
-}
-function weekInRange(weken, week) {
-  if (!weken) return false;
-  if (String(weken).includes('-')) {
-    const [start, end] = String(weken).split('-').map(n => parseInt(n.trim(), 10));
-    return week >= start && week <= end;
-  }
-  return parseInt(weken, 10) === week;
-}
-function openModal(content) {
-  const overlay = document.getElementById('modal-overlay');
-  overlay.innerHTML = `<div class="modal-overlay-inner" onclick="closeModal(event)"><div class="modal-box">${content}</div></div>`;
-  overlay.style.cssText = 'display:flex;position:fixed;inset:0;z-index:1000;align-items:center;justify-content:center;background:rgba(26,23,20,0.55)';
-}
-function closeModal(event) { if (event.target.classList.contains('modal-overlay-inner')) closeModalDirect(); }
-function closeModalDirect() {
-  const o = document.getElementById('modal-overlay');
-  o.style.display = 'none'; o.innerHTML = '';
-}
-function renderShell() {
-  document.getElementById('login-screen').innerHTML = `
+function escHtml(v){if(v==null)return '';return String(v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
+function typeKleur(t){const m={'Theorie':'badge-blue','Opdracht':'badge-green','Groepsopdracht':'badge-green','Toets':'badge-amber','Praktijk':'badge-red','Project':'badge-blue','Presentatie':'badge-gray'};return m[t]||'badge-gray';}
+function getRolLabel(r){return {'admin':'Beheerder','docent':'Docent','management':'Management'}[r]||r;}
+function getCurrentWeek(){const n=new Date(),d=new Date(Date.UTC(n.getFullYear(),n.getMonth(),n.getDate())),dn=d.getUTCDay()||7;d.setUTCDate(d.getUTCDate()+4-dn);const y=new Date(Date.UTC(d.getUTCFullYear(),0,1));return Math.ceil((((d-y)/86400000)+1)/7);}
+function weekInRange(w,wk){if(!w)return false;if(String(w).includes('-')){const[s,e]=String(w).split('-').map(n=>parseInt(n.trim(),10));return wk>=s&&wk<=e;}return parseInt(w,10)===wk;}
+function openModal(c){const o=document.getElementById('modal-overlay');o.innerHTML=`<div class="modal-overlay-inner" onclick="closeModal(event)"><div class="modal-box">${c}</div></div>`;o.style.cssText='display:flex;position:fixed;inset:0;z-index:1000;align-items:center;justify-content:center;background:rgba(26,23,20,0.55)';}
+function closeModal(e){if(e.target.classList.contains('modal-overlay-inner'))closeModalDirect();}
+function closeModalDirect(){const o=document.getElementById('modal-overlay');o.style.display='none';o.innerHTML='';}
+function renderShell(){
+  document.getElementById('login-screen').innerHTML=`
     <div class="login-bg"><div class="login-grid"></div></div>
     <div class="login-card">
       <div class="login-logo"><span class="logo-mark">JP</span><div><div class="logo-title">JaarPlan</div><div class="logo-sub">Docentenplatform</div></div></div>
@@ -52,7 +23,7 @@ function renderShell() {
         <button onclick="fillDemo('management@school.nl','mgmt123')">👔 Management</button>
       </div></div>
     </div>`;
-  document.getElementById('app-shell').innerHTML = `
+  document.getElementById('app-shell').innerHTML=`
     <nav class="sidebar" id="sidebar">
       <div class="sidebar-logo"><span class="logo-mark-sm">JP</span><span class="logo-text">JaarPlan</span></div>
       <div class="nav-group">
@@ -63,6 +34,7 @@ function renderShell() {
       <div class="nav-group">
         <div class="nav-label">Planning</div>
         <a class="nav-item" data-view="jaarplanning" onclick="showView('jaarplanning')"><svg viewBox="0 0 20 20" fill="none"><rect x="2" y="3" width="16" height="15" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M6 2v2M14 2v2M2 8h16" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>Jaarplanning</a>
+        <a class="nav-item" data-view="lesprofielen" onclick="showView('lesprofielen')"><svg viewBox="0 0 20 20" fill="none"><path d="M4 4h12v2H4zM4 9h12v2H4zM4 14h8v2H4z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><rect x="2" y="2" width="16" height="16" rx="2" stroke="currentColor" stroke-width="1.5"/></svg>Lesprofielen</a>
         <a class="nav-item" data-view="opdrachten" onclick="showView('opdrachten')"><svg viewBox="0 0 20 20" fill="none"><path d="M5 5h10M5 9h10M5 13h6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><rect x="2" y="2" width="16" height="16" rx="2" stroke="currentColor" stroke-width="1.5"/></svg>Opdrachten</a>
         <a class="nav-item" data-view="toetsen" onclick="showView('toetsen')"><svg viewBox="0 0 20 20" fill="none"><path d="M4 10l4 4 8-8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><rect x="2" y="2" width="16" height="16" rx="2" stroke="currentColor" stroke-width="1.5"/></svg>Toetsen & Materialen</a>
       </div>
@@ -81,38 +53,19 @@ function renderShell() {
       <div id="view-dashboard" class="view"></div>
       <div id="view-klassen" class="view" style="display:none"></div>
       <div id="view-jaarplanning" class="view" style="display:none"></div>
+      <div id="view-lesprofielen" class="view" style="display:none"></div>
       <div id="view-opdrachten" class="view" style="display:none"></div>
       <div id="view-toetsen" class="view" style="display:none"></div>
       <div id="view-schooljaren" class="view" style="display:none"></div>
       <div id="view-gebruikers" class="view" style="display:none"></div>
       <div id="view-vakken" class="view" style="display:none"></div>
-    </main>`;
+    </main>`;}
+function updateSidebar(){const u=Auth.currentUser,i=document.getElementById('user-info-sidebar');if(i&&u)i.innerHTML=`<strong>${escHtml(u.naam)}</strong>${escHtml(u.email)}<br><span style="opacity:.6">${getRolLabel(u.rol)}</span>`;const n=document.getElementById('nav-admin');if(n)n.style.display=Auth.isAdmin()?'block':'none';}
+function showView(view){
+  ['dashboard','klassen','jaarplanning','lesprofielen','opdrachten','toetsen','schooljaren','gebruikers','vakken'].forEach(v=>{const el=document.getElementById('view-'+v);if(el)el.style.display=v===view?'block':'none';});
+  document.querySelectorAll('.nav-item').forEach(i=>i.classList.toggle('active',i.dataset.view===view));
+  const r={dashboard:renderDashboard,klassen:renderKlassen,jaarplanning:renderJaarplanning,lesprofielen:renderLesprofielen,opdrachten:renderOpdrachten,toetsen:renderToetsen,schooljaren:renderSchooljaren,gebruikers:renderGebruikers,vakken:renderVakken};
+  if(r[view])r[view]();
 }
-function updateSidebar() {
-  const user = Auth.currentUser;
-  const info = document.getElementById('user-info-sidebar');
-  if (info && user) info.innerHTML = `<strong>${escHtml(user.naam)}</strong>${escHtml(user.email)}<br><span style="opacity:.6">${getRolLabel(user.rol)}</span>`;
-  const navAdmin = document.getElementById('nav-admin');
-  if (navAdmin) navAdmin.style.display = Auth.isAdmin() ? 'block' : 'none';
-}
-function showView(view) {
-  ['dashboard','klassen','jaarplanning','opdrachten','toetsen','schooljaren','gebruikers','vakken'].forEach(v => {
-    const el = document.getElementById(`view-${v}`);
-    if (el) el.style.display = v === view ? 'block' : 'none';
-  });
-  document.querySelectorAll('.nav-item').forEach(item => item.classList.toggle('active', item.dataset.view === view));
-  const renderers = {dashboard:renderDashboard,klassen:renderKlassen,jaarplanning:renderJaarplanning,opdrachten:renderOpdrachten,toetsen:renderToetsen,schooljaren:renderSchooljaren,gebruikers:renderGebruikers,vakken:renderVakken};
-  if (renderers[view]) renderers[view]();
-}
-function startApp() {
-  renderShell();
-  document.getElementById('login-screen').style.display = 'none';
-  document.getElementById('app-shell').style.display = 'flex';
-  updateSidebar();
-  showView('dashboard');
-}
-document.addEventListener('DOMContentLoaded', () => {
-  renderShell();
-  if (Auth.init()) { startApp(); }
-  else { document.getElementById('login-screen').style.display = 'flex'; document.getElementById('app-shell').style.display = 'none'; }
-});
+function startApp(){renderShell();document.getElementById('login-screen').style.display='none';document.getElementById('app-shell').style.display='flex';updateSidebar();showView('dashboard');}
+document.addEventListener('DOMContentLoaded',()=>{renderShell();if(Auth.init()){startApp();}else{document.getElementById('login-screen').style.display='flex';document.getElementById('app-shell').style.display='none';}});
