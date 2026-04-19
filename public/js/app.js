@@ -194,6 +194,30 @@ function renderAppShell() {
       <div id="view-gebruikers" class="view" style="display:none"></div>
       <div id="view-vakken" class="view" style="display:none"></div>
     </main>
+
+    <!-- Bottom nav voor mobiel -->
+    <nav class="bottom-nav" id="bottom-nav">
+      <button class="bottom-nav-item" data-view="dashboard" onclick="showView('dashboard')">
+        <svg viewBox="0 0 20 20" fill="none"><rect x="2" y="2" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.5"/><rect x="11" y="2" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.5"/><rect x="2" y="11" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.5"/><rect x="11" y="11" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.5"/></svg>
+        <span>Home</span>
+      </button>
+      <button class="bottom-nav-item" data-view="jaarplanning" onclick="showView('jaarplanning')">
+        <svg viewBox="0 0 20 20" fill="none"><rect x="2" y="3" width="16" height="15" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M6 2v2M14 2v2M2 8h16" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        <span>Planning</span>
+      </button>
+      <button class="bottom-nav-item" data-view="opdrachten" onclick="showView('opdrachten')">
+        <svg viewBox="0 0 20 20" fill="none"><path d="M5 5h10M5 9h10M5 13h6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><rect x="2" y="2" width="16" height="16" rx="2" stroke="currentColor" stroke-width="1.5"/></svg>
+        <span>Opdrachten</span>
+      </button>
+      <button class="bottom-nav-item" data-view="klassen" onclick="showView('klassen')">
+        <svg viewBox="0 0 20 20" fill="none"><path d="M3 5h14M3 10h14M3 15h9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        <span>Klassen</span>
+      </button>
+      <button class="bottom-nav-item" onclick="toggleSidebar()">
+        <svg viewBox="0 0 20 20" fill="none"><path d="M3 6h14M3 10h14M3 14h14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        <span>Meer</span>
+      </button>
+    </nav>
   `;
 }
 
@@ -219,6 +243,7 @@ function showView(view) {
   const views = ['dashboard','klassen','jaarplanning','lesprofielen','opdrachten','toetsen','schooljaren','gebruikers','vakken'];
   views.forEach(v => { const el = document.getElementById('view-' + v); if (el) el.style.display = v === view ? 'block' : 'none'; });
   document.querySelectorAll('.nav-item').forEach(i => i.classList.toggle('active', i.dataset.view === view));
+  document.querySelectorAll('.bottom-nav-item').forEach(i => i.classList.toggle('active', i.dataset.view === view));
   const renderers = { dashboard: renderDashboard, klassen: renderKlassen, jaarplanning: renderJaarplanning, lesprofielen: renderLesprofielen, opdrachten: renderOpdrachten, toetsen: renderToetsen, schooljaren: renderSchooljaren, gebruikers: renderGebruikers, vakken: renderVakken };
   if (renderers[view]) renderers[view]();
 }
