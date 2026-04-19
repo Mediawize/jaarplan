@@ -208,7 +208,7 @@ function renderActiviteitKaart(o, readonly, weeknummer, klasId) {
   if (afgevinkt && heeftOpmerking) { bgKleur='#FFFBEB'; borderLinks='3px solid #D97706'; }
   else if (afgevinkt) { bgKleur='#F0FDF4'; borderLinks='3px solid #16A34A'; }
   else if (weekVoorbij) { bgKleur='#FFF5F5'; borderLinks='3px solid #DC2626'; }
-  const typeKleuren = {'Theorie':{bg:'#DBEAFE',text:'#1D4ED8'},'Praktijk':{bg:'#DCFCE7',text:'#15803D'},'Toets':{bg:'#FEF3C7',text:'#B45309'},'Presentatie':{bg:'#F3E8FF',text:'#7E22CE'},'Overig':{bg:'#F2F1EE',text:'#44403C'}};
+  const typeKleuren = {'Theorie':{bg:'#DBEAFE',text:'#1D4ED8'},'Praktijk':{bg:'#DCFCE7',text:'#15803D'},'Toets':{bg:'#FEF3C7',text:'#B45309'},'Presentatie':{bg:'#F3E8FF',text:'#7E22CE'},'Overig':{bg:'#F2F1EE',text:'#44403C'},'Eindtoets':{bg:'#FEF3C7',text:'#B45309'}};
   const tk = typeKleuren[o.type] || typeKleuren['Overig'];
   return `<div style="display:flex;border-bottom:1px solid rgba(28,25,23,0.06)">
     ${!readonly ? `<button onclick="doAfvinken('${o.id}')"
@@ -525,7 +525,7 @@ function openWeekBeheerModal(weekId, schooljaar, weeknummer, van, tot) {
             {v:'stage',    icon:'🏢', label:'Stageweek'},
             {v:'studie',   icon:'📚', label:'Studieweek'},
           ].map(t=>`<label style="display:flex;align-items:center;gap:8px;padding:9px 12px;border:1.5px solid ${huidigType===t.v?'#16A34A':'rgba(28,25,23,0.12)'};border-radius:9px;cursor:pointer;background:${huidigType===t.v?'#F0FDF4':'#fff'};font-size:13px">
-            <input type="radio" name="weektype" value="${t.v}" ${huidigType===t.v?'checked':''} style="accent-color:#16A34A">
+            <input type="radio" name="weektype" style="width:16px;height:16px;flex-shrink:0;accent-color:#16A34A" value="${t.v}" ${huidigType===t.v?'checked':''} style="accent-color:#16A34A">
             ${t.icon} ${t.label}
           </label>`).join('')}
         </div>

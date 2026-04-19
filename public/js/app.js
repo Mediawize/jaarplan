@@ -18,7 +18,7 @@ function escHtml(v) {
 }
 
 function typeKleur(t) {
-  const m = {'Theorie':'badge-blue','Opdracht':'badge-green','Groepsopdracht':'badge-green','Toets':'badge-amber','Praktijk':'badge-red','Project':'badge-blue','Presentatie':'badge-gray','Overig':'badge-gray'};
+  const m = {'Theorie':'badge-blue','Opdracht':'badge-green','Groepsopdracht':'badge-green','Toets':'badge-amber','Eindtoets':'badge-amber','Praktijk':'badge-red','Project':'badge-blue','Presentatie':'badge-gray','Overig':'badge-gray'};
   return m[t] || 'badge-gray';
 }
 
