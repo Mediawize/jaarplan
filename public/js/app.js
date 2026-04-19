@@ -1,13 +1,82 @@
-function escHtml(v){if(v==null)return '';return String(v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
-function typeKleur(t){const m={'Theorie':'badge-blue','Opdracht':'badge-green','Groepsopdracht':'badge-green','Toets':'badge-amber','Praktijk':'badge-red','Project':'badge-blue','Presentatie':'badge-gray'};return m[t]||'badge-gray';}
-function getRolLabel(r){return {'admin':'Beheerder','docent':'Docent','management':'Management'}[r]||r;}
-function getCurrentWeek(){const n=new Date(),d=new Date(Date.UTC(n.getFullYear(),n.getMonth(),n.getDate())),dn=d.getUTCDay()||7;d.setUTCDate(d.getUTCDate()+4-dn);const y=new Date(Date.UTC(d.getUTCFullYear(),0,1));return Math.ceil((((d-y)/86400000)+1)/7);}
-function weekInRange(w,wk){if(!w)return false;if(String(w).includes('-')){const[s,e]=String(w).split('-').map(n=>parseInt(n.trim(),10));return wk>=s&&wk<=e;}return parseInt(w,10)===wk;}
-function openModal(c){const o=document.getElementById('modal-overlay');o.innerHTML=`<div class="modal-overlay-inner" onclick="closeModal(event)"><div class="modal-box">${c}</div></div>`;o.style.cssText='display:flex;position:fixed;inset:0;z-index:1000;align-items:center;justify-content:center;background:rgba(26,23,20,0.55)';}
-function closeModal(e){if(e.target.classList.contains('modal-overlay-inner'))closeModalDirect();}
-function closeModalDirect(){const o=document.getElementById('modal-overlay');o.style.display='none';o.innerHTML='';}
-function renderShell(){
-  document.getElementById('login-screen').innerHTML=`
+// ============================================================
+// app.js — Hoofdmodule, routing, shell
+// ============================================================
+
+// ---- AUTH STATE ----
+const Auth = {
+  currentUser: null,
+  isAdmin() { return this.currentUser?.rol === 'admin'; },
+  isDocent() { return this.currentUser?.rol === 'docent'; },
+  isManagement() { return this.currentUser?.rol === 'management'; },
+  canEdit() { return this.isAdmin() || this.isDocent(); },
+};
+
+// ---- HELPERS ----
+function escHtml(v) {
+  if (v == null) return '';
+  return String(v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+function typeKleur(t) {
+  const m = {'Theorie':'badge-blue','Opdracht':'badge-green','Groepsopdracht':'badge-green','Toets':'badge-amber','Praktijk':'badge-red','Project':'badge-blue','Presentatie':'badge-gray','Overig':'badge-gray'};
+  return m[t] || 'badge-gray';
+}
+
+function getRolLabel(r) { return {'admin':'Beheerder','docent':'Docent','management':'Management'}[r] || r; }
+
+function getCurrentWeek() {
+  const n = new Date(), d = new Date(Date.UTC(n.getFullYear(), n.getMonth(), n.getDate()));
+  const dn = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - dn);
+  const y = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  return Math.ceil((((d - y) / 86400000) + 1) / 7);
+}
+
+function weekInRange(w, wk) {
+  if (!w) return false;
+  if (String(w).includes('-')) {
+    const [s, e] = String(w).split('-').map(n => parseInt(n.trim(), 10));
+    return wk >= s && wk <= e;
+  }
+  return parseInt(w, 10) === wk;
+}
+
+function getInitialen(user) {
+  if (!user) return '???';
+  if (user.initialen) return user.initialen.toUpperCase().slice(0, 3);
+  const delen = [(user.naam || ''), (user.achternaam || '')].join(' ').trim().split(/\s+/);
+  if (delen.length >= 3) return (delen[0][0] + delen[1][0] + delen[2][0]).toUpperCase();
+  if (delen.length === 2) return (delen[0][0] + delen[0][1] + delen[1][0]).toUpperCase();
+  if (delen.length === 1 && delen[0].length >= 3) return delen[0].slice(0, 3).toUpperCase();
+  return (delen.join('').slice(0, 3)).toUpperCase().padEnd(3, 'X');
+}
+
+function showError(msg) {
+  const el = document.getElementById('global-error');
+  if (!el) return;
+  el.textContent = msg;
+  el.style.display = 'block';
+  setTimeout(() => { el.style.display = 'none'; }, 4000);
+}
+
+// ---- MODAL ----
+function openModal(content) {
+  const o = document.getElementById('modal-overlay');
+  o.innerHTML = `<div class="modal-overlay-inner" onclick="closeModal(event)"><div class="modal-box">${content}</div></div>`;
+  o.style.cssText = 'display:flex;position:fixed;inset:0;z-index:1000;align-items:center;justify-content:center;background:rgba(26,23,20,0.55)';
+}
+function closeModal(e) { if (e.target.classList.contains('modal-overlay-inner')) closeModalDirect(); }
+function closeModalDirect() { const o = document.getElementById('modal-overlay'); o.style.display = 'none'; o.innerHTML = ''; }
+
+// ---- LOADING STATE ----
+function showLoading(viewId) {
+  const el = document.getElementById('view-' + viewId);
+  if (el) el.innerHTML = '<div style="padding:60px;text-align:center;color:var(--ink-muted)">Laden...</div>';
+}
+
+// ---- LOGIN ----
+function renderLoginShell() {
+  document.getElementById('login-screen').innerHTML = `
     <div class="login-bg"><div class="login-grid"></div></div>
     <div class="login-card">
       <div class="login-logo"><span class="logo-mark">JP</span><div><div class="logo-title">JaarPlan</div><div class="logo-sub">Docentenplatform</div></div></div>
@@ -22,8 +91,49 @@ function renderShell(){
         <button onclick="fillDemo('docent@school.nl','docent123')">👨‍🏫 Docent</button>
         <button onclick="fillDemo('management@school.nl','mgmt123')">👔 Management</button>
       </div></div>
-    </div>`;
-  document.getElementById('app-shell').innerHTML=`
+    </div>
+  `;
+}
+
+async function doLogin() {
+  const email = document.getElementById('login-email').value.trim();
+  const pw = document.getElementById('login-password').value;
+  const errEl = document.getElementById('login-error');
+  errEl.style.display = 'none';
+  if (!email || !pw) { errEl.textContent = 'Vul e-mailadres en wachtwoord in.'; errEl.style.display = 'block'; return; }
+  try {
+    const result = await API.login(email, pw);
+    if (result?.error) { errEl.textContent = result.error; errEl.style.display = 'block'; return; }
+    Auth.currentUser = result.user;
+    startApp();
+  } catch (e) {
+    errEl.textContent = e.message || 'Inloggen mislukt';
+    errEl.style.display = 'block';
+  }
+}
+
+function fillDemo(email, pw) {
+  document.getElementById('login-email').value = email;
+  document.getElementById('login-password').value = pw;
+}
+
+async function doLogout() {
+  await API.logout();
+  Auth.currentUser = null;
+  Cache.invalidateAll();
+  document.getElementById('app-shell').style.display = 'none';
+  document.getElementById('login-screen').style.display = 'flex';
+  document.getElementById('login-password').value = '';
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && document.getElementById('login-screen')?.style.display !== 'none') doLogin();
+});
+
+// ---- APP SHELL ----
+function renderAppShell() {
+  document.getElementById('app-shell').innerHTML = `
+    <div id="global-error" style="display:none;position:fixed;top:16px;right:16px;z-index:9999;background:var(--red-light);color:var(--red);border:1px solid rgba(176,58,46,0.3);border-radius:var(--radius);padding:10px 16px;font-size:13px;max-width:320px"></div>
     <nav class="sidebar" id="sidebar">
       <div class="sidebar-logo"><span class="logo-mark-sm">JP</span><span class="logo-text">JaarPlan</span></div>
       <div class="nav-group">
@@ -34,7 +144,7 @@ function renderShell(){
       <div class="nav-group">
         <div class="nav-label">Planning</div>
         <a class="nav-item" data-view="jaarplanning" onclick="showView('jaarplanning')"><svg viewBox="0 0 20 20" fill="none"><rect x="2" y="3" width="16" height="15" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M6 2v2M14 2v2M2 8h16" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>Jaarplanning</a>
-        <a class="nav-item" data-view="lesprofielen" onclick="showView('lesprofielen')"><svg viewBox="0 0 20 20" fill="none"><path d="M4 4h12v2H4zM4 9h12v2H4zM4 14h8v2H4z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><rect x="2" y="2" width="16" height="16" rx="2" stroke="currentColor" stroke-width="1.5"/></svg>Lesprofielen</a>
+        <a class="nav-item" data-view="lesprofielen" onclick="showView('lesprofielen')"><svg viewBox="0 0 20 20" fill="none"><rect x="2" y="2" width="16" height="16" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M6 7h8M6 11h8M6 15h4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>Lesprofielen</a>
         <a class="nav-item" data-view="opdrachten" onclick="showView('opdrachten')"><svg viewBox="0 0 20 20" fill="none"><path d="M5 5h10M5 9h10M5 13h6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><rect x="2" y="2" width="16" height="16" rx="2" stroke="currentColor" stroke-width="1.5"/></svg>Opdrachten</a>
         <a class="nav-item" data-view="toetsen" onclick="showView('toetsen')"><svg viewBox="0 0 20 20" fill="none"><path d="M4 10l4 4 8-8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><rect x="2" y="2" width="16" height="16" rx="2" stroke="currentColor" stroke-width="1.5"/></svg>Toetsen & Materialen</a>
       </div>
@@ -59,23 +169,48 @@ function renderShell(){
       <div id="view-schooljaren" class="view" style="display:none"></div>
       <div id="view-gebruikers" class="view" style="display:none"></div>
       <div id="view-vakken" class="view" style="display:none"></div>
-    </main>`;}
-function updateSidebar(){const u=Auth.currentUser,i=document.getElementById('user-info-sidebar');if(i&&u)i.innerHTML=`<strong>${escHtml(u.naam)}</strong>${escHtml(u.email)}<br><span style="opacity:.6">${getRolLabel(u.rol)}</span>`;const n=document.getElementById('nav-admin');if(n)n.style.display=Auth.isAdmin()?'block':'none';}
-function showView(view){
-  ['dashboard','klassen','jaarplanning','lesprofielen','opdrachten','toetsen','schooljaren','gebruikers','vakken'].forEach(v=>{const el=document.getElementById('view-'+v);if(el)el.style.display=v===view?'block':'none';});
-  document.querySelectorAll('.nav-item').forEach(i=>i.classList.toggle('active',i.dataset.view===view));
-  const r={dashboard:renderDashboard,klassen:renderKlassen,jaarplanning:renderJaarplanning,lesprofielen:renderLesprofielen,opdrachten:renderOpdrachten,toetsen:renderToetsen,schooljaren:renderSchooljaren,gebruikers:renderGebruikers,vakken:renderVakken};
-  if(r[view])r[view]();
+    </main>
+  `;
 }
-function startApp(){renderShell();document.getElementById('login-screen').style.display='none';document.getElementById('app-shell').style.display='flex';updateSidebar();showView('dashboard');}
-document.addEventListener('DOMContentLoaded',()=>{renderShell();if(Auth.init()){startApp();}else{document.getElementById('login-screen').style.display='flex';document.getElementById('app-shell').style.display='none';}});
 
-function getInitialen(user) {
-  if (!user) return "???";
-  if (user.initialen) return user.initialen.toUpperCase().slice(0,3);
-  const delen = [(user.naam||""), (user.achternaam||"")].join(" ").trim().split(/\s+/);
-  if (delen.length >= 3) return (delen[0][0]+delen[1][0]+delen[2][0]).toUpperCase();
-  if (delen.length === 2) return (delen[0][0]+delen[0][1]+delen[1][0]).toUpperCase();
-  if (delen.length === 1 && delen[0].length >= 3) return delen[0].slice(0,3).toUpperCase();
-  return (delen.join("").slice(0,3)).toUpperCase().padEnd(3,"X");
+function updateSidebar() {
+  const u = Auth.currentUser;
+  const info = document.getElementById('user-info-sidebar');
+  if (info && u) info.innerHTML = `<strong>${escHtml(u.naam)}</strong>${escHtml(u.email)}<br><span style="opacity:.6">${getRolLabel(u.rol)}</span>`;
+  const navAdmin = document.getElementById('nav-admin');
+  if (navAdmin) navAdmin.style.display = Auth.isAdmin() ? 'block' : 'none';
 }
+
+function showView(view) {
+  const views = ['dashboard','klassen','jaarplanning','lesprofielen','opdrachten','toetsen','schooljaren','gebruikers','vakken'];
+  views.forEach(v => { const el = document.getElementById('view-' + v); if (el) el.style.display = v === view ? 'block' : 'none'; });
+  document.querySelectorAll('.nav-item').forEach(i => i.classList.toggle('active', i.dataset.view === view));
+  const renderers = { dashboard: renderDashboard, klassen: renderKlassen, jaarplanning: renderJaarplanning, lesprofielen: renderLesprofielen, opdrachten: renderOpdrachten, toetsen: renderToetsen, schooljaren: renderSchooljaren, gebruikers: renderGebruikers, vakken: renderVakken };
+  if (renderers[view]) renderers[view]();
+}
+
+function startApp() {
+  renderAppShell();
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('app-shell').style.display = 'flex';
+  updateSidebar();
+  showView('dashboard');
+}
+
+// ---- INIT ----
+document.addEventListener('DOMContentLoaded', async () => {
+  renderLoginShell();
+  try {
+    const { user } = await API.getSession();
+    if (user) {
+      Auth.currentUser = user;
+      startApp();
+    } else {
+      document.getElementById('login-screen').style.display = 'flex';
+      document.getElementById('app-shell').style.display = 'none';
+    }
+  } catch {
+    document.getElementById('login-screen').style.display = 'flex';
+    document.getElementById('app-shell').style.display = 'none';
+  }
+});
