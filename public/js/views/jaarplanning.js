@@ -11,7 +11,7 @@ async function renderJaarplanning() {
     if (!window._selectedKlas || !klassen.find(k=>k.id===window._selectedKlas)) window._selectedKlas = klassen[0].id;
     const klas = klassen.find(k=>k.id===window._selectedKlas);
     const [weken, opdrachten, vakken, gebruikers] = await Promise.all([
-      API.getWeken(klas.schooljaar).then(w => w.sort((a,b) => parseInt(a.weeknummer) - parseInt(b.weeknummer))),
+      API.getWeken(klas.schooljaar),
       API.getOpdrachten(window._selectedKlas),
       API.getVakken(),
       API.getGebruikers(),
