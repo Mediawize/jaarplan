@@ -59,7 +59,7 @@ async function openKlasModal(id = null) {
       <div class="form-field"><label>Niveau *</label><select id="klas-niveau">${['VMBO-B','VMBO-K','VMBO-GT','HAVO','VWO'].map(n=>`<option value="${n}" ${k?.niveau===n?'selected':''}>${n}</option>`).join('')}</select></div>
       <div class="form-field"><label>Vak *</label><select id="klas-vak">${vakken.map(v=>`<option value="${v.id}" ${k?.vakId===v.id?'selected':''}>${escHtml(v.naam)} — ${escHtml(v.volledig||'')}</option>`).join('')}</select></div>
       <div class="form-field"><label>Docent koppelen</label><select id="klas-docent"><option value="">— Geen docent —</option>${docenten.map(d=>`<option value="${d.id}" ${k?.docentId===d.id?'selected':''}>${escHtml(d.naam)} ${escHtml(d.achternaam)}</option>`).join('')}</select></div>
-      <div class="form-field"><label>Uren per week</label><select id="klas-uren">${[1,2,3,4,5,6].map(n=>`<option value="${n}" ${(k?.urenPerWeek||3)===n?'selected':''}>${n} uur per week</option>`).join('')}</select></div>
+      <div class="form-field"><label>Uren per week</label><select id="klas-uren">${[1,2,3,4,5,6,7,8,9,10].map(n=>`<option value="${n}" ${(k?.urenPerWeek||3)===n?'selected':''}>${n} uur per week</option>`).join('')}</select></div>
     </div>
     <div class="modal-actions">
       <button class="btn" onclick="closeModalDirect()">Annuleren</button>
