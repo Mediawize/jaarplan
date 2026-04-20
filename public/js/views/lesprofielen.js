@@ -110,7 +110,7 @@ async function openProfielModal(vakId=null, profielId=null) {
     <div class="form-grid">
       <div class="form-field"><label>Naam *</label><input id="prof-naam" placeholder="bijv. Introductie ondernemen" value="${escHtml(p?.naam||'')}"></div>
       <div class="form-field"><label>Vak *</label><select id="prof-vak">${vakken.map(v=>`<option value="${v.id}" ${v.id===selectedVak?'selected':''}>${escHtml(v.naam)} — ${escHtml(v.volledig)}</option>`).join('')}</select></div>
-      <div class="form-field"><label>Niveau</label><select id="prof-niveau"><option value="" >— Geen niveau —</option><option value="VMBO-B">VMBO-B</option><option value="VMBO-K">VMBO-K</option><option value="VMBO-GT">VMBO-GT</option><option value="HAVO">HAVO</option><option value="VWO">VWO</option></select></div>
+      <div class="form-field"><label>Niveau</label><select id="prof-niveau"><option value="" ${!p?.niveau?'selected':''}>— Geen niveau —</option>${['VMBO-B','VMBO-K','VMBO-GT','HAVO','VWO'].map(n=>`<option value="${n}" ${p?.niveau===n?'selected':''}>${n}</option>`).join('')}</select></div>
       <div class="form-field"><label>Aantal weken *</label><select id="prof-weken">${[1,2,3,4,5,6,7,8,9,10].map(n=>`<option value="${n}" ${(p?.aantalWeken||4)===n?'selected':''}>${n} ${n===1?'week':'weken'}</option>`).join('')}</select></div>
       <div class="form-field"><label>Uren per week</label><select id="prof-uren">${[1,2,3,4,5,6].map(n=>`<option value="${n}" ${(p?.urenPerWeek||3)===n?'selected':''}>${n} uur/week</option>`).join('')}</select></div>
       <div class="form-field form-full"><label>Beschrijving</label><textarea id="prof-beschrijving">${escHtml(p?.beschrijving||'')}</textarea></div>
