@@ -244,6 +244,12 @@ function renderJaarplanningDesktop(klas, klassen, weken, opdrachten, vak, vakken
     if((wn>=44)||(wn<=8))p=2; else if(wn>=9&&wn<=18)p=3; else if(wn>=19&&wn<=26)p=4;
     periodes[p].push(w);
   });
+  // Sorteer periode 2: eerst weken 44-52 dan 1-8
+  periodes[2].sort((a,b) => {
+    const an = a.weeknummer >= 44 ? a.weeknummer : a.weeknummer + 100;
+    const bn = b.weeknummer >= 44 ? b.weeknummer : b.weeknummer + 100;
+    return an - bn;
+  });
   const pNamen={1:'Periode 1 — september t/m november',2:'Periode 2 — december t/m februari',3:'Periode 3 — maart t/m mei',4:'Periode 4 — juni t/m juli'};
   document.getElementById('view-jaarplanning').innerHTML = `
     <div class="page-header">
