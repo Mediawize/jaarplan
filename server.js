@@ -54,35 +54,56 @@ app.post('/api/login', (req, res) => {
   if (!email || !wachtwoord) return res.status(400).json({ error: 'Vul e-mail en wachtwoord in' });
   const user = db.verifyWachtwoord(email, wachtwoord);
   if (!user) return res.status(401).json({ error: 'Onjuist e-mailadres of wachtwoord' });
-  req.session.user = { id: user.id, naam: user.naam + ' ' + user.achternaam, rol: user.rol, email: user.email, vakken: user.vakken || [], initialen: user.initialen, hoofdklassen: user.hoofdklassen || [] };
+  req.session.user = {
+    id: user.id,
+    naam: user.naam + ' ' + user.achternaam,
+    rol: user.rol,
+    email: user.email,
+    vakken: user.vakken || [],
+    initialen: user.initialen,
+    hoofdklassen: user.hoofdklassen || []
+  };
   res.json({ success: true, user: req.session.user });
 });
+
 app.post('/api/logout', (req, res) => { req.session.destroy(); res.json({ success: true }); });
+
 app.get('/api/session', (req, res) => {
   if (!req.session.user) return res.json({ user: null });
-  // Haal actuele hoofdklassen op uit database
   const u = db.getGebruiker(req.session.user.id);
-  if (u) req.session.user.hoofdklassen = u.hoofdklassen || [];
+  if (u) {
+    req.session.user.hoofdklassen = u.hoofdklassen || [];
+    req.session.user.vakken = u.vakken || [];
+    req.session.user.initialen = u.initialen;
+  }
   res.json({ user: req.session.user || null });
 });
 
 // ---- GEBRUIKERS ----
-app.get('/api/gebruikers', requireAuth, (req, res) => res.json(db.getGebruikers().map(u => ({ ...u, wachtwoord: undefined }))));
-app.post('/api/gebruikers', requireAdmin, (req, res) => { const r = db.addGebruiker(req.body); if (r?.error) return res.status(400).json(r); res.json({ ...r, wachtwoord: undefined }); });
-app.put('/api/gebruikers/:id', requireAdmin, (req, res) => { db.updateGebruiker(req.params.id, req.body); res.json({ success: true }); });
+app.get('/api/gebruikers', requireAuth, (req, res) => {
+  res.json(db.getGebruikers().map(u => ({ ...u, wachtwoord: undefined })));
+});
+app.post('/api/gebruikers', requireAdmin, (req, res) => {
+  const r = db.addGebruiker(req.body);
+  if (r?.error) return res.status(400).json(r);
+  res.json({ ...r, wachtwoord: undefined });
+});
+app.put('/api/gebruikers/:id', requireAdmin, (req, res) => {
+  db.updateGebruiker(req.params.id, req.body);
+  res.json({ success: true });
+});
 app.delete('/api/gebruikers/:id', requireAdmin, (req, res) => {
   if (req.params.id === req.session.user.id) return res.status(400).json({ error: 'Kan jezelf niet verwijderen' });
-  db.deleteGebruiker(req.params.id); res.json({ success: true });
+  db.deleteGebruiker(req.params.id);
+  res.json({ success: true });
 });
 
-// Docent stelt eigen hoofdklassen in
 app.put('/api/gebruikers/:id/hoofdklassen', requireAuth, (req, res) => {
   const u = req.session.user;
   if (u.id !== req.params.id && u.rol !== 'admin') return res.status(403).json({ error: 'Geen toegang' });
   const gebruiker = db.getGebruiker(req.params.id);
   if (!gebruiker) return res.status(404).json({ error: 'Niet gevonden' });
   db.updateGebruiker(req.params.id, { ...gebruiker, hoofdklassen: req.body.hoofdklassen || [] });
-  // Update sessie als het de ingelogde gebruiker is
   if (u.id === req.params.id) req.session.user.hoofdklassen = req.body.hoofdklassen || [];
   res.json({ success: true });
 });
@@ -112,32 +133,62 @@ app.post('/api/schooljaren', requireAdmin, (req, res) => {
   if (!weken.length) return res.status(400).json({ error: 'Geen vakantiedata voor dit schooljaar' });
   res.json(db.addSchooljaar(naam, weken));
 });
-app.delete('/api/schooljaren/:naam', requireAdmin, (req, res) => { db.deleteSchooljaar(req.params.naam); res.json({ success: true }); });
+app.delete('/api/schooljaren/:naam', requireAdmin, (req, res) => {
+  db.deleteSchooljaar(decodeURIComponent(req.params.naam));
+  res.json({ success: true });
+});
 
 // ---- WEKEN ----
-app.get('/api/weken/:schooljaar', requireAuth, (req, res) => res.json(db.getWeken(req.params.schooljaar)));
-app.put('/api/weken/:weekId/thema', requireCanEdit, (req, res) => { db.updateWeekThema(req.params.weekId, req.body.thema || ''); res.json({ success: true }); });
-app.put('/api/weken/:weekId/type', requireAuth, (req, res) => { db.updateWeekType(req.params.weekId, req.body.weektype || 'normaal', req.body.vakantieNaam || null); res.json({ success: true }); });
-app.put('/api/weken/:weekId/dagnotities', requireAuth, (req, res) => { db.updateDagnotities(req.params.weekId, req.body.dagnotities || []); res.json({ success: true }); });
+app.get('/api/weken/:schooljaar', requireAuth, (req, res) => {
+  res.json(db.getWeken(decodeURIComponent(req.params.schooljaar)));
+});
+app.put('/api/weken/:weekId/thema', requireCanEdit, (req, res) => {
+  db.updateWeekThema(req.params.weekId, req.body.thema || '');
+  res.json({ success: true });
+});
+app.put('/api/weken/:weekId/type', requireAuth, (req, res) => {
+  db.updateWeekType(req.params.weekId, req.body.weektype || 'normaal', req.body.vakantieNaam || null);
+  res.json({ success: true });
+});
+app.put('/api/weken/:weekId/dagnotities', requireAuth, (req, res) => {
+  db.updateDagnotities(req.params.weekId, req.body.dagnotities || []);
+  res.json({ success: true });
+});
 
 // ---- OPDRACHTEN ----
-app.get('/api/opdrachten', requireAuth, (req, res) => res.json(db.getOpdrachten(req.query.klasId || null)));
+app.get('/api/opdrachten', requireAuth, (req, res) => {
+  res.json(db.getOpdrachten(req.query.klasId || null));
+});
 app.post('/api/opdrachten', requireCanEdit, (req, res) => res.json(db.addOpdracht(req.body)));
-app.put('/api/opdrachten/:id', requireCanEdit, (req, res) => { db.updateOpdracht(req.params.id, req.body); res.json({ success: true }); });
-app.delete('/api/opdrachten/:id', requireCanEdit, (req, res) => { db.deleteOpdracht(req.params.id); res.json({ success: true }); });
+app.put('/api/opdrachten/:id', requireCanEdit, (req, res) => {
+  db.updateOpdracht(req.params.id, req.body);
+  res.json({ success: true });
+});
+app.delete('/api/opdrachten/:id', requireCanEdit, (req, res) => {
+  db.deleteOpdracht(req.params.id);
+  res.json({ success: true });
+});
 
 app.post('/api/opdrachten/:id/afvinken', requireCanEdit, (req, res) => {
   const o = db.getOpdracht(req.params.id);
   if (!o) return res.status(404).json({ error: 'Niet gevonden' });
   const user = req.session.user;
+  // Admins mogen altijd afvinken, docenten alleen voor hun eigen vakken
   if (user.rol !== 'admin') {
     const klas = db.getKlas(o.klasId);
-    if (!klas || !user.vakken.includes(klas.vakId)) return res.status(403).json({ error: 'Niet gekoppeld aan dit vak' });
+    const vakken = user.vakken || [];
+    if (!klas || !vakken.includes(klas.vakId)) {
+      return res.status(403).json({ error: 'Niet gekoppeld aan dit vak' });
+    }
   }
   if (o.afgevinkt) {
     db.updateOpdracht(o.id, { afgevinkt: false, afgevinktDoor: null, afgevinktOp: null });
   } else {
-    db.updateOpdracht(o.id, { afgevinkt: true, afgevinktDoor: user.initialen || user.naam.slice(0,3).toUpperCase(), afgevinktOp: new Date().toISOString() });
+    db.updateOpdracht(o.id, {
+      afgevinkt: true,
+      afgevinktDoor: user.initialen || user.naam.slice(0, 3).toUpperCase(),
+      afgevinktOp: new Date().toISOString()
+    });
   }
   res.json(db.getOpdracht(o.id));
 });
@@ -151,12 +202,23 @@ app.post('/api/opdrachten/:id/opmerking', requireCanEdit, (req, res) => {
 app.get('/api/lesprofielen', requireAuth, (req, res) => {
   const u = req.session.user;
   let p = db.getLesprofielen();
-  if (u.rol === 'docent') p = p.filter(lp => u.vakken.includes(lp.vakId) || lp.docentId === u.id);
+  if (u.rol === 'docent') {
+    const vakken = u.vakken || [];
+    p = p.filter(lp => vakken.includes(lp.vakId) || lp.docentId === u.id);
+  }
   res.json(p);
 });
-app.post('/api/lesprofielen', requireCanEdit, (req, res) => res.json(db.addLesprofiel({ ...req.body, docentId: req.session.user.id })));
-app.put('/api/lesprofielen/:id', requireCanEdit, (req, res) => { db.updateLesprofiel(req.params.id, req.body); res.json({ success: true }); });
-app.delete('/api/lesprofielen/:id', requireCanEdit, (req, res) => { db.deleteLesprofiel(req.params.id); res.json({ success: true }); });
+app.post('/api/lesprofielen', requireCanEdit, (req, res) => {
+  res.json(db.addLesprofiel({ ...req.body, docentId: req.session.user.id }));
+});
+app.put('/api/lesprofielen/:id', requireCanEdit, (req, res) => {
+  db.updateLesprofiel(req.params.id, req.body);
+  res.json({ success: true });
+});
+app.delete('/api/lesprofielen/:id', requireCanEdit, (req, res) => {
+  db.deleteLesprofiel(req.params.id);
+  res.json({ success: true });
+});
 
 // ---- STATS ----
 app.get('/api/stats', requireAuth, (req, res) => {
@@ -170,13 +232,14 @@ app.post('/api/upload', requireCanEdit, upload.single('bestand'), (req, res) => 
   res.json({ bestandsnaam: req.file.filename, origineel: req.file.originalname });
 });
 
-// ---- IMPORT LESPROFIEL ----
+// ---- LESPROFIEL TEMPLATE ----
 app.get('/api/lesprofiel-template', (req, res) => {
   const templatePath = path.join(__dirname, 'public', 'lesprofiel_template.docx');
   if (!fs.existsSync(templatePath)) return res.status(404).json({ error: 'Template niet gevonden' });
   res.download(templatePath, 'lesprofiel_template.docx');
 });
 
+// ---- IMPORT LESPROFIEL ----
 app.post('/api/import-lesprofiel', requireCanEdit, upload.single('bestand'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'Geen bestand ontvangen' });
   try {
@@ -188,7 +251,10 @@ app.post('/api/import-lesprofiel', requireCanEdit, upload.single('bestand'), asy
     function vindWaarde(sleutels) {
       for (const sleutel of sleutels) {
         const regel = regels.find(r => r.toLowerCase().startsWith(sleutel.toLowerCase()));
-        if (regel) { const val = regel.split(':').slice(1).join(':').trim(); if (val && !val.startsWith('[')) return val; }
+        if (regel) {
+          const val = regel.split(':').slice(1).join(':').trim();
+          if (val && !val.startsWith('[')) return val;
+        }
       }
       return null;
     }
@@ -205,7 +271,7 @@ app.post('/api/import-lesprofiel', requireCanEdit, upload.single('bestand'), asy
     const vakken = db.getVakken();
     const vak = vakken.find(v =>
       v.naam.toLowerCase() === vaknaamRaw.toLowerCase() ||
-      v.volledig.toLowerCase().includes(vaknaamRaw.toLowerCase()) ||
+      (v.volledig && v.volledig.toLowerCase().includes(vaknaamRaw.toLowerCase())) ||
       vaknaamRaw.toLowerCase().includes(v.naam.toLowerCase())
     );
     if (!vak) return res.status(400).json({ error: `Vak "${vaknaamRaw}" niet gevonden. Beschikbare vakken: ${vakken.map(v => v.naam).join(', ')}` });
@@ -235,19 +301,22 @@ app.post('/api/import-lesprofiel', requireCanEdit, upload.single('bestand'), asy
         const delen = regel.split(/[|\t]/).map(d => d.trim()).filter(d => d);
         if (delen.length >= 2) {
           const type = types.find(t => t.toLowerCase() === delen[0].toLowerCase());
-          if (type) { huidigeWeek.activiteiten.push({ type, omschrijving: delen[1]||'', syllabus: delen[2]||'', uren: parseFloat(delen[3])||1, link:'', bestand:null }); continue; }
+          if (type) {
+            huidigeWeek.activiteiten.push({ type, omschrijving: delen[1] || '', syllabus: delen[2] || '', uren: parseFloat(delen[3]) || 1, link: '', bestand: null });
+            continue;
+          }
         }
       }
 
       const typeColon = types.find(t => regel.toLowerCase().startsWith(t.toLowerCase() + ':'));
       if (typeColon) {
         const omschrijving = regel.split(':').slice(1).join(':').trim();
-        huidigeWeek.activiteiten.push({ type: typeColon, omschrijving: omschrijving && !omschrijving.startsWith('[') ? omschrijving : '', syllabus:'', uren:1, link:'', bestand:null });
+        huidigeWeek.activiteiten.push({ type: typeColon, omschrijving: omschrijving && !omschrijving.startsWith('[') ? omschrijving : '', syllabus: '', uren: 1, link: '', bestand: null });
         continue;
       }
 
       const losType = types.find(t => regel.toLowerCase() === t.toLowerCase());
-      if (losType) huidigeWeek.activiteiten.push({ type: losType, omschrijving:'', syllabus:'', uren:1, link:'', bestand:null });
+      if (losType) huidigeWeek.activiteiten.push({ type: losType, omschrijving: '', syllabus: '', uren: 1, link: '', bestand: null });
     }
     if (huidigeWeek) weken.push(huidigeWeek);
 
@@ -255,9 +324,9 @@ app.post('/api/import-lesprofiel', requireCanEdit, upload.single('bestand'), asy
       weken.find(w => w.weekIndex === i + 1) || { weekIndex: i + 1, thema: '', activiteiten: [] }
     );
 
-    const profiel = db.addLesprofiel({ naam, vakId: vak.id, docentId: req.session.user.id, aantalWeken, urenPerWeek, beschrijving: beschrijving||'', weken: wekenArray });
+    const profiel = db.addLesprofiel({ naam, vakId: vak.id, docentId: req.session.user.id, aantalWeken, urenPerWeek, beschrijving: beschrijving || '', weken: wekenArray });
     fs.unlinkSync(req.file.path);
-    res.json({ success: true, profiel, info: `Profiel "${naam}" aangemaakt met ${wekenArray.length} weken en ${wekenArray.reduce((t,w) => t + w.activiteiten.length, 0)} activiteiten.` });
+    res.json({ success: true, profiel, info: `Profiel "${naam}" aangemaakt met ${wekenArray.length} weken en ${wekenArray.reduce((t, w) => t + w.activiteiten.length, 0)} activiteiten.` });
   } catch (e) {
     if (req.file?.path && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
     res.status(500).json({ error: 'Fout bij verwerken: ' + e.message });
