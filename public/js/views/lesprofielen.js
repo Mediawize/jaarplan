@@ -110,6 +110,7 @@ async function openProfielModal(vakId=null, profielId=null) {
     <div class="form-grid">
       <div class="form-field"><label>Naam *</label><input id="prof-naam" placeholder="bijv. Introductie ondernemen" value="${escHtml(p?.naam||'')}"></div>
       <div class="form-field"><label>Vak *</label><select id="prof-vak">${vakken.map(v=>`<option value="${v.id}" ${v.id===selectedVak?'selected':''}>${escHtml(v.naam)} — ${escHtml(v.volledig)}</option>`).join('')}</select></div>
+      <div class="form-field"><label>Niveau</label><select id="prof-niveau"><option value="" >— Geen niveau —</option><option value="VMBO-B">VMBO-B</option><option value="VMBO-K">VMBO-K</option><option value="VMBO-GT">VMBO-GT</option><option value="HAVO">HAVO</option><option value="VWO">VWO</option></select></div>
       <div class="form-field"><label>Aantal weken *</label><select id="prof-weken">${[1,2,3,4,5,6,7,8,9,10].map(n=>`<option value="${n}" ${(p?.aantalWeken||4)===n?'selected':''}>${n} ${n===1?'week':'weken'}</option>`).join('')}</select></div>
       <div class="form-field"><label>Uren per week</label><select id="prof-uren">${[1,2,3,4,5,6].map(n=>`<option value="${n}" ${(p?.urenPerWeek||3)===n?'selected':''}>${n} uur/week</option>`).join('')}</select></div>
       <div class="form-field form-full"><label>Beschrijving</label><textarea id="prof-beschrijving">${escHtml(p?.beschrijving||'')}</textarea></div>
@@ -124,6 +125,7 @@ async function openProfielModal(vakId=null, profielId=null) {
 async function saveProfiel(profielId) {
   const naam = document.getElementById('prof-naam').value.trim();
   const vakId = document.getElementById('prof-vak').value;
+  const niveau = document.getElementById('prof-niveau').value;
   const aantalWeken = parseInt(document.getElementById('prof-weken').value);
   const urenPerWeek = parseInt(document.getElementById('prof-uren').value);
   const beschrijving = document.getElementById('prof-beschrijving').value.trim();
@@ -139,8 +141,8 @@ async function saveProfiel(profielId) {
 
   try {
     let id = profielId;
-    if (profielId) { await API.updateLesprofiel(profielId, {naam,vakId,aantalWeken,urenPerWeek,beschrijving,weken}); }
-    else { const r = await API.addLesprofiel({naam,vakId,aantalWeken,urenPerWeek,beschrijving,weken}); id = r.id; }
+    if (profielId) { await API.updateLesprofiel(profielId, {naam,vakId,niveau,aantalWeken,urenPerWeek,beschrijving,weken}); }
+    else { const r = await API.addLesprofiel({naam,vakId,niveau,aantalWeken,urenPerWeek,beschrijving,weken}); id = r.id; }
     closeModalDirect();
     openProfielDetail(id);
   } catch(e) { showError(e.message); }
