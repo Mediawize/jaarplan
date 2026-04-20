@@ -85,7 +85,7 @@ async function renderLesprofielen() {
                     <button class="icon-btn" onclick="event.stopPropagation();verwijderProfiel('${p.id}')" style="color:var(--red)" title="Verwijderen"><svg viewBox="0 0 20 20" fill="none"><path d="M5 5l10 10M15 5L5 15" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button>
                   </div>
                 </div>
-                <div style="font-size:12px;color:var(--ink-muted);margin-bottom:10px">${p.aantalWeken} weken · ${aantalActs} activiteiten · ${p.urenPerWeek} uur/week</div>
+                <div style="font-size:12px;color:var(--ink-muted);margin-bottom:10px">${p.niveau?'<span class="badge badge-blue" style="margin-right:4px">'+p.niveau+'</span>':''}${p.aantalWeken} weken · ${aantalActs} activiteiten · ${p.urenPerWeek} uur/week</div>
                 <div style="display:flex;gap:6px;flex-wrap:wrap">
                   ${(p.weken||[]).slice(0,4).map((w,i)=>`<span style="font-size:10px;padding:2px 7px;border-radius:4px;background:var(--cream);border:1px solid var(--border);color:var(--ink-muted)">W${i+1}: ${(w.activiteiten||[]).map(a=>a.type[0]).join('+')||'—'}</span>`).join('')}
                   ${p.aantalWeken>4?`<span style="font-size:10px;color:var(--ink-muted)">+${p.aantalWeken-4}</span>`:''}
@@ -352,7 +352,7 @@ async function openKoppelModal(profielId) {
   const p = profielen.find(x=>x.id===profielId);
   if (!p) return;
   const vak = vakken.find(v=>v.id===p.vakId);
-  const relevante = klassen.filter(k=>k.vakId===p.vakId);
+  const relevante = klassen.filter(k=>k.vakId===p.vakId && (!p.niveau || k.niveau===p.niveau));
 
   // Check of dit profiel al gekoppeld is aan een klas
   const alleOpd = await API.getOpdrachten();
