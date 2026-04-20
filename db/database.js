@@ -14,6 +14,7 @@ const db = new Database(path.join(dbDir, 'jaarplan.db'));
 
 db.pragma('journal_mode = WAL');
 db.pragma('foreign_keys = ON');
+db.pragma('wal_autocheckpoint = 100');
 
 // ============================================================
 // SCHEMA
