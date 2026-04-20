@@ -3,11 +3,26 @@ const session = require('express-session');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const rateLimit = require('express-rate-limit');
 const db = require('./db/database');
 const { Schooljaar } = require('./db/schooljaar');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
+
+// ---- BEVEILIGING: Waarschuwing als SESSION_SECRET niet ingesteld is ----
+if (!process.env.SESSION_SECRET) {
+  console.warn('⚠️  WAARSCHUWING: SESSION_SECRET niet ingesteld in .env! Gebruik een veilig geheim.');
+}
+
+// ---- RATE LIMITING op login ----
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minuten
+  max: 10, // max 10 pogingen per 15 minuten
+  message: { error: 'Te veel inlogpogingen. Probeer het over 15 minuten opnieuw.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
 
 // ---- UPLOADS ----
 const uploadDir = path.join(__dirname, 'uploads');
@@ -26,10 +41,14 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 app.use('/uploads', express.static(uploadDir));
 app.use(session({
-  secret: process.env.SESSION_SECRET || 'jaarplan-secret-2025',
+  secret: process.env.SESSION_SECRET || 'jaarplan-fallback-secret-change-me',
   resave: false,
   saveUninitialized: false,
-  cookie: { secure: false, maxAge: 8 * 60 * 60 * 1000 }
+  cookie: {
+    secure: process.env.NODE_ENV === 'production', // HTTPS only in productie
+    httpOnly: true, // Voorkomt XSS toegang tot cookie
+    maxAge: 8 * 60 * 60 * 1000 // 8 uur
+  }
 }));
 
 // ---- AUTH MIDDLEWARE ----
@@ -49,7 +68,7 @@ function requireCanEdit(req, res, next) {
 }
 
 // ---- AUTH ----
-app.post('/api/login', (req, res) => {
+app.post('/api/login', loginLimiter, (req, res) => {
   const { email, wachtwoord } = req.body;
   if (!email || !wachtwoord) return res.status(400).json({ error: 'Vul e-mail en wachtwoord in' });
   const user = db.verifyWachtwoord(email, wachtwoord);
@@ -173,7 +192,6 @@ app.post('/api/opdrachten/:id/afvinken', requireCanEdit, (req, res) => {
   const o = db.getOpdracht(req.params.id);
   if (!o) return res.status(404).json({ error: 'Niet gevonden' });
   const user = req.session.user;
-  // Admins mogen altijd afvinken, docenten alleen voor hun eigen vakken
   if (user.rol !== 'admin') {
     const klas = db.getKlas(o.klasId);
     const vakken = user.vakken || [];
@@ -265,7 +283,7 @@ app.post('/api/import-lesprofiel', requireCanEdit, upload.single('bestand'), asy
     const urenPerWeek = parseInt(vindWaarde(['uren per week'])) || 3;
     const beschrijving = vindWaarde(['beschrijving']);
 
-    if (!naam) return res.status(400).json({ error: 'Naam lesprofiel niet gevonden. Gebruik de juiste template.' });
+    if (!naam) return res.status(400).json({ error: 'Naam lesprofiel niet gevonden.' });
     if (!vaknaamRaw) return res.status(400).json({ error: 'Vaknaam niet gevonden in bestand.' });
 
     const vakken = db.getVakken();
@@ -290,31 +308,24 @@ app.post('/api/import-lesprofiel', requireCanEdit, upload.single('bestand'), asy
         continue;
       }
       if (!huidigeWeek) continue;
-
       if (regel.toLowerCase().startsWith('thema:')) {
         const val = regel.split(':').slice(1).join(':').trim();
         if (val && !val.startsWith('[')) huidigeWeek.thema = val;
         continue;
       }
-
       if (regel.includes('|') || regel.includes('\t')) {
         const delen = regel.split(/[|\t]/).map(d => d.trim()).filter(d => d);
         if (delen.length >= 2) {
           const type = types.find(t => t.toLowerCase() === delen[0].toLowerCase());
-          if (type) {
-            huidigeWeek.activiteiten.push({ type, omschrijving: delen[1] || '', syllabus: delen[2] || '', uren: parseFloat(delen[3]) || 1, link: '', bestand: null });
-            continue;
-          }
+          if (type) { huidigeWeek.activiteiten.push({ type, omschrijving: delen[1] || '', syllabus: delen[2] || '', uren: parseFloat(delen[3]) || 1, link: '', bestand: null }); continue; }
         }
       }
-
       const typeColon = types.find(t => regel.toLowerCase().startsWith(t.toLowerCase() + ':'));
       if (typeColon) {
         const omschrijving = regel.split(':').slice(1).join(':').trim();
         huidigeWeek.activiteiten.push({ type: typeColon, omschrijving: omschrijving && !omschrijving.startsWith('[') ? omschrijving : '', syllabus: '', uren: 1, link: '', bestand: null });
         continue;
       }
-
       const losType = types.find(t => regel.toLowerCase() === t.toLowerCase());
       if (losType) huidigeWeek.activiteiten.push({ type: losType, omschrijving: '', syllabus: '', uren: 1, link: '', bestand: null });
     }
