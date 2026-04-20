@@ -106,6 +106,7 @@ db.exec(`
     docentId TEXT NOT NULL,
     aantalWeken INTEGER DEFAULT 4,
     urenPerWeek INTEGER DEFAULT 3,
+    niveau TEXT DEFAULT '',
     beschrijving TEXT,
     weken TEXT DEFAULT '[]',
     aangemaakt TEXT DEFAULT (datetime('now')),
@@ -121,6 +122,7 @@ function migreer() {
   const weekCols = db.prepare("PRAGMA table_info(weken)").all().map(c => c.name);
   const klasCols = db.prepare("PRAGMA table_info(klassen)").all().map(c => c.name);
   const userCols = db.prepare("PRAGMA table_info(gebruikers)").all().map(c => c.name);
+  const profCols = db.prepare("PRAGMA table_info(lesprofielen)").all().map(c => c.name);
 
   if (!weekCols.includes('weektype')) {
     db.exec("ALTER TABLE weken ADD COLUMN weektype TEXT DEFAULT 'normaal'");
@@ -139,6 +141,10 @@ function migreer() {
   if (!userCols.includes('hoofdklassen')) {
     db.exec("ALTER TABLE gebruikers ADD COLUMN hoofdklassen TEXT DEFAULT '[]'");
     console.log('Migratie: hoofdklassen kolom toegevoegd aan gebruikers');
+  }
+  if (!profCols.includes('niveau')) {
+    db.exec("ALTER TABLE lesprofielen ADD COLUMN niveau TEXT DEFAULT ''");
+    console.log('Migratie: niveau kolom toegevoegd aan lesprofielen');
   }
 }
 
@@ -249,8 +255,8 @@ const Q = {
   // LESPROFIELEN
   getLesprofielen: db.prepare('SELECT * FROM lesprofielen ORDER BY naam'),
   getLesprofiel: db.prepare('SELECT * FROM lesprofielen WHERE id=?'),
-  insLesprofiel: db.prepare('INSERT INTO lesprofielen (id,naam,vakId,docentId,aantalWeken,urenPerWeek,beschrijving,weken) VALUES (?,?,?,?,?,?,?,?)'),
-  updLesprofiel: db.prepare('UPDATE lesprofielen SET naam=?,vakId=?,docentId=?,aantalWeken=?,urenPerWeek=?,beschrijving=?,weken=? WHERE id=?'),
+  insLesprofiel: db.prepare('INSERT INTO lesprofielen (id,naam,vakId,docentId,aantalWeken,urenPerWeek,niveau,beschrijving,weken) VALUES (?,?,?,?,?,?,?,?,?)'),
+  updLesprofiel: db.prepare('UPDATE lesprofielen SET naam=?,vakId=?,docentId=?,aantalWeken=?,urenPerWeek=?,niveau=?,beschrijving=?,weken=? WHERE id=?'),
   delLesprofiel: db.prepare('DELETE FROM lesprofielen WHERE id=?'),
 };
 
@@ -404,13 +410,13 @@ module.exports = {
   },
   addLesprofiel(d) {
     const id = genId();
-    Q.insLesprofiel.run(id, d.naam, d.vakId, d.docentId, d.aantalWeken, d.urenPerWeek, d.beschrijving || null, JSON.stringify(d.weken || []));
+    Q.insLesprofiel.run(id, d.naam, d.vakId, d.docentId, d.aantalWeken, d.urenPerWeek, d.niveau || '', d.beschrijving || null, JSON.stringify(d.weken || []));
     return this.getLesprofiel(id);
   },
   updateLesprofiel(id, d) {
     const p = this.getLesprofiel(id);
     if (!p) return;
-    Q.updLesprofiel.run(d.naam ?? p.naam, d.vakId ?? p.vakId, d.docentId ?? p.docentId, d.aantalWeken ?? p.aantalWeken, d.urenPerWeek ?? p.urenPerWeek, d.beschrijving ?? p.beschrijving, JSON.stringify(d.weken ?? p.weken), id);
+    Q.updLesprofiel.run(d.naam ?? p.naam, d.vakId ?? p.vakId, d.docentId ?? p.docentId, d.aantalWeken ?? p.aantalWeken, d.urenPerWeek ?? p.urenPerWeek, d.niveau ?? p.niveau ?? '', d.beschrijving ?? p.beschrijving, JSON.stringify(d.weken ?? p.weken), id);
   },
   deleteLesprofiel(id) { Q.delLesprofiel.run(id); },
 
