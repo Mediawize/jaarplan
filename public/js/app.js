@@ -2,7 +2,6 @@
 // app.js — Hoofdmodule, routing, shell
 // ============================================================
 
-// ---- AUTH STATE ----
 const Auth = {
   currentUser: null,
   isAdmin() { return this.currentUser?.rol === 'admin'; },
@@ -11,14 +10,19 @@ const Auth = {
   canEdit() { return this.isAdmin() || this.isDocent(); },
 };
 
-// ---- HELPERS ----
 function escHtml(v) {
   if (v == null) return '';
   return String(v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 }
 
+// FIX: Eindtoets toegevoegd aan typeKleur map
 function typeKleur(t) {
-  const m = {'Theorie':'badge-blue','Opdracht':'badge-green','Groepsopdracht':'badge-green','Toets':'badge-amber','Eindtoets':'badge-amber','Praktijk':'badge-red','Project':'badge-blue','Presentatie':'badge-gray','Overig':'badge-gray'};
+  const m = {
+    'Theorie':'badge-blue','Opdracht':'badge-green','Groepsopdracht':'badge-green',
+    'Toets':'badge-amber','Eindtoets':'badge-amber',
+    'Praktijk':'badge-red','Project':'badge-blue',
+    'Presentatie':'badge-gray','Overig':'badge-gray'
+  };
   return m[t] || 'badge-gray';
 }
 
@@ -53,9 +57,8 @@ function getInitialen(user) {
 
 function getSchooljaarLabel() {
   const nu = new Date();
-  const maand = nu.getMonth() + 1; // 1-12
+  const maand = nu.getMonth() + 1;
   const jaar = nu.getFullYear();
-  // Schooljaar start in augustus (maand 8)
   const startJaar = maand >= 8 ? jaar : jaar - 1;
   return `Schooljaar ${startJaar}–${startJaar + 1}`;
 }
@@ -68,7 +71,6 @@ function showError(msg) {
   setTimeout(() => { el.style.display = 'none'; }, 4000);
 }
 
-// ---- MODAL ----
 function openModal(content) {
   const o = document.getElementById('modal-overlay');
   o.innerHTML = `<div class="modal-overlay-inner" onclick="closeModal(event)"><div class="modal-box">${content}</div></div>`;
@@ -77,16 +79,13 @@ function openModal(content) {
 function closeModal(e) { if (e.target.classList.contains('modal-overlay-inner')) closeModalDirect(); }
 function closeModalDirect() { const o = document.getElementById('modal-overlay'); o.style.display = 'none'; o.innerHTML = ''; }
 
-// ---- LOADING STATE ----
 function showLoading(viewId) {
   const el = document.getElementById('view-' + viewId);
-  if (el) el.innerHTML = '<div style="padding:60px;text-align:center;color:var(--ink-muted)">Laden...</div>';
+  if (el) el.innerHTML = '<div style="padding:60px;text-align:center;color:var(--ink-3)">Laden...</div>';
 }
 
-// ---- LOGIN ----
 function renderLoginShell() {
   document.getElementById('login-screen').innerHTML = `
-    <div class="login-bg"><div class="login-grid"></div></div>
     <div class="login-card">
       <div class="login-logo"><span class="logo-mark">JP</span><div><div class="logo-title">JaarPlan</div><div class="logo-sub">Docentenplatform</div></div></div>
       <h1 class="login-heading">Welkom terug</h1>
@@ -139,25 +138,14 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Enter' && document.getElementById('login-screen')?.style.display !== 'none') doLogin();
 });
 
-// ---- APP SHELL ----
 function renderAppShell() {
   document.getElementById('app-shell').innerHTML = `
     <div id="global-error" style="display:none;position:fixed;top:70px;right:16px;z-index:9999;background:var(--red-dim);color:var(--red-text);border:1px solid rgba(220,38,38,0.2);border-radius:var(--radius-sm);padding:10px 14px;font-size:13px;max-width:320px;box-shadow:var(--shadow)"></div>
-
-    <!-- Mobiele header -->
     <div class="mobile-header">
-      <div class="mobile-logo">
-        <div class="logo-mark-sm">JP</div>
-        JaarPlan
-      </div>
-      <button class="hamburger" onclick="toggleSidebar()" aria-label="Menu">
-        <span></span><span></span><span></span>
-      </button>
+      <div class="mobile-logo"><div class="logo-mark-sm">JP</div>JaarPlan</div>
+      <button class="hamburger" onclick="toggleSidebar()" aria-label="Menu"><span></span><span></span><span></span></button>
     </div>
-
-    <!-- Sidebar overlay voor mobiel -->
     <div class="sidebar-overlay" id="sidebar-overlay" onclick="closeSidebar()"></div>
-
     <nav class="sidebar" id="sidebar">
       <div class="sidebar-logo"><span class="logo-mark-sm">JP</span><span class="logo-text">JaarPlan</span></div>
       <div class="nav-group">
@@ -174,7 +162,7 @@ function renderAppShell() {
       </div>
       <div class="nav-group" id="nav-admin" style="display:none">
         <div class="nav-label">Beheer</div>
-        <a class="nav-item" data-view="schooljaren" onclick="showView('schooljaren');closeSidebar()"><svg viewBox="0 0 20 20" fill="none"><rect x="2" y="3" width="16" height="15" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M6 2v2M14 2v2M2 8h16M6 12h2M10 12h2M6 15h2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>Schooljaren</a>
+        <a class="nav-item" data-view="schooljaren" onclick="showView('schooljaren');closeSidebar()"><svg viewBox="0 0 20 20" fill="none"><rect x="2" y="3" width="16" height="15" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M6 2v2M14 2v2M2 8h16" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>Schooljaren</a>
         <a class="nav-item" data-view="gebruikers" onclick="showView('gebruikers');closeSidebar()"><svg viewBox="0 0 20 20" fill="none"><circle cx="10" cy="6" r="3.5" stroke="currentColor" stroke-width="1.5"/><path d="M3 18c0-4 3-6 7-6s7 2 7 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>Gebruikers</a>
         <a class="nav-item" data-view="vakken" onclick="showView('vakken');closeSidebar()"><svg viewBox="0 0 20 20" fill="none"><path d="M10 2l2.5 5H18l-4.5 3.5 1.5 5.5L10 13l-5 3 1.5-5.5L2 7h5.5L10 2z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>Vakken</a>
       </div>
@@ -194,8 +182,6 @@ function renderAppShell() {
       <div id="view-gebruikers" class="view" style="display:none"></div>
       <div id="view-vakken" class="view" style="display:none"></div>
     </main>
-
-    <!-- Bottom nav voor mobiel -->
     <nav class="bottom-nav" id="bottom-nav">
       <button class="bottom-nav-item" data-view="dashboard" onclick="showView('dashboard')">
         <svg viewBox="0 0 20 20" fill="none"><rect x="2" y="2" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.5"/><rect x="11" y="2" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.5"/><rect x="2" y="11" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.5"/><rect x="11" y="11" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.5"/></svg>
@@ -225,7 +211,6 @@ function toggleSidebar() {
   document.getElementById('sidebar').classList.toggle('open');
   document.getElementById('sidebar-overlay').classList.toggle('open');
 }
-
 function closeSidebar() {
   document.getElementById('sidebar')?.classList.remove('open');
   document.getElementById('sidebar-overlay')?.classList.remove('open');
@@ -256,7 +241,6 @@ function startApp() {
   showView('dashboard');
 }
 
-// ---- INIT ----
 document.addEventListener('DOMContentLoaded', async () => {
   renderLoginShell();
   try {
