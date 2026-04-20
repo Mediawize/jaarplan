@@ -1,4 +1,4 @@
-// db/schooljaar.js — Server-side versie van de weekgenerator
+// db/schooljaar.js — Server-side weekgenerator Noord-Holland VMBO
 
 const Schooljaar = {
   vakanties: {
