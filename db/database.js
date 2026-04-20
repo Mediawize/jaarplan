@@ -12,37 +12,8 @@ if (!fs.existsSync(dbDir)) fs.mkdirSync(dbDir);
 
 const db = new Database(path.join(dbDir, 'jaarplan.db'));
 
-// WAL mode voor betere performance
 db.pragma('journal_mode = WAL');
 db.pragma('foreign_keys = ON');
-
-// ============================================================
-// MIGRATIES — voeg kolommen toe als ze nog niet bestaan
-// ============================================================
-function migreer() {
-  const weekCols = db.prepare("PRAGMA table_info(weken)").all().map(c => c.name);
-  const klasCols = db.prepare("PRAGMA table_info(klassen)").all().map(c => c.name);
-  const userCols = db.prepare("PRAGMA table_info(gebruikers)").all().map(c => c.name);
-  if (!weekCols.includes('weektype')) {
-    db.exec("ALTER TABLE weken ADD COLUMN weektype TEXT DEFAULT 'normaal'");
-    db.exec("UPDATE weken SET weektype = 'vakantie' WHERE isVakantie = 1");
-    console.log('Migratie: weektype kolom toegevoegd aan weken');
-  }
-  if (!weekCols.includes('dagnotities')) {
-    db.exec("ALTER TABLE weken ADD COLUMN dagnotities TEXT DEFAULT '[]'");
-    console.log('Migratie: dagnotities kolom toegevoegd aan weken');
-  }
-  if (!klasCols.includes('docenten')) {
-    db.exec("ALTER TABLE klassen ADD COLUMN docenten TEXT DEFAULT '[]'");
-    // Migreer bestaande docentId naar docenten array
-    db.exec("UPDATE klassen SET docenten = json_array(docentId) WHERE docentId IS NOT NULL AND docentId != ''");
-    console.log('Migratie: docenten kolom toegevoegd aan klassen');
-  }
-  if (!userCols.includes('hoofdklassen')) {
-    db.exec("ALTER TABLE gebruikers ADD COLUMN hoofdklassen TEXT DEFAULT '[]'");
-    console.log('Migratie: hoofdklassen kolom toegevoegd aan gebruikers');
-  }
-}
 
 // ============================================================
 // SCHEMA
@@ -143,6 +114,36 @@ db.exec(`
 `);
 
 // ============================================================
+// MIGRATIES — voeg kolommen toe als ze nog niet bestaan
+// ============================================================
+function migreer() {
+  const weekCols = db.prepare("PRAGMA table_info(weken)").all().map(c => c.name);
+  const klasCols = db.prepare("PRAGMA table_info(klassen)").all().map(c => c.name);
+  const userCols = db.prepare("PRAGMA table_info(gebruikers)").all().map(c => c.name);
+
+  if (!weekCols.includes('weektype')) {
+    db.exec("ALTER TABLE weken ADD COLUMN weektype TEXT DEFAULT 'normaal'");
+    db.exec("UPDATE weken SET weektype = 'vakantie' WHERE isVakantie = 1");
+    console.log('Migratie: weektype kolom toegevoegd aan weken');
+  }
+  if (!weekCols.includes('dagnotities')) {
+    db.exec("ALTER TABLE weken ADD COLUMN dagnotities TEXT DEFAULT '[]'");
+    console.log('Migratie: dagnotities kolom toegevoegd aan weken');
+  }
+  if (!klasCols.includes('docenten')) {
+    db.exec("ALTER TABLE klassen ADD COLUMN docenten TEXT DEFAULT '[]'");
+    db.exec("UPDATE klassen SET docenten = json_array(docentId) WHERE docentId IS NOT NULL AND docentId != ''");
+    console.log('Migratie: docenten kolom toegevoegd aan klassen');
+  }
+  if (!userCols.includes('hoofdklassen')) {
+    db.exec("ALTER TABLE gebruikers ADD COLUMN hoofdklassen TEXT DEFAULT '[]'");
+    console.log('Migratie: hoofdklassen kolom toegevoegd aan gebruikers');
+  }
+}
+
+migreer();
+
+// ============================================================
 // HELPERS
 // ============================================================
 function genId() {
@@ -152,9 +153,6 @@ function genId() {
 function parseJSON(val, fallback = []) {
   try { return val ? JSON.parse(val) : fallback; } catch { return fallback; }
 }
-
-// Voer migraties uit
-migreer();
 
 // ============================================================
 // SEED DATA (alleen als DB leeg is)
@@ -166,10 +164,10 @@ function seedIfEmpty() {
   console.log('Database seeden met startdata...');
 
   const users = [
-    { id: 'u1', naam: 'Tom', achternaam: 'Nieuweboer', email: 't.nieuweboer@atlascollege.nl', wachtwoord: bcrypt.hashSync('admin123', 10), rol: 'admin', initialen: 'TNB', vakken: '[]' },
-    { id: 'u2', naam: 'Jan', achternaam: 'Jansen', email: 'docent@school.nl', wachtwoord: bcrypt.hashSync('docent123', 10), rol: 'docent', initialen: 'JJA', vakken: '["v1","v2"]' },
-    { id: 'u3', naam: 'Fatima', achternaam: 'El Amrani', email: 'felam@school.nl', wachtwoord: bcrypt.hashSync('docent123', 10), rol: 'docent', initialen: 'FEA', vakken: '["v1"]' },
-    { id: 'u4', naam: 'Management', achternaam: 'Viewer', email: 'management@school.nl', wachtwoord: bcrypt.hashSync('mgmt123', 10), rol: 'management', initialen: 'MGT', vakken: '[]' },
+    { id: 'u1', naam: 'Tom', achternaam: 'Nieuweboer', email: 't.nieuweboer@atlascollege.nl', wachtwoord: bcrypt.hashSync('admin123', 10), rol: 'admin', initialen: 'TNB', vakken: '[]', hoofdklassen: '[]' },
+    { id: 'u2', naam: 'Jan', achternaam: 'Jansen', email: 'docent@school.nl', wachtwoord: bcrypt.hashSync('docent123', 10), rol: 'docent', initialen: 'JJA', vakken: '["v1","v2"]', hoofdklassen: '[]' },
+    { id: 'u3', naam: 'Fatima', achternaam: 'El Amrani', email: 'felam@school.nl', wachtwoord: bcrypt.hashSync('docent123', 10), rol: 'docent', initialen: 'FEA', vakken: '["v1"]', hoofdklassen: '[]' },
+    { id: 'u4', naam: 'Management', achternaam: 'Viewer', email: 'management@school.nl', wachtwoord: bcrypt.hashSync('mgmt123', 10), rol: 'management', initialen: 'MGT', vakken: '[]', hoofdklassen: '[]' },
   ];
 
   const vakken = [
@@ -185,21 +183,22 @@ function seedIfEmpty() {
     { id: 'k4', naam: '5 HAVO A', leerjaar: 5, niveau: 'HAVO', vakId: 'v2', docentId: 'u2', schooljaar: '2025-2026', aantalWeken: 38, urenPerWeek: 2 },
   ];
 
-  const insUser = db.prepare('INSERT INTO gebruikers (id,naam,achternaam,email,wachtwoord,rol,initialen,vakken) VALUES (?,?,?,?,?,?,?,?)');
+  const insUser = db.prepare('INSERT INTO gebruikers (id,naam,achternaam,email,wachtwoord,rol,initialen,vakken,hoofdklassen) VALUES (?,?,?,?,?,?,?,?,?)');
   const insVak = db.prepare('INSERT INTO vakken (id,naam,volledig,kleur) VALUES (?,?,?,?)');
-  const insKlas = db.prepare('INSERT INTO klassen (id,naam,leerjaar,niveau,vakId,docentId,schooljaar,aantalWeken,urenPerWeek) VALUES (?,?,?,?,?,?,?,?,?)');
+  const insKlas = db.prepare('INSERT INTO klassen (id,naam,leerjaar,niveau,vakId,docentId,schooljaar,aantalWeken,urenPerWeek,docenten) VALUES (?,?,?,?,?,?,?,?,?,?)');
 
-  users.forEach(u => insUser.run(u.id, u.naam, u.achternaam, u.email, u.wachtwoord, u.rol, u.initialen, u.vakken));
+  users.forEach(u => insUser.run(u.id, u.naam, u.achternaam, u.email, u.wachtwoord, u.rol, u.initialen, u.vakken, u.hoofdklassen));
   vakken.forEach(v => insVak.run(v.id, v.naam, v.volledig, v.kleur));
-  klassen.forEach(k => insKlas.run(k.id, k.naam, k.leerjaar, k.niveau, k.vakId, k.docentId, k.schooljaar, k.aantalWeken, k.urenPerWeek));
+  klassen.forEach(k => insKlas.run(k.id, k.naam, k.leerjaar, k.niveau, k.vakId, k.docentId, k.schooljaar, k.aantalWeken, k.urenPerWeek, JSON.stringify([k.docentId])));
 
   console.log('Seed klaar!');
 }
 
 // ============================================================
-// GEBRUIKERS
+// PREPARED STATEMENTS
 // ============================================================
 const Q = {
+  // GEBRUIKERS
   getGebruikers: db.prepare('SELECT * FROM gebruikers ORDER BY naam'),
   getGebruiker: db.prepare('SELECT * FROM gebruikers WHERE id = ?'),
   getGebruikerByEmail: db.prepare('SELECT * FROM gebruikers WHERE LOWER(email) = LOWER(?)'),
@@ -217,7 +216,6 @@ const Q = {
 
   // KLASSEN
   getKlassen: db.prepare('SELECT * FROM klassen ORDER BY naam'),
-  getKlassenByDocent: db.prepare("SELECT * FROM klassen WHERE docentId=? OR docenten LIKE '%\"' || ? || '\"%' ORDER BY naam"),
   getKlas: db.prepare('SELECT * FROM klassen WHERE id=?'),
   insKlas: db.prepare('INSERT INTO klassen (id,naam,leerjaar,niveau,vakId,docentId,schooljaar,aantalWeken,urenPerWeek,docenten) VALUES (?,?,?,?,?,?,?,?,?,?)'),
   updKlas: db.prepare('UPDATE klassen SET naam=?,leerjaar=?,niveau=?,vakId=?,docentId=?,schooljaar=?,urenPerWeek=?,docenten=? WHERE id=?'),
@@ -256,7 +254,7 @@ const Q = {
 };
 
 // ============================================================
-// DB API — gebruikt door de routes
+// DB API
 // ============================================================
 module.exports = {
   genId,

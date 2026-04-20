@@ -1,6 +1,5 @@
 // ============================================================
-// api.js — Alle communicatie met de server
-// Vervangt db.js (localStorage) volledig
+// api.js — Alle communicatie met de server via REST API
 // ============================================================
 
 const API = {
@@ -70,25 +69,13 @@ const API = {
 };
 
 // ============================================================
-// Cache — voorkomt te veel API calls bij re-renders
+// Cache
 // ============================================================
 const Cache = {
   _data: {},
   _ttl: {},
-
-  set(key, val, ttlMs = 30000) {
-    this._data[key] = val;
-    this._ttl[key] = Date.now() + ttlMs;
-  },
-
-  get(key) {
-    if (!this._data[key] || Date.now() > this._ttl[key]) return null;
-    return this._data[key];
-  },
-
-  invalidate(...keys) {
-    keys.forEach(k => { delete this._data[k]; delete this._ttl[k]; });
-  },
-
+  set(key, val, ttlMs = 30000) { this._data[key] = val; this._ttl[key] = Date.now() + ttlMs; },
+  get(key) { if (!this._data[key] || Date.now() > this._ttl[key]) return null; return this._data[key]; },
+  invalidate(...keys) { keys.forEach(k => { delete this._data[k]; delete this._ttl[k]; }); },
   invalidateAll() { this._data = {}; this._ttl = {}; }
 };
