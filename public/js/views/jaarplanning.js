@@ -341,7 +341,7 @@ function renderActiviteitRij(o, readonly, weeknummer) {
         <span style="font-size:12px;font-weight:500;${afgevinkt&&!heeftOpmerking?'text-decoration:line-through;color:#A8A29E':''}">${escHtml(o.naam)}</span>
         ${o.uren?`<span style="font-size:11px;color:#78716C">${o.uren}u</span>`:''}
         ${o.syllabuscodes?`<span style="font-size:10px;color:#A8A29E">${escHtml(o.syllabuscodes)}</span>`:''}
-        ${o.theorieLink?`<a href="${escHtml(o.theorieLink)}" class="text-link" target="_blank" style="font-size:11px">↗</a>`:''}
+        ${o.theorieLink?`<a href="${escHtml(o.theorieLink)}" target="_blank" style="font-size:11px;font-weight:600;color:#fff;background:#2563EB;padding:2px 8px;border-radius:5px;text-decoration:none">↗ Link</a>`:''}
         ${!afgevinkt&&weekVoorbij?`<span style="font-size:10px;color:#DC2626;font-weight:600">● Niet afgevinkt</span>`:''}
       </div>
       ${afgevinkt&&initialen?`<div style="display:flex;align-items:center;gap:4px;margin-top:3px"><span style="font-size:11px;font-weight:700;font-family:monospace;background:#16A34A;color:#fff;padding:1px 5px;border-radius:4px">${escHtml(initialen)}</span><span style="font-size:11px;color:#78716C">${datum}</span></div>`:''}
