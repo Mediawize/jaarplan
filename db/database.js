@@ -113,6 +113,19 @@ db.exec(`
     FOREIGN KEY (vakId) REFERENCES vakken(id),
     FOREIGN KEY (docentId) REFERENCES gebruikers(id)
   );
+
+  CREATE TABLE IF NOT EXISTS taken (
+    id TEXT PRIMARY KEY,
+    naam TEXT NOT NULL,
+    beschrijving TEXT,
+    deadline TEXT,
+    opgepakt TEXT DEFAULT '[]',
+    afgerond INTEGER DEFAULT 0,
+    afgerondDoor TEXT,
+    afgerondOp TEXT,
+    aangemaaktDoor TEXT,
+    aangemaakt TEXT DEFAULT (datetime('now'))
+  );
 `);
 
 // ============================================================
@@ -258,12 +271,23 @@ const Q = {
   insLesprofiel: db.prepare('INSERT INTO lesprofielen (id,naam,vakId,docentId,aantalWeken,urenPerWeek,niveau,beschrijving,weken) VALUES (?,?,?,?,?,?,?,?,?)'),
   updLesprofiel: db.prepare('UPDATE lesprofielen SET naam=?,vakId=?,docentId=?,aantalWeken=?,urenPerWeek=?,niveau=?,beschrijving=?,weken=? WHERE id=?'),
   delLesprofiel: db.prepare('DELETE FROM lesprofielen WHERE id=?'),
+
+  // TAKEN
+  getTaken: db.prepare('SELECT * FROM taken ORDER BY afgerond ASC, aangemaakt DESC'),
+  getTaak: db.prepare('SELECT * FROM taken WHERE id=?'),
+  insTaak: db.prepare('INSERT INTO taken (id,naam,beschrijving,deadline,aangemaaktDoor) VALUES (?,?,?,?,?)'),
+  updTaak: db.prepare('UPDATE taken SET naam=?,beschrijving=?,deadline=? WHERE id=?'),
+  updTaakOpgepakt: db.prepare('UPDATE taken SET opgepakt=? WHERE id=?'),
+  updTaakAfgerond: db.prepare('UPDATE taken SET afgerond=?,afgerondDoor=?,afgerondOp=? WHERE id=?'),
+  delTaak: db.prepare('DELETE FROM taken WHERE id=?'),
 };
 
 // ============================================================
 // DB API
 // ============================================================
 module.exports = {
+  db, // raw db instantie — nodig voor server.js routes
+
   genId,
   seedIfEmpty,
 
@@ -419,6 +443,34 @@ module.exports = {
     Q.updLesprofiel.run(d.naam ?? p.naam, d.vakId ?? p.vakId, d.docentId ?? p.docentId, d.aantalWeken ?? p.aantalWeken, d.urenPerWeek ?? p.urenPerWeek, d.niveau ?? p.niveau ?? '', d.beschrijving ?? p.beschrijving, JSON.stringify(d.weken ?? p.weken), id);
   },
   deleteLesprofiel(id) { Q.delLesprofiel.run(id); },
+
+  // --- TAKEN ---
+  getTaken() {
+    return Q.getTaken.all().map(t => ({
+      ...t,
+      opgepakt: parseJSON(t.opgepakt),
+      afgerond: !!t.afgerond
+    }));
+  },
+  getTaak(id) {
+    const t = Q.getTaak.get(id);
+    return t ? { ...t, opgepakt: parseJSON(t.opgepakt), afgerond: !!t.afgerond } : null;
+  },
+  addTaak({ naam, beschrijving, deadline, aangemaaktDoor }) {
+    const id = genId();
+    Q.insTaak.run(id, naam, beschrijving || null, deadline || null, aangemaaktDoor || null);
+    return this.getTaak(id);
+  },
+  updateTaak(id, { naam, beschrijving, deadline }) {
+    Q.updTaak.run(naam, beschrijving || null, deadline || null, id);
+  },
+  updateTaakOpgepakt(id, opgepakt) {
+    Q.updTaakOpgepakt.run(JSON.stringify(opgepakt), id);
+  },
+  updateTaakAfgerond(id, afgerond, afgerondDoor) {
+    Q.updTaakAfgerond.run(afgerond ? 1 : 0, afgerond ? afgerondDoor : null, afgerond ? new Date().toISOString() : null, id);
+  },
+  deleteTaak(id) { Q.delTaak.run(id); },
 
   // --- STATS ---
   getStats(docentId = null) {
