@@ -151,6 +151,7 @@ function renderAppShell() {
         <div class="nav-label">Overzicht</div>
         <a class="nav-item" data-view="dashboard" onclick="showView('dashboard');closeSidebar()"><svg viewBox="0 0 20 20" fill="none"><rect x="2" y="2" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.5"/><rect x="11" y="2" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.5"/><rect x="2" y="11" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.5"/><rect x="11" y="11" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.5"/></svg>Dashboard</a>
         <a class="nav-item" data-view="klassen" onclick="showView('klassen');closeSidebar()"><svg viewBox="0 0 20 20" fill="none"><path d="M3 5h14M3 10h14M3 15h9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>Klassen</a>
+        <a class="nav-item" data-view="rooster" onclick="showView('rooster');closeSidebar()"><svg viewBox="0 0 20 20" fill="none"><rect x="2" y="3" width="16" height="15" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M6 2v2M14 2v2M2 8h16M6 12h2M10 12h2M14 12h2M6 15h2M10 15h2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>Mijn rooster</a>
       </div>
       <div class="nav-group">
         <div class="nav-label">Planning</div>
@@ -174,6 +175,7 @@ function renderAppShell() {
     <main class="main-content">
       <div id="view-dashboard" class="view"></div>
       <div id="view-klassen" class="view" style="display:none"></div>
+      <div id="view-rooster" class="view" style="display:none"></div>
       <div id="view-jaarplanning" class="view" style="display:none"></div>
       <div id="view-lesprofielen" class="view" style="display:none"></div>
       <div id="view-taken" class="view" style="display:none"></div>
@@ -196,9 +198,9 @@ function renderAppShell() {
         <svg viewBox="0 0 20 20" fill="none"><path d="M6 10l2.5 2.5L14 7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><rect x="3" y="3" width="14" height="14" rx="2" stroke="currentColor" stroke-width="1.5"/></svg>
         <span>Taken</span>
       </button>
-      <button class="bottom-nav-item" data-view="opdrachten" onclick="showView('opdrachten')">
-        <svg viewBox="0 0 20 20" fill="none"><path d="M5 5h10M5 9h10M5 13h6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><rect x="2" y="2" width="16" height="16" rx="2" stroke="currentColor" stroke-width="1.5"/></svg>
-        <span>Opdrachten</span>
+      <button class="bottom-nav-item" data-view="rooster" onclick="showView('rooster')">
+        <svg viewBox="0 0 20 20" fill="none"><rect x="2" y="3" width="16" height="15" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M6 2v2M14 2v2M2 8h16M6 12h2M10 12h2M14 12h2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        <span>Rooster</span>
       </button>
       <button class="bottom-nav-item" onclick="toggleSidebar()">
         <svg viewBox="0 0 20 20" fill="none"><path d="M3 6h14M3 10h14M3 14h14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
@@ -226,13 +228,14 @@ function updateSidebar() {
 }
 
 function showView(view) {
-  const views = ['dashboard','klassen','jaarplanning','lesprofielen','taken','opdrachten','toetsen','schooljaren','gebruikers','vakken'];
+  const views = ['dashboard','klassen','rooster','jaarplanning','lesprofielen','taken','opdrachten','toetsen','schooljaren','gebruikers','vakken'];
   views.forEach(v => { const el = document.getElementById('view-' + v); if (el) el.style.display = v === view ? 'block' : 'none'; });
   document.querySelectorAll('.nav-item').forEach(i => i.classList.toggle('active', i.dataset.view === view));
   document.querySelectorAll('.bottom-nav-item').forEach(i => i.classList.toggle('active', i.dataset.view === view));
   const renderers = {
     dashboard: renderDashboard,
     klassen: renderKlassen,
+    rooster: renderRooster,
     jaarplanning: renderJaarplanning,
     lesprofielen: renderLesprofielen,
     taken: renderTaken,

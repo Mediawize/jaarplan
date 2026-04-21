@@ -72,6 +72,10 @@ const API = {
   async taakOppakken(id) { return this._fetch(`/api/taken/${id}/oppakken`, { method: 'POST' }); },
   async taakAfvinken(id) { return this._fetch(`/api/taken/${id}/afvinken`, { method: 'POST' }); },
 
+  // ROOSTER
+  async getRooster(userId) { return this._fetch(`/api/rooster/${userId}`); },
+  async saveRooster(userId, rooster) { return this._fetch(`/api/rooster/${userId}`, { method: 'PUT', body: rooster }); },
+
   // STATS
   async getStats() { return this._fetch('/api/stats'); },
 };
