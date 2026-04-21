@@ -135,7 +135,7 @@ db.exec(`
 `);
 
 // ============================================================
-// MIGRATIES — voeg kolommen toe als ze nog niet bestaan
+// MIGRATIES
 // ============================================================
 function migreer() {
   const weekCols = db.prepare("PRAGMA table_info(weken)").all().map(c => c.name);
@@ -165,6 +165,19 @@ function migreer() {
     db.exec("ALTER TABLE lesprofielen ADD COLUMN niveau TEXT DEFAULT ''");
     console.log('Migratie: niveau kolom toegevoegd aan lesprofielen');
   }
+  // Roulatie kolommen
+  if (!klasCols.includes('roulatie')) {
+    db.exec("ALTER TABLE klassen ADD COLUMN roulatie INTEGER DEFAULT 0");
+    console.log('Migratie: roulatie kolom toegevoegd aan klassen');
+  }
+  if (!klasCols.includes('roulatieBlok')) {
+    db.exec("ALTER TABLE klassen ADD COLUMN roulatieBlok INTEGER DEFAULT 5");
+    console.log('Migratie: roulatieBlok kolom toegevoegd aan klassen');
+  }
+  if (!klasCols.includes('roulatieStart')) {
+    db.exec("ALTER TABLE klassen ADD COLUMN roulatieStart INTEGER DEFAULT 35");
+    console.log('Migratie: roulatieStart kolom toegevoegd aan klassen');
+  }
 }
 
 migreer();
@@ -181,42 +194,35 @@ function parseJSON(val, fallback = []) {
 }
 
 // ============================================================
-// SEED DATA (alleen als DB leeg is)
+// SEED DATA
 // ============================================================
 function seedIfEmpty() {
   const count = db.prepare('SELECT COUNT(*) as c FROM gebruikers').get().c;
   if (count > 0) return;
-
   console.log('Database seeden met startdata...');
-
   const users = [
     { id: 'u1', naam: 'Tom', achternaam: 'Nieuweboer', email: 't.nieuweboer@atlascollege.nl', wachtwoord: bcrypt.hashSync('admin123', 10), rol: 'admin', initialen: 'TNB', vakken: '[]', hoofdklassen: '[]' },
     { id: 'u2', naam: 'Jan', achternaam: 'Jansen', email: 'docent@school.nl', wachtwoord: bcrypt.hashSync('docent123', 10), rol: 'docent', initialen: 'JJA', vakken: '["v1","v2"]', hoofdklassen: '[]' },
     { id: 'u3', naam: 'Fatima', achternaam: 'El Amrani', email: 'felam@school.nl', wachtwoord: bcrypt.hashSync('docent123', 10), rol: 'docent', initialen: 'FEA', vakken: '["v1"]', hoofdklassen: '[]' },
     { id: 'u4', naam: 'Management', achternaam: 'Viewer', email: 'management@school.nl', wachtwoord: bcrypt.hashSync('mgmt123', 10), rol: 'management', initialen: 'MGT', vakken: '[]', hoofdklassen: '[]' },
   ];
-
   const vakken = [
     { id: 'v1', naam: 'PIE', volledig: 'Produceren, Installeren & Energie', kleur: '#2D5A3D' },
     { id: 'v2', naam: 'M&O', volledig: 'Management & Organisatie', kleur: '#1A4A7A' },
     { id: 'v3', naam: 'Economie', volledig: 'Economie', kleur: '#C4821A' },
   ];
-
   const klassen = [
     { id: 'k1', naam: '3 HAVO A', leerjaar: 3, niveau: 'HAVO', vakId: 'v1', docentId: 'u2', schooljaar: '2025-2026', aantalWeken: 38, urenPerWeek: 3 },
     { id: 'k2', naam: '3 HAVO B', leerjaar: 3, niveau: 'HAVO', vakId: 'v1', docentId: 'u2', schooljaar: '2025-2026', aantalWeken: 38, urenPerWeek: 3 },
     { id: 'k3', naam: '4 VWO A', leerjaar: 4, niveau: 'VWO', vakId: 'v1', docentId: 'u3', schooljaar: '2025-2026', aantalWeken: 38, urenPerWeek: 4 },
     { id: 'k4', naam: '5 HAVO A', leerjaar: 5, niveau: 'HAVO', vakId: 'v2', docentId: 'u2', schooljaar: '2025-2026', aantalWeken: 38, urenPerWeek: 2 },
   ];
-
   const insUser = db.prepare('INSERT INTO gebruikers (id,naam,achternaam,email,wachtwoord,rol,initialen,vakken,hoofdklassen) VALUES (?,?,?,?,?,?,?,?,?)');
   const insVak = db.prepare('INSERT INTO vakken (id,naam,volledig,kleur) VALUES (?,?,?,?)');
   const insKlas = db.prepare('INSERT INTO klassen (id,naam,leerjaar,niveau,vakId,docentId,schooljaar,aantalWeken,urenPerWeek,docenten) VALUES (?,?,?,?,?,?,?,?,?,?)');
-
   users.forEach(u => insUser.run(u.id, u.naam, u.achternaam, u.email, u.wachtwoord, u.rol, u.initialen, u.vakken, u.hoofdklassen));
   vakken.forEach(v => insVak.run(v.id, v.naam, v.volledig, v.kleur));
   klassen.forEach(k => insKlas.run(k.id, k.naam, k.leerjaar, k.niveau, k.vakId, k.docentId, k.schooljaar, k.aantalWeken, k.urenPerWeek, JSON.stringify([k.docentId])));
-
   console.log('Seed klaar!');
 }
 
@@ -224,7 +230,6 @@ function seedIfEmpty() {
 // PREPARED STATEMENTS
 // ============================================================
 const Q = {
-  // GEBRUIKERS
   getGebruikers: db.prepare('SELECT * FROM gebruikers ORDER BY naam'),
   getGebruiker: db.prepare('SELECT * FROM gebruikers WHERE id = ?'),
   getGebruikerByEmail: db.prepare('SELECT * FROM gebruikers WHERE LOWER(email) = LOWER(?)'),
@@ -233,36 +238,30 @@ const Q = {
   updGebruikerMetWW: db.prepare('UPDATE gebruikers SET naam=?,achternaam=?,email=?,wachtwoord=?,rol=?,initialen=?,vakken=?,hoofdklassen=? WHERE id=?'),
   delGebruiker: db.prepare('DELETE FROM gebruikers WHERE id=?'),
 
-  // VAKKEN
   getVakken: db.prepare('SELECT * FROM vakken ORDER BY naam'),
   getVak: db.prepare('SELECT * FROM vakken WHERE id=?'),
   insVak: db.prepare('INSERT INTO vakken (id,naam,volledig,kleur) VALUES (?,?,?,?)'),
   updVak: db.prepare('UPDATE vakken SET naam=?,volledig=? WHERE id=?'),
   delVak: db.prepare('DELETE FROM vakken WHERE id=?'),
 
-  // KLASSEN
   getKlassen: db.prepare('SELECT * FROM klassen ORDER BY naam'),
   getKlas: db.prepare('SELECT * FROM klassen WHERE id=?'),
-  insKlas: db.prepare('INSERT INTO klassen (id,naam,leerjaar,niveau,vakId,docentId,schooljaar,aantalWeken,urenPerWeek,docenten) VALUES (?,?,?,?,?,?,?,?,?,?)'),
-  updKlas: db.prepare('UPDATE klassen SET naam=?,leerjaar=?,niveau=?,vakId=?,docentId=?,schooljaar=?,urenPerWeek=?,docenten=? WHERE id=?'),
+  insKlas: db.prepare('INSERT INTO klassen (id,naam,leerjaar,niveau,vakId,docentId,schooljaar,aantalWeken,urenPerWeek,docenten,roulatie,roulatieBlok,roulatieStart) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)'),
+  updKlas: db.prepare('UPDATE klassen SET naam=?,leerjaar=?,niveau=?,vakId=?,docentId=?,schooljaar=?,urenPerWeek=?,docenten=?,roulatie=?,roulatieBlok=?,roulatieStart=? WHERE id=?'),
   delKlas: db.prepare('DELETE FROM klassen WHERE id=?'),
 
-  // SCHOOLJAREN
   getSchooljaren: db.prepare('SELECT * FROM schooljaren ORDER BY naam'),
   getSchooljaar: db.prepare('SELECT * FROM schooljaren WHERE naam=?'),
   insSchooljaar: db.prepare('INSERT INTO schooljaren (id,naam) VALUES (?,?)'),
   delSchooljaar: db.prepare('DELETE FROM schooljaren WHERE naam=?'),
 
-  // WEKEN
   getWeken: db.prepare('SELECT * FROM weken WHERE schooljaar=? ORDER BY weeknummer'),
-  getWeek: db.prepare('SELECT * FROM weken WHERE id=?'),
   insWeek: db.prepare('INSERT OR IGNORE INTO weken (id,schooljaar,weeknummer,van,tot,vanISO,totISO,isVakantie,vakantieNaam,thema) VALUES (?,?,?,?,?,?,?,?,?,?)'),
   updWeekThema: db.prepare('UPDATE weken SET thema=? WHERE id=?'),
   updWeekType: db.prepare('UPDATE weken SET weektype=?, isVakantie=?, vakantieNaam=? WHERE id=?'),
   updWeekDagnotities: db.prepare('UPDATE weken SET dagnotities=? WHERE id=?'),
   delWekenVoorSchooljaar: db.prepare('DELETE FROM weken WHERE schooljaar=?'),
 
-  // OPDRACHTEN
   getOpdrachten: db.prepare('SELECT * FROM opdrachten ORDER BY weeknummer'),
   getOpdrachtenByKlas: db.prepare('SELECT * FROM opdrachten WHERE klasId=? ORDER BY weeknummer'),
   getOpdracht: db.prepare('SELECT * FROM opdrachten WHERE id=?'),
@@ -271,14 +270,12 @@ const Q = {
   delOpdracht: db.prepare('DELETE FROM opdrachten WHERE id=?'),
   delOpdrachtenByKlas: db.prepare('DELETE FROM opdrachten WHERE klasId=?'),
 
-  // LESPROFIELEN
   getLesprofielen: db.prepare('SELECT * FROM lesprofielen ORDER BY naam'),
   getLesprofiel: db.prepare('SELECT * FROM lesprofielen WHERE id=?'),
   insLesprofiel: db.prepare('INSERT INTO lesprofielen (id,naam,vakId,docentId,aantalWeken,urenPerWeek,niveau,beschrijving,weken) VALUES (?,?,?,?,?,?,?,?,?)'),
   updLesprofiel: db.prepare('UPDATE lesprofielen SET naam=?,vakId=?,docentId=?,aantalWeken=?,urenPerWeek=?,niveau=?,beschrijving=?,weken=? WHERE id=?'),
   delLesprofiel: db.prepare('DELETE FROM lesprofielen WHERE id=?'),
 
-  // TAKEN
   getTaken: db.prepare('SELECT * FROM taken ORDER BY afgerond ASC, aangemaakt DESC'),
   getTaak: db.prepare('SELECT * FROM taken WHERE id=?'),
   insTaak: db.prepare('INSERT INTO taken (id,naam,beschrijving,deadline,aangemaaktDoor) VALUES (?,?,?,?,?)'),
@@ -287,10 +284,9 @@ const Q = {
   updTaakAfgerond: db.prepare('UPDATE taken SET afgerond=?,afgerondDoor=?,afgerondOp=? WHERE id=?'),
   delTaak: db.prepare('DELETE FROM taken WHERE id=?'),
 
-  // ROOSTERS
   getRooster: db.prepare('SELECT rooster FROM roosters WHERE userId=?'),
   insRooster: db.prepare('INSERT INTO roosters (userId,rooster) VALUES (?,?)'),
-  updRooster: db.prepare('UPDATE roosters SET rooster=?,bijgewerkt=datetime(\'now\') WHERE userId=?'),
+  updRooster: db.prepare("UPDATE roosters SET rooster=?,bijgewerkt=datetime('now') WHERE userId=?"),
 };
 
 // ============================================================
@@ -301,7 +297,6 @@ module.exports = {
   genId,
   seedIfEmpty,
 
-  // --- GEBRUIKERS ---
   getGebruikers() {
     return Q.getGebruikers.all().map(u => ({ ...u, vakken: parseJSON(u.vakken), hoofdklassen: parseJSON(u.hoofdklassen) }));
   },
@@ -335,7 +330,6 @@ module.exports = {
     return u;
   },
 
-  // --- VAKKEN ---
   getVakken() { return Q.getVakken.all(); },
   getVak(id) { return Q.getVak.get(id) || null; },
   addVak({ naam, volledig, kleur = '#2D5A3D' }) {
@@ -346,29 +340,53 @@ module.exports = {
   updateVak(id, { naam, volledig }) { Q.updVak.run(naam, volledig, id); },
   deleteVak(id) { Q.delVak.run(id); },
 
-  // --- KLASSEN ---
   getKlassen(docentId = null) {
-    const alle = Q.getKlassen.all().map(k => ({ ...k, docenten: parseJSON(k.docenten) }));
+    const alle = Q.getKlassen.all().map(k => ({
+      ...k,
+      docenten: parseJSON(k.docenten),
+      roulatie: !!k.roulatie,
+      roulatieBlok: k.roulatieBlok || 5,
+      roulatieStart: k.roulatieStart || 35,
+    }));
     if (!docentId) return alle;
     return alle.filter(k => k.docentId === docentId || (k.docenten || []).includes(docentId));
   },
   getKlas(id) {
     const k = Q.getKlas.get(id);
-    return k ? { ...k, docenten: parseJSON(k.docenten) } : null;
+    return k ? {
+      ...k,
+      docenten: parseJSON(k.docenten),
+      roulatie: !!k.roulatie,
+      roulatieBlok: k.roulatieBlok || 5,
+      roulatieStart: k.roulatieStart || 35,
+    } : null;
   },
   addKlas(d) {
     const id = genId();
     const docenten = d.docenten || (d.docentId ? [d.docentId] : []);
-    Q.insKlas.run(id, d.naam, d.leerjaar, d.niveau, d.vakId, d.docentId || null, d.schooljaar, d.aantalWeken || 38, d.urenPerWeek || 3, JSON.stringify(docenten));
+    Q.insKlas.run(
+      id, d.naam, d.leerjaar, d.niveau, d.vakId, d.docentId || null,
+      d.schooljaar, d.aantalWeken || 38, d.urenPerWeek || 3,
+      JSON.stringify(docenten),
+      d.roulatie ? 1 : 0,
+      d.roulatieBlok || 5,
+      d.roulatieStart || 35
+    );
     return this.getKlas(id);
   },
   updateKlas(id, d) {
     const docenten = d.docenten || (d.docentId ? [d.docentId] : []);
-    Q.updKlas.run(d.naam, d.leerjaar, d.niveau, d.vakId, d.docentId || null, d.schooljaar, d.urenPerWeek || 3, JSON.stringify(docenten), id);
+    Q.updKlas.run(
+      d.naam, d.leerjaar, d.niveau, d.vakId, d.docentId || null,
+      d.schooljaar, d.urenPerWeek || 3, JSON.stringify(docenten),
+      d.roulatie ? 1 : 0,
+      d.roulatieBlok || 5,
+      d.roulatieStart || 35,
+      id
+    );
   },
   deleteKlas(id) { Q.delOpdrachtenByKlas.run(id); Q.delKlas.run(id); },
 
-  // --- SCHOOLJAREN ---
   getSchooljaren() { return Q.getSchooljaren.all(); },
   heeftSchooljaar(naam) { return !!Q.getSchooljaar.get(naam); },
   addSchooljaar(naam, weken) {
@@ -382,7 +400,6 @@ module.exports = {
   },
   deleteSchooljaar(naam) { Q.delWekenVoorSchooljaar.run(naam); Q.delSchooljaar.run(naam); },
 
-  // --- WEKEN ---
   getWeken(schooljaar) {
     return Q.getWeken.all(schooljaar).map(w => ({
       ...w,
@@ -400,7 +417,6 @@ module.exports = {
     Q.updWeekDagnotities.run(JSON.stringify(dagnotities || []), weekId);
   },
 
-  // --- OPDRACHTEN ---
   getOpdrachten(klasId = null) {
     return klasId ? Q.getOpdrachtenByKlas.all(klasId) : Q.getOpdrachten.all();
   },
@@ -427,7 +443,6 @@ module.exports = {
   },
   deleteOpdracht(id) { Q.delOpdracht.run(id); },
 
-  // --- LESPROFIELEN ---
   getLesprofielen() {
     return Q.getLesprofielen.all().map(p => ({ ...p, weken: parseJSON(p.weken) }));
   },
@@ -447,7 +462,6 @@ module.exports = {
   },
   deleteLesprofiel(id) { Q.delLesprofiel.run(id); },
 
-  // --- TAKEN ---
   getTaken() {
     return Q.getTaken.all().map(t => ({ ...t, opgepakt: parseJSON(t.opgepakt), afgerond: !!t.afgerond }));
   },
@@ -463,15 +477,12 @@ module.exports = {
   updateTaak(id, { naam, beschrijving, deadline }) {
     Q.updTaak.run(naam, beschrijving || null, deadline || null, id);
   },
-  updateTaakOpgepakt(id, opgepakt) {
-    Q.updTaakOpgepakt.run(JSON.stringify(opgepakt), id);
-  },
+  updateTaakOpgepakt(id, opgepakt) { Q.updTaakOpgepakt.run(JSON.stringify(opgepakt), id); },
   updateTaakAfgerond(id, afgerond, afgerondDoor) {
     Q.updTaakAfgerond.run(afgerond ? 1 : 0, afgerond ? afgerondDoor : null, afgerond ? new Date().toISOString() : null, id);
   },
   deleteTaak(id) { Q.delTaak.run(id); },
 
-  // --- ROOSTERS ---
   getRooster(userId) {
     const rij = Q.getRooster.get(userId);
     return rij ? JSON.parse(rij.rooster || '{}') : {};
@@ -479,14 +490,9 @@ module.exports = {
   saveRooster(userId, rooster) {
     const json = JSON.stringify(rooster);
     const bestaand = Q.getRooster.get(userId);
-    if (bestaand) {
-      Q.updRooster.run(json, userId);
-    } else {
-      Q.insRooster.run(userId, json);
-    }
+    if (bestaand) { Q.updRooster.run(json, userId); } else { Q.insRooster.run(userId, json); }
   },
 
-  // --- STATS ---
   getStats(docentId = null) {
     const klassen = this.getKlassen(docentId);
     const klasIds = klassen.map(k => k.id);
