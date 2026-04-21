@@ -1,45 +1,24 @@
 ====================================================
-  JAARPLAN UPDATE — VOLLEDIGE BESTANDEN
-  Gewoon overzetten, geen handmatig aanpassen nodig
+  JAARPLAN — LANDINGSPAGINA
 ====================================================
 
-ALLE BESTANDEN ZIJN VOLLEDIG EN COMPLEET.
-Je hoeft alleen maar elk bestand naar het juiste pad te uploaden
-en daarna de server te herstarten. Dat is alles.
+UPLOADEN:
+---------
+Zet landing.html op de VPS:
+  /var/www/jaarplan/public/landing.html
 
+Bereikbaar via:
+  https://jaarplan.mediawize.nl/landing.html
 
-STAP 1 — Upload deze bestanden naar de VPS
--------------------------------------------
-Elk bestand gaat naar exact dezelfde mapstructuur
-als in deze zip:
+Als je hem als HOMEPAGE wilt (aanbevolen):
+  1. Hernoem de huidige public/index.html → app.html
+  2. Hernoem landing.html → index.html
+  3. Pas alle href="/app" links in de landingspagina aan
 
-  server.js                      → /var/www/jaarplan/server.js
-  db/database.js                 → /var/www/jaarplan/db/database.js
-  public/index.html              → /var/www/jaarplan/public/index.html
-  public/js/api.js               → /var/www/jaarplan/public/js/api.js
-  public/js/app.js               → /var/www/jaarplan/public/js/app.js
-  public/js/views/dashboard.js  → /var/www/jaarplan/public/js/views/dashboard.js
-  public/js/views/taken.js       → /var/www/jaarplan/public/js/views/taken.js  ← NIEUW
-
-
-STAP 2 — Herstart de server
------------------------------
-  cd /var/www/jaarplan
-  pm2 restart jaarplan
-
-
-DAT IS ALLES. Geen extra commando's, geen handmatig patchen.
-De taken tabel wordt automatisch aangemaakt door database.js.
-
-
-WAT ER VERANDERT:
------------------
-✓ Komende activiteiten staat nu BOVENAAN het dashboard
-✓ "+ Nieuwe klas" knop staat nu bij "Mijn klassen"
-✓ Nieuw menu-item "Taken" in de sidebar en bottom nav
-✓ Taken aanmaken met naam, beschrijving en deadline
-✓ Docenten kunnen een taak "oppakken" → initialen verschijnen
-✓ Taak afvinken als klaar (toggle)
-✓ Taken met deadline verschijnen in Komende activiteiten
-
+AANPASSEN:
+----------
+- Teksten: direct in de HTML
+- School naam: zoek "Atlas College"  
+- Inlogknop URL: zoek href="/app"
+- Kleuren: zoek :root { --green: #1A5C38 }
 ====================================================
