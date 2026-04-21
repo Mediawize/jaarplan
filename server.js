@@ -17,8 +17,8 @@ if (!process.env.SESSION_SECRET) {
 
 // ---- RATE LIMITING op login ----
 const loginLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minuten
-  max: 10, // max 10 pogingen per 15 minuten
+  windowMs: 15 * 60 * 1000,
+  max: 10,
   message: { error: 'Te veel inlogpogingen. Probeer het over 15 minuten opnieuw.' },
   standardHeaders: true,
   legacyHeaders: false,
@@ -45,9 +45,9 @@ app.use(session({
   resave: false,
   saveUninitialized: false,
   cookie: {
-    secure: process.env.NODE_ENV === 'production', // HTTPS only in productie
-    httpOnly: true, // Voorkomt XSS toegang tot cookie
-    maxAge: 8 * 60 * 60 * 1000 // 8 uur
+    secure: process.env.NODE_ENV === 'production',
+    httpOnly: true,
+    maxAge: 8 * 60 * 60 * 1000
   }
 }));
 
@@ -116,7 +116,6 @@ app.delete('/api/gebruikers/:id', requireAdmin, (req, res) => {
   db.deleteGebruiker(req.params.id);
   res.json({ success: true });
 });
-
 app.put('/api/gebruikers/:id/hoofdklassen', requireAuth, (req, res) => {
   const u = req.session.user;
   if (u.id !== req.params.id && u.rol !== 'admin') return res.status(403).json({ error: 'Geen toegang' });
@@ -187,7 +186,6 @@ app.delete('/api/opdrachten/:id', requireCanEdit, (req, res) => {
   db.deleteOpdracht(req.params.id);
   res.json({ success: true });
 });
-
 app.post('/api/opdrachten/:id/afvinken', requireCanEdit, (req, res) => {
   const o = db.getOpdracht(req.params.id);
   if (!o) return res.status(404).json({ error: 'Niet gevonden' });
@@ -210,7 +208,6 @@ app.post('/api/opdrachten/:id/afvinken', requireCanEdit, (req, res) => {
   }
   res.json(db.getOpdracht(o.id));
 });
-
 app.post('/api/opdrachten/:id/opmerking', requireCanEdit, (req, res) => {
   db.updateOpdracht(req.params.id, { opmerking: req.body.opmerking || null });
   res.json({ success: true });
@@ -236,6 +233,43 @@ app.put('/api/lesprofielen/:id', requireCanEdit, (req, res) => {
 app.delete('/api/lesprofielen/:id', requireCanEdit, (req, res) => {
   db.deleteLesprofiel(req.params.id);
   res.json({ success: true });
+});
+
+// ---- TAKEN ----
+app.get('/api/taken', requireAuth, (req, res) => {
+  res.json(db.getTaken());
+});
+app.post('/api/taken', requireAuth, (req, res) => {
+  const { naam, beschrijving, deadline } = req.body;
+  if (!naam) return res.status(400).json({ error: 'naam is verplicht' });
+  const taak = db.addTaak({ naam, beschrijving, deadline, aangemaaktDoor: req.session.user.id });
+  res.json(taak);
+});
+app.put('/api/taken/:id', requireAuth, (req, res) => {
+  const { naam, beschrijving, deadline } = req.body;
+  db.updateTaak(req.params.id, { naam, beschrijving, deadline });
+  res.json({ ok: true });
+});
+app.delete('/api/taken/:id', requireAuth, (req, res) => {
+  db.deleteTaak(req.params.id);
+  res.json({ ok: true });
+});
+app.post('/api/taken/:id/oppakken', requireAuth, (req, res) => {
+  const taak = db.getTaak(req.params.id);
+  if (!taak) return res.status(404).json({ error: 'niet gevonden' });
+  const opgepakt = taak.opgepakt || [];
+  const userId = req.session.user.id;
+  const idx = opgepakt.indexOf(userId);
+  if (idx === -1) { opgepakt.push(userId); } else { opgepakt.splice(idx, 1); }
+  db.updateTaakOpgepakt(req.params.id, opgepakt);
+  res.json({ ok: true, opgepakt });
+});
+app.post('/api/taken/:id/afvinken', requireAuth, (req, res) => {
+  const taak = db.getTaak(req.params.id);
+  if (!taak) return res.status(404).json({ error: 'niet gevonden' });
+  const nieuw = !taak.afgerond;
+  db.updateTaakAfgerond(req.params.id, nieuw, req.session.user.id);
+  res.json({ ok: true, afgerond: nieuw });
 });
 
 // ---- STATS ----
