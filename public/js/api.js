@@ -52,6 +52,7 @@ const API = {
 
   // OPDRACHTEN
   async getOpdrachten(klasId) { return this._fetch('/api/opdrachten' + (klasId ? `?klasId=${klasId}` : '')); },
+  async getOpdrachtenByKlas(klasId) { return this.getOpdrachten(klasId); },
   async addOpdracht(data) { return this._fetch('/api/opdrachten', { method: 'POST', body: data }); },
   async updateOpdracht(id, data) { return this._fetch(`/api/opdrachten/${id}`, { method: 'PUT', body: data }); },
   async deleteOpdracht(id) { return this._fetch(`/api/opdrachten/${id}`, { method: 'DELETE' }); },
