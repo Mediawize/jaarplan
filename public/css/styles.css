@@ -199,6 +199,105 @@ input, select, textarea { font-family: var(--font); }
 
 .form-field textarea { resize: vertical; min-height: 80px; }
 
+
+.vak-select-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.vak-select-header label {
+  margin-bottom: 0;
+}
+
+.vak-select-count {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent-text);
+  background: var(--accent-dim);
+  border: 1px solid rgba(22,163,74,0.15);
+  border-radius: 999px;
+  padding: 5px 10px;
+  white-space: nowrap;
+}
+
+.vak-select-search {
+  margin-top: 10px;
+}
+
+.vak-select-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 10px;
+  max-height: 280px;
+  overflow: auto;
+  padding: 2px;
+}
+
+.vak-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px;
+  border: 1.5px solid var(--border-2);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s, box-shadow 0.15s, transform 0.1s;
+}
+
+.vak-option:hover {
+  border-color: var(--accent);
+  background: #F7FCF8;
+}
+
+.vak-option.is-selected {
+  border-color: var(--accent);
+  background: var(--accent-dim);
+  box-shadow: 0 0 0 3px rgba(22,163,74,0.08);
+}
+
+.vak-option input[type="checkbox"] {
+  width: 17px;
+  height: 17px;
+  margin-top: 2px;
+  flex: 0 0 auto;
+  accent-color: var(--accent);
+}
+
+.vak-option-text {
+  min-width: 0;
+}
+
+.vak-option-text strong {
+  display: block;
+  font-size: 13px;
+  color: var(--ink);
+  line-height: 1.3;
+}
+
+.vak-option-text span {
+  display: block;
+  font-size: 12px;
+  color: var(--ink-3);
+  line-height: 1.4;
+  margin-top: 3px;
+}
+
+@media (max-width: 768px) {
+  .vak-select-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .vak-select-grid {
+    grid-template-columns: 1fr;
+    max-height: 320px;
+  }
+}
+
 .btn-login {
   width: 100%;
   padding: 11px;
