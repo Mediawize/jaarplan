@@ -126,40 +126,96 @@ function renderJpGrid(weken, opdrachten, klas, cw, readonly) {
       <div class="jp-opdrachten">
         ${weekOpd.length === 0
           ? `<div class="jp-leeg">Nog geen opdrachten</div>`
-          : weekOpd.map(o => renderOpdrachtKaart(o, readonly)).join('')
+          : weekOpd.map(o => renderOpdrachtKaart(o, readonly, week.weeknummer)).join('')
         }
       </div>
     </div>`;
   }).join('');
 }
 
-function renderOpdrachtKaart(o, readonly) {
+function typeKleurBalk(t) {
+  const m = {
+    'Theorie':        '#2563EB',
+    'Opdracht':       '#16A34A',
+    'Groepsopdracht': '#16A34A',
+    'Toets':          '#D97706',
+    'Eindtoets':      '#DC2626',
+    'Praktijk':       '#9333EA',
+    'Project':        '#0891B2',
+    'Presentatie':    '#78716C',
+    'Overig':         '#A8A29E',
+  };
+  return m[t] || '#A8A29E';
+}
+
+function renderOpdrachtKaart(o, readonly, weeknummer) {
   const afgevinkt = !!o.afgevinkt;
-  return `<div class="jp-opdracht ${afgevinkt ? 'jp-opdracht-afgevinkt' : ''}" data-id="${o.id}">
-    <div class="jp-opdracht-top">
-      <span class="badge ${typeKleur(o.type)}" style="font-size:10px">${escHtml(o.type)}</span>
-      ${!readonly ? `<div style="display:flex;gap:4px">
-        <button class="icon-btn" onclick="openOpdrachtModal('${o.id}')" style="width:18px;height:18px;opacity:0.6" title="Bewerken">
-          <svg viewBox="0 0 20 20" fill="none"><path d="M14.5 3.5l2 2L7 15l-3 1 1-3 9.5-9.5z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        </button>
-        <button class="icon-btn" onclick="openOpmerkingModal('${o.id}')" style="width:18px;height:18px;opacity:0.6" title="Opmerking">
-          <svg viewBox="0 0 20 20" fill="none"><path d="M4 4h12v9H4z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M8 17l2-4h0l2 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        </button>
-        <button class="icon-btn" onclick="deleteOpdracht('${o.id}')" style="width:18px;height:18px;opacity:0.6;color:var(--red)" title="Verwijderen">
-          <svg viewBox="0 0 20 20" fill="none"><path d="M5 5l10 10M15 5L5 15" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-        </button>
+  const heeftOpmerking = !!(o.opmerking && o.opmerking.trim());
+  const kleur = typeKleurBalk(o.type);
+  const cw = getCurrentWeek();
+  const weekVoorbij = weeknummer && weeknummer < cw;
+
+  // Achtergrond + border van het hele blok op basis van status
+  let bgKleur, borderKleur;
+  if (afgevinkt && heeftOpmerking) {
+    bgKleur = 'rgba(217,119,6,0.07)'; borderKleur = 'rgba(217,119,6,0.3)';
+  } else if (afgevinkt) {
+    bgKleur = 'rgba(22,163,74,0.07)'; borderKleur = 'rgba(22,163,74,0.2)';
+  } else if (weekVoorbij) {
+    bgKleur = 'rgba(220,38,38,0.05)'; borderKleur = 'rgba(220,38,38,0.18)';
+  } else {
+    bgKleur = 'var(--surface)'; borderKleur = 'var(--border)';
+  }
+
+  return `<div class="jp-opdracht ${afgevinkt ? 'jp-opdracht-afgevinkt' : ''}" data-id="${o.id}"
+    style="display:flex;gap:0;padding:0;overflow:hidden;border-radius:var(--radius-sm);border:1px solid ${borderKleur};background:${bgKleur}">
+
+    <!-- Gekleurde balk links per type -->
+    <div style="width:4px;flex-shrink:0;background:${kleur};${afgevinkt ? 'opacity:0.5' : ''}"></div>
+
+    <!-- Inhoud -->
+    <div style="flex:1;padding:10px 12px;min-width:0">
+
+      <!-- Bovenste rij: badge + actieknoppen -->
+      <div class="jp-opdracht-top" style="margin-bottom:5px">
+        <span class="badge ${typeKleur(o.type)}" style="font-size:10px">${escHtml(o.type)}</span>
+        ${!readonly ? `<div style="display:flex;gap:4px">
+          <button class="icon-btn" onclick="openOpdrachtModal('${o.id}')" style="width:18px;height:18px;opacity:0.6" title="Bewerken">
+            <svg viewBox="0 0 20 20" fill="none"><path d="M14.5 3.5l2 2L7 15l-3 1 1-3 9.5-9.5z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+          <button class="icon-btn" onclick="openOpmerkingModal('${o.id}')" style="width:18px;height:18px;${o.opmerking ? 'opacity:1;color:var(--amber)' : 'opacity:0.6'}" title="${o.opmerking ? 'Opmerking bewerken' : 'Opmerking toevoegen'}">
+            <svg viewBox="0 0 20 20" fill="none"><path d="M3 4h14v10H3z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M7 17l3-3 3 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+          <button class="icon-btn" onclick="deleteOpdracht('${o.id}')" style="width:18px;height:18px;opacity:0.6;color:var(--red)" title="Verwijderen">
+            <svg viewBox="0 0 20 20" fill="none"><path d="M5 5l10 10M15 5L5 15" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+          </button>
+        </div>` : ''}
+      </div>
+
+      <!-- Naam -->
+      <div class="jp-opdracht-naam ${afgevinkt ? 'line-through' : ''}" style="margin-bottom:${o.beschrijving || o.opmerking ? '4px' : '0'}">${escHtml(o.naam)}</div>
+
+      <!-- Beschrijving -->
+      ${o.beschrijving ? `<div class="jp-opdracht-desc">${escHtml(o.beschrijving.slice(0,100))}${o.beschrijving.length > 100 ? '…' : ''}</div>` : ''}
+
+      <!-- Opmerking blok -->
+      ${o.opmerking ? `
+      <div style="display:flex;align-items:flex-start;gap:6px;margin-top:6px;padding:6px 8px;background:var(--amber-dim);border-left:3px solid var(--amber);border-radius:0 4px 4px 0">
+        <svg width="12" height="12" viewBox="0 0 20 20" fill="none" style="flex-shrink:0;margin-top:1px;color:var(--amber-text)"><path d="M3 4h14v10H3z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M7 17l3-3 3 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <span style="font-size:11px;color:var(--amber-text);line-height:1.4">${escHtml(o.opmerking)}</span>
       </div>` : ''}
-    </div>
-    <div class="jp-opdracht-naam ${afgevinkt ? 'line-through' : ''}">${escHtml(o.naam)}</div>
-    ${o.beschrijving ? `<div class="jp-opdracht-desc">${escHtml(o.beschrijving.slice(0,80))}${o.beschrijving.length>80?'…':''}</div>` : ''}
-    ${o.opmerking ? `<div style="font-size:11px;color:var(--amber-text);background:var(--amber-dim);padding:3px 7px;border-radius:4px;margin-top:4px">💬 ${escHtml(o.opmerking.slice(0,60))}${o.opmerking.length>60?'…':''}</div>` : ''}
-    <div style="display:flex;align-items:center;gap:6px;margin-top:6px;flex-wrap:wrap">
-      ${o.uren ? `<span style="font-size:11px;color:var(--ink-3)">${o.uren}u</span>` : ''}
-      ${o.syllabuscodes ? `<span style="font-size:10px;color:var(--ink-3);font-family:monospace">${escHtml(o.syllabuscodes)}</span>` : ''}
-      ${o.theorieLink ? `<a href="${escHtml(o.theorieLink)}" target="_blank" class="text-link" style="font-size:11px" onclick="event.stopPropagation()">↗ Link</a>` : ''}
-      ${o.toetsBestand ? `<span style="font-size:10px;background:var(--amber-dim);color:var(--amber-text);padding:1px 5px;border-radius:4px">📄 ${escHtml(o.toetsBestand)}</span>` : ''}
-      ${o.afgevinktDoor ? `<span style="font-size:10px;font-weight:700;font-family:monospace;background:var(--accent);color:#fff;padding:1px 5px;border-radius:4px">${escHtml(o.afgevinktDoor)}</span>` : ''}
-      ${!readonly ? `<button onclick="jpAfvinken('${o.id}')" style="margin-left:auto;padding:2px 8px;font-size:11px;border-radius:5px;border:1.5px solid ${afgevinkt?'var(--accent)':'var(--border-2)'};background:${afgevinkt?'var(--accent-dim)':'#fff'};color:${afgevinkt?'var(--accent-text)':'var(--ink-3)'};cursor:pointer;font-weight:500">${afgevinkt?'✓ Klaar':'Afvinken'}</button>` : ''}
+
+      <!-- Meta rij onderaan -->
+      <div style="display:flex;align-items:center;gap:6px;margin-top:7px;flex-wrap:wrap">
+        ${o.uren ? `<span style="font-size:11px;color:var(--ink-3)">${o.uren}u</span>` : ''}
+        ${o.syllabuscodes ? `<span style="font-size:10px;color:var(--ink-3);font-family:monospace;background:var(--surface-3);padding:1px 5px;border-radius:3px">${escHtml(o.syllabuscodes)}</span>` : ''}
+        ${o.theorieLink ? `<a href="${escHtml(o.theorieLink)}" target="_blank" class="text-link" style="font-size:11px" onclick="event.stopPropagation()">↗ Theorie</a>` : ''}
+        ${o.werkboekLink ? `<a href="${escHtml(o.werkboekLink)}" target="_blank" class="text-link" style="font-size:11px" onclick="event.stopPropagation()">↗ Werkboek</a>` : ''}
+        ${o.toetsBestand ? `<span style="font-size:10px;background:var(--amber-dim);color:var(--amber-text);padding:1px 5px;border-radius:4px">📄 ${escHtml(o.toetsBestand)}</span>` : ''}
+        ${o.afgevinktDoor ? `<span style="font-size:10px;font-weight:700;font-family:monospace;background:var(--accent);color:#fff;padding:1px 5px;border-radius:4px">${escHtml(o.afgevinktDoor)}</span>` : ''}
+        ${!readonly ? `<button onclick="jpAfvinken('${o.id}')" style="margin-left:auto;padding:2px 8px;font-size:11px;border-radius:5px;border:1.5px solid ${afgevinkt ? 'var(--accent)' : 'var(--border-2)'};background:${afgevinkt ? 'var(--accent-dim)' : '#fff'};color:${afgevinkt ? 'var(--accent-text)' : 'var(--ink-3)'};cursor:pointer;font-weight:500">${afgevinkt ? '✓ Klaar' : 'Afvinken'}</button>` : ''}
+      </div>
+
     </div>
   </div>`;
 }
