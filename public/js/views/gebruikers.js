@@ -52,10 +52,20 @@ async function openGebruikerModal(userId = null) {
         <div style="font-size:11px;color:var(--ink-muted);margin-top:4px">Leeg = automatisch op basis van naam</div>
       </div>
       <div class="form-field form-full" id="g-vakken-wrap" style="${u?.rol!=='docent'&&u?'display:none':''}">
-        <label>Vakken koppelen</label>
-        <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-top:6px">
-          ${vakken.map(v=>`<label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;padding:6px 10px;border:1.5px solid var(--border-med);border-radius:var(--radius)">
-            <input type="checkbox" class="g-vak" value="${v.id}" ${(u?.vakken||[]).includes(v.id)?'checked':''}>${escHtml(v.naam)} — ${escHtml(v.volledig||'')}
+        <div class="vak-select-header">
+          <label for="g-vak-search">Vakken koppelen</label>
+          <div class="vak-select-count"><span id="g-vakken-count">0</span> geselecteerd</div>
+        </div>
+        <div class="vak-select-search">
+          <input id="g-vak-search" type="text" placeholder="Zoek een vak..." oninput="filterGebruikerVakken()">
+        </div>
+        <div class="vak-select-grid" id="g-vakken-grid">
+          ${vakken.map(v=>`<label class="vak-option ${(u?.vakken||[]).includes(v.id)?'is-selected':''}" data-label="${escHtml(`${v.naam} ${v.volledig||''}`).toLowerCase()}">
+            <input type="checkbox" class="g-vak" value="${v.id}" ${(u?.vakken||[]).includes(v.id)?'checked':''} onchange="updateVakSelectionUI()">
+            <div class="vak-option-text">
+              <strong>${escHtml(v.naam)}</strong>
+              <span>${escHtml(v.volledig||'')}</span>
+            </div>
           </label>`).join('')}
         </div>
       </div>
@@ -65,12 +75,35 @@ async function openGebruikerModal(userId = null) {
       <button class="btn btn-primary" onclick="saveGebruiker('${userId||''}')">Opslaan</button>
     </div>
   `);
+  updateVakSelectionUI();
 }
 
 function toggleVakSelect() {
   const rol = document.getElementById('g-rol')?.value;
   const wrap = document.getElementById('g-vakken-wrap');
   if (wrap) wrap.style.display = rol==='docent'?'block':'none';
+  if (rol==='docent') updateVakSelectionUI();
+}
+
+function updateVakSelectionUI() {
+  const countEl = document.getElementById('g-vakken-count');
+  const options = Array.from(document.querySelectorAll('#g-vakken-grid .vak-option'));
+  let count = 0;
+  options.forEach(option => {
+    const cb = option.querySelector('.g-vak');
+    const checked = !!cb?.checked;
+    option.classList.toggle('is-selected', checked);
+    if (checked) count += 1;
+  });
+  if (countEl) countEl.textContent = String(count);
+}
+
+function filterGebruikerVakken() {
+  const q = (document.getElementById('g-vak-search')?.value || '').trim().toLowerCase();
+  document.querySelectorAll('#g-vakken-grid .vak-option').forEach(option => {
+    const text = option.dataset.label || '';
+    option.style.display = !q || text.includes(q) ? '' : 'none';
+  });
 }
 
 async function saveGebruiker(userId) {
