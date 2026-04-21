@@ -64,6 +64,14 @@ const API = {
   async updateLesprofiel(id, data) { return this._fetch(`/api/lesprofielen/${id}`, { method: 'PUT', body: data }); },
   async deleteLesprofiel(id) { return this._fetch(`/api/lesprofielen/${id}`, { method: 'DELETE' }); },
 
+  // TAKEN
+  async getTaken() { return this._fetch('/api/taken'); },
+  async addTaak(data) { return this._fetch('/api/taken', { method: 'POST', body: data }); },
+  async updateTaak(id, data) { return this._fetch(`/api/taken/${id}`, { method: 'PUT', body: data }); },
+  async deleteTaak(id) { return this._fetch(`/api/taken/${id}`, { method: 'DELETE' }); },
+  async taakOppakken(id) { return this._fetch(`/api/taken/${id}/oppakken`, { method: 'POST' }); },
+  async taakAfvinken(id) { return this._fetch(`/api/taken/${id}/afvinken`, { method: 'POST' }); },
+
   // STATS
   async getStats() { return this._fetch('/api/stats'); },
 };

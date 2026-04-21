@@ -15,7 +15,6 @@ function escHtml(v) {
   return String(v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 }
 
-// FIX: Eindtoets toegevoegd aan typeKleur map
 function typeKleur(t) {
   const m = {
     'Theorie':'badge-blue','Opdracht':'badge-green','Groepsopdracht':'badge-green',
@@ -157,6 +156,7 @@ function renderAppShell() {
         <div class="nav-label">Planning</div>
         <a class="nav-item" data-view="jaarplanning" onclick="showView('jaarplanning');closeSidebar()"><svg viewBox="0 0 20 20" fill="none"><rect x="2" y="3" width="16" height="15" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M6 2v2M14 2v2M2 8h16" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>Jaarplanning</a>
         <a class="nav-item" data-view="lesprofielen" onclick="showView('lesprofielen');closeSidebar()"><svg viewBox="0 0 20 20" fill="none"><rect x="2" y="2" width="16" height="16" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M6 7h8M6 11h8M6 15h4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>Lesprofielen</a>
+        <a class="nav-item" data-view="taken" onclick="showView('taken');closeSidebar()"><svg viewBox="0 0 20 20" fill="none"><path d="M6 10l2.5 2.5L14 7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><rect x="3" y="3" width="14" height="14" rx="2" stroke="currentColor" stroke-width="1.5"/></svg>Taken</a>
         <a class="nav-item" data-view="opdrachten" onclick="showView('opdrachten');closeSidebar()"><svg viewBox="0 0 20 20" fill="none"><path d="M5 5h10M5 9h10M5 13h6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><rect x="2" y="2" width="16" height="16" rx="2" stroke="currentColor" stroke-width="1.5"/></svg>Opdrachten</a>
         <a class="nav-item" data-view="toetsen" onclick="showView('toetsen');closeSidebar()"><svg viewBox="0 0 20 20" fill="none"><path d="M4 10l4 4 8-8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><rect x="2" y="2" width="16" height="16" rx="2" stroke="currentColor" stroke-width="1.5"/></svg>Toetsen & Materialen</a>
       </div>
@@ -176,6 +176,7 @@ function renderAppShell() {
       <div id="view-klassen" class="view" style="display:none"></div>
       <div id="view-jaarplanning" class="view" style="display:none"></div>
       <div id="view-lesprofielen" class="view" style="display:none"></div>
+      <div id="view-taken" class="view" style="display:none"></div>
       <div id="view-opdrachten" class="view" style="display:none"></div>
       <div id="view-toetsen" class="view" style="display:none"></div>
       <div id="view-schooljaren" class="view" style="display:none"></div>
@@ -191,13 +192,13 @@ function renderAppShell() {
         <svg viewBox="0 0 20 20" fill="none"><rect x="2" y="3" width="16" height="15" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M6 2v2M14 2v2M2 8h16" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
         <span>Planning</span>
       </button>
+      <button class="bottom-nav-item" data-view="taken" onclick="showView('taken')">
+        <svg viewBox="0 0 20 20" fill="none"><path d="M6 10l2.5 2.5L14 7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><rect x="3" y="3" width="14" height="14" rx="2" stroke="currentColor" stroke-width="1.5"/></svg>
+        <span>Taken</span>
+      </button>
       <button class="bottom-nav-item" data-view="opdrachten" onclick="showView('opdrachten')">
         <svg viewBox="0 0 20 20" fill="none"><path d="M5 5h10M5 9h10M5 13h6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><rect x="2" y="2" width="16" height="16" rx="2" stroke="currentColor" stroke-width="1.5"/></svg>
         <span>Opdrachten</span>
-      </button>
-      <button class="bottom-nav-item" data-view="klassen" onclick="showView('klassen')">
-        <svg viewBox="0 0 20 20" fill="none"><path d="M3 5h14M3 10h14M3 15h9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-        <span>Klassen</span>
       </button>
       <button class="bottom-nav-item" onclick="toggleSidebar()">
         <svg viewBox="0 0 20 20" fill="none"><path d="M3 6h14M3 10h14M3 14h14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
@@ -225,11 +226,22 @@ function updateSidebar() {
 }
 
 function showView(view) {
-  const views = ['dashboard','klassen','jaarplanning','lesprofielen','opdrachten','toetsen','schooljaren','gebruikers','vakken'];
+  const views = ['dashboard','klassen','jaarplanning','lesprofielen','taken','opdrachten','toetsen','schooljaren','gebruikers','vakken'];
   views.forEach(v => { const el = document.getElementById('view-' + v); if (el) el.style.display = v === view ? 'block' : 'none'; });
   document.querySelectorAll('.nav-item').forEach(i => i.classList.toggle('active', i.dataset.view === view));
   document.querySelectorAll('.bottom-nav-item').forEach(i => i.classList.toggle('active', i.dataset.view === view));
-  const renderers = { dashboard: renderDashboard, klassen: renderKlassen, jaarplanning: renderJaarplanning, lesprofielen: renderLesprofielen, opdrachten: renderOpdrachten, toetsen: renderToetsen, schooljaren: renderSchooljaren, gebruikers: renderGebruikers, vakken: renderVakken };
+  const renderers = {
+    dashboard: renderDashboard,
+    klassen: renderKlassen,
+    jaarplanning: renderJaarplanning,
+    lesprofielen: renderLesprofielen,
+    taken: renderTaken,
+    opdrachten: renderOpdrachten,
+    toetsen: renderToetsen,
+    schooljaren: renderSchooljaren,
+    gebruikers: renderGebruikers,
+    vakken: renderVakken
+  };
   if (renderers[view]) renderers[view]();
 }
 
