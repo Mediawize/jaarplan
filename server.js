@@ -34,6 +34,11 @@ const storage = multer.diskStorage({
 const upload = multer({ storage, limits: { fileSize: 25 * 1024 * 1024 } });
 
 app.use(express.json());
+
+// ---- ROUTES ----
+app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'landing.html')));
+app.get('/app', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
+
 app.use(express.static(path.join(__dirname, 'public')));
 app.use('/uploads', express.static(uploadDir));
 app.use(session({
