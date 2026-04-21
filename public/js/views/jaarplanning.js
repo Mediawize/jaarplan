@@ -179,15 +179,18 @@ function renderOpdrachtKaart(o, readonly, weeknummer) {
       <!-- Bovenste rij: badge + actieknoppen -->
       <div class="jp-opdracht-top" style="margin-bottom:5px">
         <span class="badge ${typeKleur(o.type)}" style="font-size:10px">${escHtml(o.type)}</span>
-        ${!readonly ? `<div style="display:flex;gap:4px">
-          <button class="icon-btn" onclick="openOpdrachtModal('${o.id}')" style="width:18px;height:18px;opacity:0.6" title="Bewerken">
-            <svg viewBox="0 0 20 20" fill="none"><path d="M14.5 3.5l2 2L7 15l-3 1 1-3 9.5-9.5z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        ${!readonly ? `<div style="display:flex;gap:5px;flex-wrap:wrap">
+          <button onclick="openOpdrachtModal('${o.id}')" style="display:inline-flex;align-items:center;gap:4px;padding:4px 8px;font-size:11px;font-weight:500;border:1.5px solid var(--border-2);border-radius:6px;background:var(--surface);color:var(--ink-3);cursor:pointer" title="Bewerken">
+            <svg width="12" height="12" viewBox="0 0 20 20" fill="none"><path d="M14.5 3.5l2 2L7 15l-3 1 1-3 9.5-9.5z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Bewerken
           </button>
-          <button class="icon-btn" onclick="openOpmerkingModal('${o.id}')" style="width:18px;height:18px;${o.opmerking ? 'opacity:1;color:var(--amber)' : 'opacity:0.6'}" title="${o.opmerking ? 'Opmerking bewerken' : 'Opmerking toevoegen'}">
-            <svg viewBox="0 0 20 20" fill="none"><path d="M3 4h14v10H3z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M7 17l3-3 3 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <button onclick="openOpmerkingModal('${o.id}')" style="display:inline-flex;align-items:center;gap:4px;padding:4px 8px;font-size:11px;font-weight:500;border:1.5px solid ${o.opmerking ? 'rgba(217,119,6,0.4)' : 'var(--border-2)'};border-radius:6px;background:${o.opmerking ? 'var(--amber-dim)' : 'var(--surface)'};color:${o.opmerking ? 'var(--amber-text)' : 'var(--ink-3)'};cursor:pointer" title="${o.opmerking ? 'Opmerking bewerken' : 'Opmerking toevoegen'}">
+            <svg width="12" height="12" viewBox="0 0 20 20" fill="none"><path d="M2 4.5C2 3.67 2.67 3 3.5 3h13c.83 0 1.5.67 1.5 1.5v9c0 .83-.67 1.5-1.5 1.5H11l-4 3v-3H3.5C2.67 17 2 16.33 2 15.5v-11z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>
+            ${o.opmerking ? 'Opmerking ✓' : 'Opmerking'}
           </button>
-          <button class="icon-btn" onclick="deleteOpdracht('${o.id}')" style="width:18px;height:18px;opacity:0.6;color:var(--red)" title="Verwijderen">
-            <svg viewBox="0 0 20 20" fill="none"><path d="M5 5l10 10M15 5L5 15" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+          <button onclick="deleteOpdracht('${o.id}')" style="display:inline-flex;align-items:center;gap:4px;padding:4px 8px;font-size:11px;font-weight:500;border:1.5px solid rgba(220,38,38,0.2);border-radius:6px;background:var(--surface);color:var(--red);cursor:pointer" title="Verwijderen">
+            <svg width="12" height="12" viewBox="0 0 20 20" fill="none"><path d="M5 5l10 10M15 5L5 15" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+            Verwijderen
           </button>
         </div>` : ''}
       </div>
