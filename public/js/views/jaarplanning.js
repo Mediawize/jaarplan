@@ -80,7 +80,13 @@ async function renderJaarplanning() {
 function renderJpGrid(weken, opdrachten, klas, cw, readonly) {
   if (!weken.length) return `<div class="empty-state"><p>Geen weken gevonden voor dit schooljaar.</p></div>`;
 
-  return weken.map(week => {
+  // Schooljaar volgorde: week 35–52 (najaar) eerst, dan week 1–34 (voorjaar)
+  const gesorteerd = [...weken].sort((a, b) => {
+    const schoolWeekNr = wn => wn >= 35 ? wn - 35 : wn + 52 - 35;
+    return schoolWeekNr(a.weeknummer) - schoolWeekNr(b.weeknummer);
+  });
+
+  return gesorteerd.map(week => {
     const isVakantie = week.isVakantie || week.weektype === 'vakantie';
     const isHuidig = week.weeknummer === cw;
     const isRoulatieInactief = klas.roulatie && !isVakantie && !isRoulatieWeekActief(klas, week.weeknummer);
