@@ -126,6 +126,12 @@ db.exec(`
     aangemaaktDoor TEXT,
     aangemaakt TEXT DEFAULT (datetime('now'))
   );
+
+  CREATE TABLE IF NOT EXISTS roosters (
+    userId TEXT PRIMARY KEY,
+    rooster TEXT DEFAULT '{}',
+    bijgewerkt TEXT DEFAULT (datetime('now'))
+  );
 `);
 
 // ============================================================
@@ -280,14 +286,18 @@ const Q = {
   updTaakOpgepakt: db.prepare('UPDATE taken SET opgepakt=? WHERE id=?'),
   updTaakAfgerond: db.prepare('UPDATE taken SET afgerond=?,afgerondDoor=?,afgerondOp=? WHERE id=?'),
   delTaak: db.prepare('DELETE FROM taken WHERE id=?'),
+
+  // ROOSTERS
+  getRooster: db.prepare('SELECT rooster FROM roosters WHERE userId=?'),
+  insRooster: db.prepare('INSERT INTO roosters (userId,rooster) VALUES (?,?)'),
+  updRooster: db.prepare('UPDATE roosters SET rooster=?,bijgewerkt=datetime(\'now\') WHERE userId=?'),
 };
 
 // ============================================================
 // DB API
 // ============================================================
 module.exports = {
-  db, // raw db instantie — nodig voor server.js routes
-
+  db,
   genId,
   seedIfEmpty,
 
@@ -404,22 +414,15 @@ module.exports = {
     const bestaand = Q.getOpdracht.get(id);
     if (!bestaand) return;
     Q.updOpdracht.run(
-      d.naam ?? bestaand.naam,
-      d.beschrijving ?? bestaand.beschrijving,
-      d.syllabuscodes ?? bestaand.syllabuscodes,
-      d.weken ?? bestaand.weken,
-      d.weeknummer ?? bestaand.weeknummer,
-      d.type ?? bestaand.type,
-      d.uren ?? bestaand.uren,
-      d.werkboekLink ?? bestaand.werkboekLink,
-      d.theorieLink ?? bestaand.theorieLink,
-      d.toetsBestand ?? bestaand.toetsBestand,
+      d.naam ?? bestaand.naam, d.beschrijving ?? bestaand.beschrijving,
+      d.syllabuscodes ?? bestaand.syllabuscodes, d.weken ?? bestaand.weken,
+      d.weeknummer ?? bestaand.weeknummer, d.type ?? bestaand.type,
+      d.uren ?? bestaand.uren, d.werkboekLink ?? bestaand.werkboekLink,
+      d.theorieLink ?? bestaand.theorieLink, d.toetsBestand ?? bestaand.toetsBestand,
       d.periode ?? bestaand.periode,
       d.afgevinkt !== undefined ? (d.afgevinkt ? 1 : 0) : bestaand.afgevinkt,
-      d.afgevinktDoor ?? bestaand.afgevinktDoor,
-      d.afgevinktOp ?? bestaand.afgevinktOp,
-      d.opmerking ?? bestaand.opmerking,
-      id
+      d.afgevinktDoor ?? bestaand.afgevinktDoor, d.afgevinktOp ?? bestaand.afgevinktOp,
+      d.opmerking ?? bestaand.opmerking, id
     );
   },
   deleteOpdracht(id) { Q.delOpdracht.run(id); },
@@ -446,11 +449,7 @@ module.exports = {
 
   // --- TAKEN ---
   getTaken() {
-    return Q.getTaken.all().map(t => ({
-      ...t,
-      opgepakt: parseJSON(t.opgepakt),
-      afgerond: !!t.afgerond
-    }));
+    return Q.getTaken.all().map(t => ({ ...t, opgepakt: parseJSON(t.opgepakt), afgerond: !!t.afgerond }));
   },
   getTaak(id) {
     const t = Q.getTaak.get(id);
@@ -471,6 +470,21 @@ module.exports = {
     Q.updTaakAfgerond.run(afgerond ? 1 : 0, afgerond ? afgerondDoor : null, afgerond ? new Date().toISOString() : null, id);
   },
   deleteTaak(id) { Q.delTaak.run(id); },
+
+  // --- ROOSTERS ---
+  getRooster(userId) {
+    const rij = Q.getRooster.get(userId);
+    return rij ? JSON.parse(rij.rooster || '{}') : {};
+  },
+  saveRooster(userId, rooster) {
+    const json = JSON.stringify(rooster);
+    const bestaand = Q.getRooster.get(userId);
+    if (bestaand) {
+      Q.updRooster.run(json, userId);
+    } else {
+      Q.insRooster.run(userId, json);
+    }
+  },
 
   // --- STATS ---
   getStats(docentId = null) {
