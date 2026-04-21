@@ -1,24 +1,31 @@
 ====================================================
-  JAARPLAN — LANDINGSPAGINA
+  JAARPLAN — ROOSTER UPDATE
+  Gewoon overzetten, geen handmatig aanpassen nodig
 ====================================================
 
-UPLOADEN:
----------
-Zet landing.html op de VPS:
-  /var/www/jaarplan/public/landing.html
+Upload elk bestand naar exact hetzelfde pad op de VPS:
 
-Bereikbaar via:
-  https://jaarplan.mediawize.nl/landing.html
+  server.js                      → /var/www/jaarplan/server.js
+  db/database.js                 → /var/www/jaarplan/db/database.js
+  public/index.html              → /var/www/jaarplan/public/index.html
+  public/js/api.js               → /var/www/jaarplan/public/js/api.js
+  public/js/app.js               → /var/www/jaarplan/public/js/app.js
+  public/js/views/dashboard.js  → /var/www/jaarplan/public/js/views/dashboard.js
+  public/js/views/rooster.js    → /var/www/jaarplan/public/js/views/rooster.js  ← NIEUW
+  public/js/views/taken.js      → /var/www/jaarplan/public/js/views/taken.js
 
-Als je hem als HOMEPAGE wilt (aanbevolen):
-  1. Hernoem de huidige public/index.html → app.html
-  2. Hernoem landing.html → index.html
-  3. Pas alle href="/app" links in de landingspagina aan
 
-AANPASSEN:
-----------
-- Teksten: direct in de HTML
-- School naam: zoek "Atlas College"  
-- Inlogknop URL: zoek href="/app"
-- Kleuren: zoek :root { --green: #1A5C38 }
+Daarna herstarten:
+  pm2 restart jaarplan
+
+
+WAT ER VERANDERT:
+-----------------
+✓ Nieuw menu-item "Mijn rooster" in de sidebar
+✓ Rooster pagina: vink per klas aan op welke dag je lesgeeft
+✓ Dashboard toont alleen de klassen van vandaag
+✓ Knop "Toon alles" om tijdelijk alles te zien
+✓ Als rooster nog niet ingesteld: oranje melding met link
+✓ Weekend: dashboard toont gewoon alles (geen lessen)
+
 ====================================================

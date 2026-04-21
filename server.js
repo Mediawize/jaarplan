@@ -10,12 +10,10 @@ const { Schooljaar } = require('./db/schooljaar');
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// ---- BEVEILIGING: Waarschuwing als SESSION_SECRET niet ingesteld is ----
 if (!process.env.SESSION_SECRET) {
   console.warn('⚠️  WAARSCHUWING: SESSION_SECRET niet ingesteld in .env! Gebruik een veilig geheim.');
 }
 
-// ---- RATE LIMITING op login ----
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 10,
@@ -24,7 +22,6 @@ const loginLimiter = rateLimit({
   legacyHeaders: false,
 });
 
-// ---- UPLOADS ----
 const uploadDir = path.join(__dirname, 'uploads');
 if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir);
 const storage = multer.diskStorage({
@@ -36,7 +33,6 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage, limits: { fileSize: 25 * 1024 * 1024 } });
 
-// ---- MIDDLEWARE ----
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 app.use('/uploads', express.static(uploadDir));
@@ -51,7 +47,6 @@ app.use(session({
   }
 }));
 
-// ---- AUTH MIDDLEWARE ----
 function requireAuth(req, res, next) {
   if (!req.session.user) return res.status(401).json({ error: 'Niet ingelogd' });
   next();
@@ -272,6 +267,23 @@ app.post('/api/taken/:id/afvinken', requireAuth, (req, res) => {
   res.json({ ok: true, afgerond: nieuw });
 });
 
+// ---- ROOSTER ----
+app.get('/api/rooster/:userId', requireAuth, (req, res) => {
+  try {
+    const rooster = db.getRooster(req.params.userId);
+    res.json(rooster);
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+app.put('/api/rooster/:userId', requireAuth, (req, res) => {
+  if (req.session.user.id !== req.params.userId && req.session.user.rol !== 'admin') {
+    return res.status(403).json({ error: 'Geen toegang' });
+  }
+  try {
+    db.saveRooster(req.params.userId, req.body || {});
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
 // ---- STATS ----
 app.get('/api/stats', requireAuth, (req, res) => {
   const u = req.session.user;
@@ -299,7 +311,6 @@ app.post('/api/import-lesprofiel', requireCanEdit, upload.single('bestand'), asy
     const result = await mammoth.extractRawText({ path: req.file.path });
     const tekst = result.value;
     const regels = tekst.split('\n').map(r => r.trim()).filter(r => r);
-
     function vindWaarde(sleutels) {
       for (const sleutel of sleutels) {
         const regel = regels.find(r => r.toLowerCase().startsWith(sleutel.toLowerCase()));
@@ -310,16 +321,13 @@ app.post('/api/import-lesprofiel', requireCanEdit, upload.single('bestand'), asy
       }
       return null;
     }
-
     const naam = vindWaarde(['naam lesprofiel', 'naam:']);
     const vaknaamRaw = vindWaarde(['vaknaam', 'vak:']);
     const aantalWeken = parseInt(vindWaarde(['aantal weken'])) || 4;
     const urenPerWeek = parseInt(vindWaarde(['uren per week'])) || 3;
     const beschrijving = vindWaarde(['beschrijving']);
-
     if (!naam) return res.status(400).json({ error: 'Naam lesprofiel niet gevonden.' });
     if (!vaknaamRaw) return res.status(400).json({ error: 'Vaknaam niet gevonden in bestand.' });
-
     const vakken = db.getVakken();
     const vak = vakken.find(v =>
       v.naam.toLowerCase() === vaknaamRaw.toLowerCase() ||
@@ -327,11 +335,9 @@ app.post('/api/import-lesprofiel', requireCanEdit, upload.single('bestand'), asy
       vaknaamRaw.toLowerCase().includes(v.naam.toLowerCase())
     );
     if (!vak) return res.status(400).json({ error: `Vak "${vaknaamRaw}" niet gevonden. Beschikbare vakken: ${vakken.map(v => v.naam).join(', ')}` });
-
     const types = ['Theorie', 'Praktijk', 'Toets', 'Presentatie', 'Overig'];
     const weken = [];
     let huidigeWeek = null;
-
     for (const regel of regels) {
       const weekMatch = regel.match(/^week\s+(\d+)/i);
       if (weekMatch) {
@@ -364,11 +370,9 @@ app.post('/api/import-lesprofiel', requireCanEdit, upload.single('bestand'), asy
       if (losType) huidigeWeek.activiteiten.push({ type: losType, omschrijving: '', syllabus: '', uren: 1, link: '', bestand: null });
     }
     if (huidigeWeek) weken.push(huidigeWeek);
-
     const wekenArray = Array.from({ length: aantalWeken }, (_, i) =>
       weken.find(w => w.weekIndex === i + 1) || { weekIndex: i + 1, thema: '', activiteiten: [] }
     );
-
     const profiel = db.addLesprofiel({ naam, vakId: vak.id, docentId: req.session.user.id, aantalWeken, urenPerWeek, beschrijving: beschrijving || '', weken: wekenArray });
     fs.unlinkSync(req.file.path);
     res.json({ success: true, profiel, info: `Profiel "${naam}" aangemaakt met ${wekenArray.length} weken en ${wekenArray.reduce((t, w) => t + w.activiteiten.length, 0)} activiteiten.` });
