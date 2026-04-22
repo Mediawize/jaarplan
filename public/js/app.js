@@ -130,11 +130,6 @@ async function doLogin() {
   }
 }
 
-function fillDemo(email, pw) {
-  document.getElementById('login-email').value = email;
-  document.getElementById('login-password').value = pw;
-}
-
 async function doLogout() {
   await API.logout();
   Auth.currentUser = null;
