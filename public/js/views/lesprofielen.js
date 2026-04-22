@@ -1,3 +1,12 @@
+// ============================================================
+// lesprofielen.js — Lesprofielen beheer + koppelen aan planning
+// FIXES:
+//  - Cache.invalidateAll() toegevoegd na slaKoppelingOp()
+//  - findIndex weeknummer type-mismatch opgelost (Number())
+//  - niveau null vs "" fix in openKoppelModal
+//  - getPeriodeVoorWeekLP expliciete condities
+// ============================================================
+
 function openImportModal() {
   openModal(`
     <h2>Lesprofiel importeren</h2>
@@ -85,7 +94,7 @@ async function renderLesprofielen() {
                     <button class="icon-btn" onclick="event.stopPropagation();verwijderProfiel('${p.id}')" style="color:var(--red)" title="Verwijderen"><svg viewBox="0 0 20 20" fill="none"><path d="M5 5l10 10M15 5L5 15" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button>
                   </div>
                 </div>
-                <div style="font-size:12px;color:var(--ink-muted);margin-bottom:10px">${p.niveau?'<span class="badge badge-blue" style="margin-right:4px">'+p.niveau+'</span>':''}${p.aantalWeken} weken · ${aantalActs} activiteiten · ${p.urenPerWeek} uur/week</div>
+                <div style="font-size:12px;color:var(--ink-muted);margin-bottom:10px">${p.niveau?`<span class="badge badge-blue" style="margin-right:4px">${p.niveau}</span>`:''}${p.aantalWeken} weken · ${aantalActs} activiteiten · ${p.urenPerWeek} uur/week</div>
                 <div style="display:flex;gap:6px;flex-wrap:wrap">
                   ${(p.weken||[]).slice(0,4).map((w,i)=>`<span style="font-size:10px;padding:2px 7px;border-radius:4px;background:var(--cream);border:1px solid var(--border);color:var(--ink-muted)">W${i+1}: ${(w.activiteiten||[]).map(a=>a.type[0]).join('+')||'—'}</span>`).join('')}
                   ${p.aantalWeken>4?`<span style="font-size:10px;color:var(--ink-muted)">+${p.aantalWeken-4}</span>`:''}
@@ -157,46 +166,56 @@ async function openProfielDetail(profielId) {
   const overlay = document.createElement('div');
   overlay.id = 'profiel-detail-overlay';
   const isMobiel = window.innerWidth <= 768;
-  overlay.style.cssText = `position:fixed;top:${isMobiel?'56px':'0'};left:${isMobiel?'0':'var(--sidebar-w,256px)'};right:0;bottom:0;background:#F8F7F4;z-index:400;overflow-y:auto;padding:${isMobiel?'16px':'28px 36px'}`;
+  overlay.style.cssText = `position:fixed;top:${isMobiel?'56px':'0'};left:${isMobiel?'0':'var(--sidebar-w,256px)'};right:0;bottom:0;background:#F8F7F4;z-index:400;overflow-y:auto;padding:${isMobiel?'16px':'32px'}`;
+
   overlay.innerHTML = `
-    <div style="max-width:960px;margin:0 auto">
+    <div style="max-width:900px;margin:0 auto">
       <div style="display:flex;align-items:center;gap:12px;margin-bottom:24px;flex-wrap:wrap">
-        <button class="btn btn-sm" onclick="document.getElementById('profiel-detail-overlay').remove();renderLesprofielen()">← Terug</button>
-        <div style="flex:1;min-width:200px">
-          <div style="font-size:11px;color:#78716C">Lesprofiel · ${escHtml(vak?.naam||'')}</div>
-          <div style="font-size:20px;font-weight:600;letter-spacing:-0.4px;color:#1C1917">${escHtml(p.naam)}</div>
+        <button class="btn" onclick="document.getElementById('profiel-detail-overlay').remove()">← Terug</button>
+        <div style="flex:1">
+          <div style="font-size:12px;color:var(--ink-muted);margin-bottom:2px">${escHtml(vak?.naam||'')} ${p.niveau?`· ${p.niveau}`:''}</div>
+          <h2 style="margin:0;font-size:20px">${escHtml(p.naam)}</h2>
         </div>
-        <div style="display:flex;align-items:center;gap:10px;flex-shrink:0;flex-wrap:wrap">
-          <span style="font-size:12px;color:#78716C">${p.aantalWeken} weken · ${p.urenPerWeek} uur/week</span>
-          <button class="btn btn-sm btn-primary" onclick="openKoppelModal('${p.id}')">Koppelen aan planning →</button>
+        <button class="btn btn-primary" onclick="openKoppelModal('${p.id}')">Koppelen aan planning →</button>
+      </div>
+      ${(p.weken||[]).map((w,wi)=>`
+        <div class="card" style="margin-bottom:16px">
+          <div class="card-header">
+            <div>
+              <h3 style="margin:0;font-size:15px">Week ${wi+1}</h3>
+              <div id="thema-display-${p.id}-${wi}" style="font-size:13px;color:var(--ink-muted);margin-top:2px;cursor:pointer" onclick="editProfielWeekThema('${p.id}',${wi},this)">${w.thema?escHtml(w.thema):'<span style="opacity:.5">+ Thema toevoegen</span>'}</div>
+            </div>
+            <button class="btn btn-sm" onclick="openActiviteitModal('${p.id}',${wi})">+ Activiteit</button>
+          </div>
+          <div id="activiteiten-week-${p.id}-${wi}">
+            ${renderActiviteitenHTML(p, wi)}
+          </div>
+          ${(!w.activiteiten||!w.activiteiten.length)?`<div style="padding:12px 20px;font-size:13px;color:var(--ink-muted)">Nog geen activiteiten. Klik op "+ Activiteit".</div>`:''}
         </div>
-      </div>
-      <div id="profiel-weken-container">
-        ${renderProfielWekenHTML(p)}
-      </div>
+      `).join('')}
     </div>
   `;
   document.body.appendChild(overlay);
 }
 
-function renderProfielWekenHTML(p) {
-  return (p.weken||[]).map((w,i)=>`
-    <div class="card" style="margin-bottom:16px">
-      <div class="card-header">
-        <div><h2>Week ${i+1}</h2><div class="card-meta">${p.urenPerWeek} uur beschikbaar</div></div>
-        <div style="display:flex;gap:8px;align-items:center">
-          <input type="text" placeholder="Thema van deze week..." value="${escHtml(w.thema||'')}"
-            onchange="updateProfielWeekThemaAsync('${p.id}',${i},this.value)"
-            style="padding:7px 12px;border:1.5px solid var(--border-med);border-radius:var(--radius);font-family:'DM Sans',sans-serif;font-size:13px;width:220px;outline:none">
-          <button class="btn btn-sm btn-primary" onclick="openActiviteitModal('${p.id}',${i})">+ Activiteit</button>
-        </div>
-      </div>
-      <div id="activiteiten-week-${p.id}-${i}">
-        ${renderActiviteitenHTML(p,i)}
-      </div>
-      ${(w.activiteiten||[]).length===0?`<div style="padding:20px 24px;color:var(--ink-muted);font-size:13px">Nog geen activiteiten. Klik op "+ Activiteit".</div>`:''}
-    </div>
-  `).join('');
+function editProfielWeekThema(profielId, weekIdx, el) {
+  const huidig = el.textContent.trim().startsWith('+') ? '' : el.textContent.trim();
+  const input = document.createElement('input');
+  input.type='text'; input.value=huidig;
+  input.style.cssText='padding:4px 8px;border:1.5px solid var(--accent);border-radius:6px;font-size:13px;font-family:DM Sans,sans-serif;min-width:200px;outline:none';
+  el.replaceWith(input); input.focus(); input.select();
+  async function opslaan() {
+    const nieuw = input.value.trim();
+    await updateProfielWeekThemaAsync(profielId, weekIdx, nieuw);
+    const span = document.createElement('div');
+    span.id = `thema-display-${profielId}-${weekIdx}`;
+    span.style.cssText = 'font-size:13px;color:var(--ink-muted);margin-top:2px;cursor:pointer';
+    span.onclick = function(){editProfielWeekThema(profielId, weekIdx, this);};
+    span.innerHTML = nieuw ? escHtml(nieuw) : '<span style="opacity:.5">+ Thema toevoegen</span>';
+    input.replaceWith(span);
+  }
+  input.addEventListener('blur', opslaan);
+  input.addEventListener('keydown', e=>{if(e.key==='Enter'){e.preventDefault();opslaan();}if(e.key==='Escape')opslaan();});
 }
 
 function renderActiviteitenHTML(p, weekIdx) {
@@ -352,7 +371,12 @@ async function openKoppelModal(profielId) {
   const p = profielen.find(x=>x.id===profielId);
   if (!p) return;
   const vak = vakken.find(v=>v.id===p.vakId);
-  const relevante = klassen.filter(k=>k.vakId===p.vakId && (!p.niveau || k.niveau===p.niveau));
+
+  // FIX: niveau null vs "" — gebruik (k.niveau || '') voor vergelijking
+  const relevante = klassen.filter(k =>
+    k.vakId === p.vakId &&
+    (!p.niveau || (k.niveau || '') === p.niveau)
+  );
 
   // Check of dit profiel al gekoppeld is aan een klas
   const alleOpd = await API.getOpdrachten();
@@ -363,8 +387,8 @@ async function openKoppelModal(profielId) {
   openModal(`
     <h2>Profiel koppelen aan planning</h2>
     <p class="modal-sub">Koppel "<strong>${escHtml(p.naam)}</strong>" (${p.aantalWeken} weken) aan een startweek.</p>
-    ${gekoppeldeKlasNamen.length > 0 ? `
-    <div class="alert alert-info" style="margin-bottom:16px">
+    ${gekoppeldeKlasNamen.length > 0 ?
+    `<div class="alert alert-info" style="margin-bottom:16px">
       ⚠️ Dit profiel is al gekoppeld aan: <strong>${escHtml(gekoppeldeKlasNamen.join(', '))}</strong><br>
       <span style="font-size:12px">Bij opnieuw koppelen aan dezelfde klas worden de oude opdrachten eerst verwijderd en opnieuw aangemaakt.</span>
     </div>` : ''}
@@ -398,7 +422,7 @@ async function laadKoppelWeken(profielId) {
   sel.onchange = () => {
     const sw = parseInt(sel.value);
     if (!sw||!p) return;
-    const schoolWeken = weken.filter(w=>w.weeknummer>=sw).slice(0,p.aantalWeken);
+    const schoolWeken = weken.filter(w=>Number(w.weeknummer)>=sw).slice(0,p.aantalWeken);
     document.getElementById('koppel-preview').innerHTML = `<div class="alert alert-success">Profiel wordt gekoppeld aan week ${schoolWeken[0]?.weeknummer||sw} t/m ${schoolWeken[schoolWeken.length-1]?.weeknummer||sw+p.aantalWeken-1}<br><small style="opacity:.7">${schoolWeken.length} schoolweken</small></div>`;
   };
 }
@@ -419,8 +443,10 @@ async function slaKoppelingOp(profielId) {
   }
 
   const alleWeken = (await API.getWeken(klas.schooljaar)).filter(w=>!w.isVakantie);
-  const startIdx = alleWeken.findIndex(w=>w.weeknummer===startweek);
-  const schoolWeken = alleWeken.slice(startIdx, startIdx+p.aantalWeken);
+
+  // FIX: gebruik Number() voor betrouwbare weeknummer vergelijking
+  const startIdx = alleWeken.findIndex(w => Number(w.weeknummer) === startweek);
+  const schoolWeken = alleWeken.slice(startIdx, startIdx + p.aantalWeken);
 
   for (let i=0; i<schoolWeken.length; i++) {
     const sw = schoolWeken[i];
@@ -429,16 +455,26 @@ async function slaKoppelingOp(profielId) {
     for (const act of (pw.activiteiten||[])) {
       await API.addOpdracht({
         naam: act.omschrijving||`${act.type} — ${p.naam}`,
-        klasId, periode: getPeriodeVoorWeekLP(sw.weeknummer),
-        weeknummer: sw.weeknummer, weken: String(sw.weeknummer),
-        schooljaar: klas.schooljaar, type: act.type, uren: act.uren,
-        syllabuscodes: act.syllabus||'', werkboekLink:'',
+        klasId,
+        periode: getPeriodeVoorWeekLP(Number(sw.weeknummer)),
+        weeknummer: Number(sw.weeknummer),
+        weken: String(sw.weeknummer),
+        schooljaar: klas.schooljaar,
+        type: act.type,
+        uren: act.uren,
+        syllabuscodes: act.syllabus||'',
+        werkboekLink: '',
         beschrijving: `Uit lesprofiel: ${p.naam} (week ${i+1} van ${p.aantalWeken})`,
-        theorieLink: act.link||'', toetsBestand: act.bestand||null, profielId: p.id,
+        theorieLink: act.link||'',
+        toetsBestand: act.bestand||null,
+        profielId: p.id,
       });
     }
     if (pw.thema) await API.updateWeekThema(sw.id, pw.thema);
   }
+
+  // FIX: cache leegmaken zodat de jaarplanning verse data laadt
+  Cache.invalidateAll();
 
   closeModalDirect();
   document.getElementById('profiel-detail-overlay')?.remove();
@@ -446,9 +482,10 @@ async function slaKoppelingOp(profielId) {
   showView('jaarplanning');
 }
 
+// FIX: expliciete condities voor alle periodes, geen ambiguïteit
 function getPeriodeVoorWeekLP(wn) {
-  if (wn>=35&&wn<=43) return 1;
-  if (wn>=44||wn<=8) return 2;
-  if (wn>=9&&wn<=18) return 3;
+  if (wn >= 35 && wn <= 43) return 1;
+  if ((wn >= 44 && wn <= 52) || (wn >= 1 && wn <= 8)) return 2;
+  if (wn >= 9 && wn <= 18) return 3;
   return 4;
 }
