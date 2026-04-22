@@ -1,8 +1,6 @@
 // ============================================================
 // db/database.js — SQLite database setup en queries
-// FIXES:
-//  - Migratie: niveau NULL → '' normalisatie voor bestaande records
-//  - getKlassen: niveau altijd als string teruggeven (null → '')
+// NIEUW: mustChangePassword, resetToken, resetTokenExpiry kolommen
 // ============================================================
 
 const Database = require('better-sqlite3');
@@ -169,7 +167,6 @@ function migreer() {
     db.exec("ALTER TABLE lesprofielen ADD COLUMN niveau TEXT DEFAULT ''");
     console.log('Migratie: niveau kolom toegevoegd aan lesprofielen');
   }
-  // Roulatie kolommen
   if (!klasCols.includes('roulatie')) {
     db.exec("ALTER TABLE klassen ADD COLUMN roulatie INTEGER DEFAULT 0");
     console.log('Migratie: roulatie kolom toegevoegd aan klassen');
@@ -182,9 +179,23 @@ function migreer() {
     db.exec("ALTER TABLE klassen ADD COLUMN roulatieStart INTEGER DEFAULT 35");
     console.log('Migratie: roulatieStart kolom toegevoegd aan klassen');
   }
-  // FIX: normaliseer niveau NULL → '' voor bestaande klassen en lesprofielen
+  // Normaliseer niveau NULL → ''
   db.exec("UPDATE klassen SET niveau = '' WHERE niveau IS NULL");
   db.exec("UPDATE lesprofielen SET niveau = '' WHERE niveau IS NULL");
+
+  // NIEUW: wachtwoord-reset kolommen
+  if (!userCols.includes('mustChangePassword')) {
+    db.exec("ALTER TABLE gebruikers ADD COLUMN mustChangePassword INTEGER DEFAULT 0");
+    console.log('Migratie: mustChangePassword kolom toegevoegd aan gebruikers');
+  }
+  if (!userCols.includes('resetToken')) {
+    db.exec("ALTER TABLE gebruikers ADD COLUMN resetToken TEXT");
+    console.log('Migratie: resetToken kolom toegevoegd aan gebruikers');
+  }
+  if (!userCols.includes('resetTokenExpiry')) {
+    db.exec("ALTER TABLE gebruikers ADD COLUMN resetTokenExpiry TEXT");
+    console.log('Migratie: resetTokenExpiry kolom toegevoegd aan gebruikers');
+  }
 }
 
 migreer();
@@ -194,6 +205,10 @@ migreer();
 // ============================================================
 function genId() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+}
+
+function genToken() {
+  return require('crypto').randomBytes(32).toString('hex');
 }
 
 function parseJSON(val, fallback = []) {
@@ -240,9 +255,12 @@ const Q = {
   getGebruikers: db.prepare('SELECT * FROM gebruikers ORDER BY naam'),
   getGebruiker: db.prepare('SELECT * FROM gebruikers WHERE id = ?'),
   getGebruikerByEmail: db.prepare('SELECT * FROM gebruikers WHERE LOWER(email) = LOWER(?)'),
-  insGebruiker: db.prepare('INSERT INTO gebruikers (id,naam,achternaam,email,wachtwoord,rol,initialen,vakken,hoofdklassen) VALUES (?,?,?,?,?,?,?,?,?)'),
+  getGebruikerByResetToken: db.prepare('SELECT * FROM gebruikers WHERE resetToken = ?'),
+  insGebruiker: db.prepare('INSERT INTO gebruikers (id,naam,achternaam,email,wachtwoord,rol,initialen,vakken,hoofdklassen,mustChangePassword) VALUES (?,?,?,?,?,?,?,?,?,?)'),
   updGebruiker: db.prepare('UPDATE gebruikers SET naam=?,achternaam=?,email=?,rol=?,initialen=?,vakken=?,hoofdklassen=? WHERE id=?'),
-  updGebruikerMetWW: db.prepare('UPDATE gebruikers SET naam=?,achternaam=?,email=?,wachtwoord=?,rol=?,initialen=?,vakken=?,hoofdklassen=? WHERE id=?'),
+  updGebruikerMetWW: db.prepare('UPDATE gebruikers SET naam=?,achternaam=?,email=?,wachtwoord=?,rol=?,initialen=?,vakken=?,hoofdklassen=?,mustChangePassword=? WHERE id=?'),
+  updWachtwoord: db.prepare('UPDATE gebruikers SET wachtwoord=?,mustChangePassword=0,resetToken=NULL,resetTokenExpiry=NULL WHERE id=?'),
+  updResetToken: db.prepare('UPDATE gebruikers SET resetToken=?,resetTokenExpiry=? WHERE id=?'),
   delGebruiker: db.prepare('DELETE FROM gebruikers WHERE id=?'),
 
   getVakken: db.prepare('SELECT * FROM vakken ORDER BY naam'),
@@ -302,32 +320,67 @@ const Q = {
 module.exports = {
   db,
   genId,
+  genToken,
   seedIfEmpty,
 
   getGebruikers() {
-    return Q.getGebruikers.all().map(u => ({ ...u, vakken: parseJSON(u.vakken), hoofdklassen: parseJSON(u.hoofdklassen) }));
+    return Q.getGebruikers.all().map(u => ({
+      ...u,
+      vakken: parseJSON(u.vakken),
+      hoofdklassen: parseJSON(u.hoofdklassen),
+      mustChangePassword: !!u.mustChangePassword,
+    }));
   },
   getGebruiker(id) {
     const u = Q.getGebruiker.get(id);
-    return u ? { ...u, vakken: parseJSON(u.vakken), hoofdklassen: parseJSON(u.hoofdklassen) } : null;
+    return u ? { ...u, vakken: parseJSON(u.vakken), hoofdklassen: parseJSON(u.hoofdklassen), mustChangePassword: !!u.mustChangePassword } : null;
   },
   getGebruikerByEmail(email) {
     const u = Q.getGebruikerByEmail.get(email);
+    return u ? { ...u, vakken: parseJSON(u.vakken), hoofdklassen: parseJSON(u.hoofdklassen), mustChangePassword: !!u.mustChangePassword } : null;
+  },
+  getGebruikerByResetToken(token) {
+    const u = Q.getGebruikerByResetToken.get(token);
     return u ? { ...u, vakken: parseJSON(u.vakken), hoofdklassen: parseJSON(u.hoofdklassen) } : null;
   },
-  addGebruiker({ naam, achternaam, email, wachtwoord, rol, initialen, vakken = [], hoofdklassen = [] }) {
+  addGebruiker({ naam, achternaam, email, wachtwoord, rol, initialen, vakken = [], hoofdklassen = [], mustChangePassword = true }) {
     if (Q.getGebruikerByEmail.get(email)) return { error: 'E-mail bestaat al' };
     const id = genId();
     const hash = bcrypt.hashSync(wachtwoord, 10);
-    Q.insGebruiker.run(id, naam, achternaam, email, hash, rol, initialen || null, JSON.stringify(vakken), JSON.stringify(hoofdklassen));
+    Q.insGebruiker.run(id, naam, achternaam, email, hash, rol, initialen || null, JSON.stringify(vakken), JSON.stringify(hoofdklassen), mustChangePassword ? 1 : 0);
     return this.getGebruiker(id);
   },
   updateGebruiker(id, data) {
     if (data.wachtwoord) {
-      Q.updGebruikerMetWW.run(data.naam, data.achternaam, data.email, bcrypt.hashSync(data.wachtwoord, 10), data.rol, data.initialen || null, JSON.stringify(data.vakken || []), JSON.stringify(data.hoofdklassen || []), id);
+      // Admin stelt wachtwoord in → mustChangePassword op 1 (tenzij expliciet false)
+      const mustChange = data.mustChangePassword !== false ? 1 : 0;
+      Q.updGebruikerMetWW.run(
+        data.naam, data.achternaam, data.email,
+        bcrypt.hashSync(data.wachtwoord, 10),
+        data.rol, data.initialen || null,
+        JSON.stringify(data.vakken || []),
+        JSON.stringify(data.hoofdklassen || []),
+        mustChange, id
+      );
     } else {
       Q.updGebruiker.run(data.naam, data.achternaam, data.email, data.rol, data.initialen || null, JSON.stringify(data.vakken || []), JSON.stringify(data.hoofdklassen || []), id);
     }
+  },
+  // Gebruiker wijzigt eigen wachtwoord → mustChangePassword wordt 0
+  wijzigWachtwoord(id, nieuwWachtwoord) {
+    Q.updWachtwoord.run(bcrypt.hashSync(nieuwWachtwoord, 10), id);
+  },
+  // Sla reset token op met vervaltijd (1 uur)
+  slaResetTokenOp(id, token) {
+    const expiry = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+    Q.updResetToken.run(token, expiry, id);
+  },
+  // Verifieer reset token en check vervaltijd
+  verifieerResetToken(token) {
+    const u = this.getGebruikerByResetToken(token);
+    if (!u) return null;
+    if (!u.resetTokenExpiry || new Date(u.resetTokenExpiry) < new Date()) return null;
+    return u;
   },
   deleteGebruiker(id) { Q.delGebruiker.run(id); },
   verifyWachtwoord(email, wachtwoord) {
@@ -354,7 +407,6 @@ module.exports = {
       roulatie: !!k.roulatie,
       roulatieBlok: k.roulatieBlok || 5,
       roulatieStart: k.roulatieStart || 35,
-      // FIX: niveau altijd als string teruggeven (null → '')
       niveau: k.niveau || '',
     }));
     if (!docentId) return alle;
@@ -362,39 +414,17 @@ module.exports = {
   },
   getKlas(id) {
     const k = Q.getKlas.get(id);
-    return k ? {
-      ...k,
-      docenten: parseJSON(k.docenten),
-      roulatie: !!k.roulatie,
-      roulatieBlok: k.roulatieBlok || 5,
-      roulatieStart: k.roulatieStart || 35,
-      // FIX: niveau altijd als string teruggeven
-      niveau: k.niveau || '',
-    } : null;
+    return k ? { ...k, docenten: parseJSON(k.docenten), roulatie: !!k.roulatie, roulatieBlok: k.roulatieBlok || 5, roulatieStart: k.roulatieStart || 35, niveau: k.niveau || '' } : null;
   },
   addKlas(d) {
     const id = genId();
     const docenten = d.docenten || (d.docentId ? [d.docentId] : []);
-    Q.insKlas.run(
-      id, d.naam, d.leerjaar, d.niveau || '', d.vakId, d.docentId || null,
-      d.schooljaar, d.aantalWeken || 38, d.urenPerWeek || 3,
-      JSON.stringify(docenten),
-      d.roulatie ? 1 : 0,
-      d.roulatieBlok || 5,
-      d.roulatieStart || 35
-    );
+    Q.insKlas.run(id, d.naam, d.leerjaar, d.niveau || '', d.vakId, d.docentId || null, d.schooljaar, d.aantalWeken || 38, d.urenPerWeek || 3, JSON.stringify(docenten), d.roulatie ? 1 : 0, d.roulatieBlok || 5, d.roulatieStart || 35);
     return this.getKlas(id);
   },
   updateKlas(id, d) {
     const docenten = d.docenten || (d.docentId ? [d.docentId] : []);
-    Q.updKlas.run(
-      d.naam, d.leerjaar, d.niveau || '', d.vakId, d.docentId || null,
-      d.schooljaar, d.urenPerWeek || 3, JSON.stringify(docenten),
-      d.roulatie ? 1 : 0,
-      d.roulatieBlok || 5,
-      d.roulatieStart || 35,
-      id
-    );
+    Q.updKlas.run(d.naam, d.leerjaar, d.niveau || '', d.vakId, d.docentId || null, d.schooljaar, d.urenPerWeek || 3, JSON.stringify(docenten), d.roulatie ? 1 : 0, d.roulatieBlok || 5, d.roulatieStart || 35, id);
   },
   deleteKlas(id) { Q.delOpdrachtenByKlas.run(id); Q.delKlas.run(id); },
 
@@ -403,34 +433,20 @@ module.exports = {
   addSchooljaar(naam, weken) {
     const id = genId();
     Q.insSchooljaar.run(id, naam);
-    const insW = db.transaction((wks) => {
-      wks.forEach(w => Q.insWeek.run(w.id, w.schooljaar, w.weeknummer, w.van, w.tot, w.vanISO, w.totISO, w.isVakantie ? 1 : 0, w.vakantieNaam || null, w.thema || ''));
-    });
+    const insW = db.transaction((wks) => { wks.forEach(w => Q.insWeek.run(w.id, w.schooljaar, w.weeknummer, w.van, w.tot, w.vanISO, w.totISO, w.isVakantie ? 1 : 0, w.vakantieNaam || null, w.thema || '')); });
     insW(weken);
     return { id, naam };
   },
   deleteSchooljaar(naam) { Q.delWekenVoorSchooljaar.run(naam); Q.delSchooljaar.run(naam); },
 
   getWeken(schooljaar) {
-    return Q.getWeken.all(schooljaar).map(w => ({
-      ...w,
-      isVakantie: !!w.isVakantie,
-      weektype: w.weektype || 'normaal',
-      dagnotities: parseJSON(w.dagnotities),
-    }));
+    return Q.getWeken.all(schooljaar).map(w => ({ ...w, isVakantie: !!w.isVakantie, weektype: w.weektype || 'normaal', dagnotities: parseJSON(w.dagnotities) }));
   },
   updateWeekThema(weekId, thema) { Q.updWeekThema.run(thema, weekId); },
-  updateWeekType(weekId, weektype, vakantieNaam) {
-    const isVakantie = weektype === 'vakantie' ? 1 : 0;
-    Q.updWeekType.run(weektype, isVakantie, vakantieNaam || null, weekId);
-  },
-  updateDagnotities(weekId, dagnotities) {
-    Q.updWeekDagnotities.run(JSON.stringify(dagnotities || []), weekId);
-  },
+  updateWeekType(weekId, weektype, vakantieNaam) { Q.updWeekType.run(weektype, weektype === 'vakantie' ? 1 : 0, vakantieNaam || null, weekId); },
+  updateDagnotities(weekId, dagnotities) { Q.updWeekDagnotities.run(JSON.stringify(dagnotities || []), weekId); },
 
-  getOpdrachten(klasId = null) {
-    return klasId ? Q.getOpdrachtenByKlas.all(klasId) : Q.getOpdrachten.all();
-  },
+  getOpdrachten(klasId = null) { return klasId ? Q.getOpdrachtenByKlas.all(klasId) : Q.getOpdrachten.all(); },
   getOpdracht(id) { return Q.getOpdracht.get(id) || null; },
   addOpdracht(d) {
     const id = genId();
@@ -440,32 +456,12 @@ module.exports = {
   updateOpdracht(id, d) {
     const bestaand = Q.getOpdracht.get(id);
     if (!bestaand) return;
-    Q.updOpdracht.run(
-      d.naam ?? bestaand.naam, d.beschrijving ?? bestaand.beschrijving,
-      d.syllabuscodes ?? bestaand.syllabuscodes, d.weken ?? bestaand.weken,
-      d.weeknummer ?? bestaand.weeknummer, d.type ?? bestaand.type,
-      d.uren ?? bestaand.uren, d.werkboekLink ?? bestaand.werkboekLink,
-      d.theorieLink ?? bestaand.theorieLink, d.toetsBestand ?? bestaand.toetsBestand,
-      d.periode ?? bestaand.periode,
-      d.afgevinkt !== undefined ? (d.afgevinkt ? 1 : 0) : bestaand.afgevinkt,
-      d.afgevinktDoor ?? bestaand.afgevinktDoor, d.afgevinktOp ?? bestaand.afgevinktOp,
-      d.opmerking ?? bestaand.opmerking, id
-    );
+    Q.updOpdracht.run(d.naam ?? bestaand.naam, d.beschrijving ?? bestaand.beschrijving, d.syllabuscodes ?? bestaand.syllabuscodes, d.weken ?? bestaand.weken, d.weeknummer ?? bestaand.weeknummer, d.type ?? bestaand.type, d.uren ?? bestaand.uren, d.werkboekLink ?? bestaand.werkboekLink, d.theorieLink ?? bestaand.theorieLink, d.toetsBestand ?? bestaand.toetsBestand, d.periode ?? bestaand.periode, d.afgevinkt !== undefined ? (d.afgevinkt ? 1 : 0) : bestaand.afgevinkt, d.afgevinktDoor ?? bestaand.afgevinktDoor, d.afgevinktOp ?? bestaand.afgevinktOp, d.opmerking ?? bestaand.opmerking, id);
   },
   deleteOpdracht(id) { Q.delOpdracht.run(id); },
 
-  getLesprofielen() {
-    return Q.getLesprofielen.all().map(p => ({
-      ...p,
-      weken: parseJSON(p.weken),
-      // FIX: niveau altijd als string
-      niveau: p.niveau || '',
-    }));
-  },
-  getLesprofiel(id) {
-    const p = Q.getLesprofiel.get(id);
-    return p ? { ...p, weken: parseJSON(p.weken), niveau: p.niveau || '' } : null;
-  },
+  getLesprofielen() { return Q.getLesprofielen.all().map(p => ({ ...p, weken: parseJSON(p.weken), niveau: p.niveau || '' })); },
+  getLesprofiel(id) { const p = Q.getLesprofiel.get(id); return p ? { ...p, weken: parseJSON(p.weken), niveau: p.niveau || '' } : null; },
   addLesprofiel(d) {
     const id = genId();
     Q.insLesprofiel.run(id, d.naam, d.vakId, d.docentId, d.aantalWeken, d.urenPerWeek, d.niveau || '', d.beschrijving || null, JSON.stringify(d.weken || []));
@@ -478,51 +474,32 @@ module.exports = {
   },
   deleteLesprofiel(id) { Q.delLesprofiel.run(id); },
 
-  getTaken() {
-    return Q.getTaken.all().map(t => ({ ...t, opgepakt: parseJSON(t.opgepakt), afgerond: !!t.afgerond }));
-  },
-  getTaak(id) {
-    const t = Q.getTaak.get(id);
-    return t ? { ...t, opgepakt: parseJSON(t.opgepakt), afgerond: !!t.afgerond } : null;
-  },
+  getTaken() { return Q.getTaken.all().map(t => ({ ...t, opgepakt: parseJSON(t.opgepakt), afgerond: !!t.afgerond })); },
+  getTaak(id) { const t = Q.getTaak.get(id); return t ? { ...t, opgepakt: parseJSON(t.opgepakt), afgerond: !!t.afgerond } : null; },
   addTaak(d) {
     const id = genId();
     Q.insTaak.run(id, d.naam, d.beschrijving || null, d.deadline || null, d.aangemaaktDoor || null);
     return this.getTaak(id);
   },
-  updateTaak(id, d) {
-    const t = this.getTaak(id);
-    if (!t) return;
-    Q.updTaak.run(d.naam ?? t.naam, d.beschrijving ?? t.beschrijving, d.deadline ?? t.deadline, id);
-  },
+  updateTaak(id, d) { const t = this.getTaak(id); if (!t) return; Q.updTaak.run(d.naam ?? t.naam, d.beschrijving ?? t.beschrijving, d.deadline ?? t.deadline, id); },
   taakOppakken(id, userId) {
-    const t = this.getTaak(id);
-    if (!t) return null;
+    const t = this.getTaak(id); if (!t) return null;
     const opgepakt = t.opgepakt || [];
     const nieuw = opgepakt.includes(userId) ? opgepakt.filter(x => x !== userId) : [...opgepakt, userId];
     Q.updTaakOpgepakt.run(JSON.stringify(nieuw), id);
     return this.getTaak(id);
   },
   taakAfvinken(id, userId) {
-    const t = this.getTaak(id);
-    if (!t) return null;
-    if (t.afgerond) {
-      Q.updTaakAfgerond.run(0, null, null, id);
-    } else {
-      Q.updTaakAfgerond.run(1, userId, new Date().toISOString(), id);
-    }
+    const t = this.getTaak(id); if (!t) return null;
+    if (t.afgerond) { Q.updTaakAfgerond.run(0, null, null, id); } else { Q.updTaakAfgerond.run(1, userId, new Date().toISOString(), id); }
     return this.getTaak(id);
   },
   deleteTaak(id) { Q.delTaak.run(id); },
 
-  getRooster(userId) {
-    const r = Q.getRooster.get(userId);
-    return r ? parseJSON(r.rooster, {}) : {};
-  },
+  getRooster(userId) { const r = Q.getRooster.get(userId); return r ? parseJSON(r.rooster, {}) : {}; },
   saveRooster(userId, rooster) {
     const bestaand = Q.getRooster.get(userId);
-    if (bestaand) { Q.updRooster.run(JSON.stringify(rooster), userId); }
-    else { Q.insRooster.run(userId, JSON.stringify(rooster)); }
+    if (bestaand) { Q.updRooster.run(JSON.stringify(rooster), userId); } else { Q.insRooster.run(userId, JSON.stringify(rooster)); }
   },
 
   getStats() {
