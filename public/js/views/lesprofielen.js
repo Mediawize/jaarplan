@@ -464,13 +464,19 @@ async function slaKoppelingOp(profielId) {
         uren: act.uren,
         syllabuscodes: act.syllabus||'',
         werkboekLink: '',
-        beschrijving: `Uit lesprofiel: ${p.naam} (week ${i+1} van ${p.aantalWeken})`,
+        // FIX: thema uit lesprofiel als beschrijving opnemen i.p.v. het schoolbrede
+        // weekthema te overschrijven (dat is gedeeld over alle klassen van het schooljaar)
+        beschrijving: pw.thema
+          ? `${pw.thema} — Uit lesprofiel: ${p.naam} (week ${i+1} van ${p.aantalWeken})`
+          : `Uit lesprofiel: ${p.naam} (week ${i+1} van ${p.aantalWeken})`,
         theorieLink: act.link||'',
         toetsBestand: act.bestand||null,
         profielId: p.id,
       });
     }
-    if (pw.thema) await API.updateWeekThema(sw.id, pw.thema);
+    // VERWIJDERD: if (pw.thema) await API.updateWeekThema(sw.id, pw.thema);
+    // Weken zijn gedeeld over alle klassen van het schooljaar — het thema hier
+    // instellen zou het thema bij ALLE klassen overschrijven, ook niet-gekoppelde.
   }
 
   // FIX: cache leegmaken zodat de jaarplanning verse data laadt
