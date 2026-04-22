@@ -159,26 +159,79 @@ async function saveProfiel(profielId) {
 }
 
 async function openProfielDetail(profielId) {
-  const [profielen, vakken] = await Promise.all([API.getLesprofielen(), API.getVakken()]);
+  const [profielen, vakken, klassen, alleOpd] = await Promise.all([
+    API.getLesprofielen(), API.getVakken(), API.getKlassen(), API.getOpdrachten()
+  ]);
   const p = profielen.find(x=>x.id===profielId);
   if (!p) return;
   const vak = vakken.find(v=>v.id===p.vakId);
+
+  // Zoek gekoppelde klassen
+  const gekoppeldeKlasIds = [...new Set(
+    alleOpd.filter(o => o.profielId === profielId).map(o => o.klasId)
+  )];
+  const gekoppeldeKlassen = gekoppeldeKlasIds.map(id => klassen.find(k => k.id === id)).filter(Boolean);
 
   const overlay = document.createElement('div');
   overlay.id = 'profiel-detail-overlay';
   const isMobiel = window.innerWidth <= 768;
   overlay.style.cssText = `position:fixed;top:${isMobiel?'56px':'0'};left:${isMobiel?'0':'var(--sidebar-w,256px)'};right:0;bottom:0;background:#F8F7F4;z-index:400;overflow-y:auto;padding:${isMobiel?'16px':'32px'}`;
 
+  const gekoppeldHTML = gekoppeldeKlassen.length === 0
+    ? `<div style="padding:16px 20px;font-size:13px;color:var(--ink-muted)">
+         Dit profiel is nog niet aan een klas gekoppeld.
+         <button class="btn btn-sm btn-primary" style="margin-left:12px" onclick="openKoppelModal('${p.id}')">Nu koppelen →</button>
+       </div>`
+    : `<div style="padding:8px 20px 16px">
+         ${gekoppeldeKlassen.map(k => {
+           const aantalOpd = alleOpd.filter(o => o.profielId === profielId && o.klasId === k.id).length;
+           const afgevinkt = alleOpd.filter(o => o.profielId === profielId && o.klasId === k.id && o.afgevinkt).length;
+           const pct = aantalOpd ? Math.round((afgevinkt / aantalOpd) * 100) : 0;
+           return `<div style="display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--border);flex-wrap:wrap">
+             <div style="flex:1;min-width:160px">
+               <div style="font-weight:600;font-size:14px">${escHtml(k.naam)}</div>
+               <div style="font-size:12px;color:var(--ink-muted);margin-top:2px">
+                 ${escHtml(k.schooljaar||'')} &middot; ${aantalOpd} opdrachten &middot; ${afgevinkt} afgevinkt
+               </div>
+               <div style="margin-top:6px;height:4px;background:var(--surface-3);border-radius:2px;width:160px">
+                 <div style="height:4px;background:var(--accent);border-radius:2px;width:${pct}%"></div>
+               </div>
+             </div>
+             <div style="display:flex;gap:8px;align-items:center;flex-shrink:0">
+               <span style="font-size:12px;font-weight:600;color:var(--accent-text)">${pct}%</span>
+               <button class="btn btn-sm" onclick="window._selectedKlas='${k.id}';document.getElementById('profiel-detail-overlay').remove();showView('jaarplanning')">
+                 Bekijk planning
+               </button>
+               <button class="btn btn-sm" style="color:var(--red);border-color:rgba(220,38,38,0.3)"
+                 onclick="ontkoppelKlasVanProfiel('${profielId}','${k.id}','${escHtml(k.naam).replace(/'/g,'&#39;')}')">
+                 Ontkoppelen
+               </button>
+             </div>
+           </div>`;
+         }).join('')}
+       </div>`;
+
   overlay.innerHTML = `
     <div style="max-width:900px;margin:0 auto">
       <div style="display:flex;align-items:center;gap:12px;margin-bottom:24px;flex-wrap:wrap">
         <button class="btn" onclick="document.getElementById('profiel-detail-overlay').remove()">← Terug</button>
         <div style="flex:1">
-          <div style="font-size:12px;color:var(--ink-muted);margin-bottom:2px">${escHtml(vak?.naam||'')} ${p.niveau?`· ${p.niveau}`:''}</div>
+          <div style="font-size:12px;color:var(--ink-muted);margin-bottom:2px">${escHtml(vak?.naam||'')} ${p.niveau?`&middot; ${p.niveau}`:''}</div>
           <h2 style="margin:0;font-size:20px">${escHtml(p.naam)}</h2>
         </div>
         <button class="btn btn-primary" onclick="openKoppelModal('${p.id}')">Koppelen aan planning →</button>
       </div>
+
+      <div class="card" style="margin-bottom:20px">
+        <div class="card-header">
+          <div>
+            <h2>Gekoppelde klassen</h2>
+            <div class="card-meta">${gekoppeldeKlassen.length === 0 ? 'Nog niet gekoppeld' : `${gekoppeldeKlassen.length} klas${gekoppeldeKlassen.length !== 1 ? 'sen' : ''}`}</div>
+          </div>
+        </div>
+        ${gekoppeldHTML}
+      </div>
+
       ${(p.weken||[]).map((w,wi)=>`
         <div class="card" style="margin-bottom:16px">
           <div class="card-header">
@@ -198,6 +251,21 @@ async function openProfielDetail(profielId) {
   `;
   document.body.appendChild(overlay);
 }
+
+async function ontkoppelKlasVanProfiel(profielId, klasId, klasNaam) {
+  if (!confirm(`Lesprofiel ontkoppelen van "${klasNaam}"?\n\nAlle opdrachten die vanuit dit profiel zijn aangemaakt worden verwijderd uit de jaarplanning van deze klas.`)) return;
+  try {
+    const opdrachten = await API.getOpdrachten(klasId);
+    const teVerwijderen = opdrachten.filter(o => o.profielId === profielId);
+    for (const o of teVerwijderen) {
+      await API.deleteOpdracht(o.id);
+    }
+    Cache.invalidateAll();
+    document.getElementById('profiel-detail-overlay')?.remove();
+    openProfielDetail(profielId);
+  } catch(e) { showError(e.message); }
+}
+
 
 function editProfielWeekThema(profielId, weekIdx, el) {
   const huidig = el.textContent.trim().startsWith('+') ? '' : el.textContent.trim();
