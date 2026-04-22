@@ -1,3 +1,8 @@
+// ============================================================
+// dashboard.js — Dashboard met mobiel-vriendelijke activiteitenkaarten
+// MOBIEL: grote touch targets, duidelijke knoppen, link-buttons zichtbaar
+// ============================================================
+
 async function renderDashboard() {
   showLoading('dashboard');
   try {
@@ -17,9 +22,7 @@ async function renderDashboard() {
 
     // Filter klassen op rooster + roulatie
     const klassenVandaag = isWeekend ? [] : klassen.filter(k => {
-      // Moet in rooster staan
       if (heeftRooster && !(rooster[k.id]||[]).includes(vandaag)) return false;
-      // Roulatieklas: check of deze week actief is
       if (k.roulatie && !isRoulatieWeekActief(k, cw)) return false;
       return true;
     });
@@ -28,12 +31,11 @@ async function renderDashboard() {
       ? klassenVandaag.map(k => k.id)
       : klassen.filter(k => !k.roulatie || isRoulatieWeekActief(k, cw)).map(k => k.id);
 
-    // Komende opdrachten — roulatieweken overslaan
+    // Komende opdrachten
     const komend = alleOpd.filter(o => {
       if (!relevanteKlasIds.includes(o.klasId)) return false;
       const start = parseInt((o.weken||'').split('-')[0]);
       if (start < cw || start > cw + 6) return false;
-      // Check roulatie voor de klas
       const klas = klassen.find(k => k.id === o.klasId);
       if (klas?.roulatie && !isRoulatieWeekActief(klas, start)) return false;
       return true;
@@ -59,7 +61,8 @@ async function renderDashboard() {
         </div>
       </div>
 
-      <div class="stat-grid">
+      <!-- Stat grid: verborgen op mobiel, niet relevant voor docenten onderweg -->
+      <div class="stat-grid db-stat-grid-desktop">
         <div class="stat-card"><div class="stat-label">Klassen</div><div class="stat-value">${stats.aantalKlassen}</div><div class="stat-sub">actief schooljaar</div></div>
         <div class="stat-card"><div class="stat-label">Opdrachten</div><div class="stat-value">${stats.aantalOpdrachten}</div><div class="stat-sub">gepland dit jaar</div></div>
         <div class="stat-card"><div class="stat-label">Toetsen</div><div class="stat-value">${stats.aantalToetsen}</div><div class="stat-sub">beschikbaar</div></div>
@@ -68,65 +71,59 @@ async function renderDashboard() {
 
       <!-- Vandaag badge -->
       ${heeftRooster && !isWeekend ? `
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap">
-        <span style="font-size:12px;font-weight:600;color:var(--ink-3);text-transform:uppercase;letter-spacing:0.05em">Vandaag (${vandaag} · wk ${cw}):</span>
-        ${klassenVandaag.length === 0
-          ? `<span style="font-size:13px;color:var(--ink-3)">Geen actieve klassen</span>`
-          : klassenVandaag.map(k => `
-            <span style="padding:4px 10px;background:${k.roulatie?'var(--amber-dim)':'var(--accent-dim)'};color:${k.roulatie?'var(--amber-text)':'var(--accent-text)'};border-radius:20px;font-size:12px;font-weight:600">
-              ${escHtml(k.naam)}${k.roulatie?' ⟳':''}
-            </span>`).join('')
-        }
-        <button class="btn btn-sm" onclick="showView('rooster')" style="margin-left:auto">
-          <svg viewBox="0 0 20 20" fill="none"><rect x="2" y="3" width="16" height="15" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M6 2v2M14 2v2M2 8h16M6 12h2M10 12h2M14 12h2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      <div class="db-vandaag-row">
+        <span class="db-vandaag-label">Vandaag (${vandaag} · wk ${cw}):</span>
+        <div class="db-vandaag-klassen">
+          ${klassenVandaag.length === 0
+            ? `<span style="font-size:13px;color:var(--ink-3)">Geen actieve klassen</span>`
+            : klassenVandaag.map(k => `
+              <span class="db-klas-badge ${k.roulatie?'db-klas-badge-roulatie':''}">
+                ${escHtml(k.naam)}${k.roulatie?' ⟳':''}
+              </span>`).join('')
+          }
+        </div>
+        <button class="btn btn-sm db-rooster-btn" onclick="showView('rooster')">
+          <svg viewBox="0 0 20 20" fill="none"><rect x="2" y="3" width="16" height="15" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M6 2v2M14 2v2M2 8h16" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
           Rooster
         </button>
       </div>` : !heeftRooster ? `
-      <div style="background:var(--amber-dim);border:1px solid rgba(217,119,6,0.2);border-radius:var(--radius-sm);padding:12px 16px;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
-        <span style="font-size:13px;color:var(--amber-text);font-weight:500">Stel je rooster in voor een gepersonaliseerd dashboard.</span>
+      <div class="db-rooster-tip">
+        <span>Stel je rooster in voor een gepersonaliseerd dashboard.</span>
         <button class="btn btn-sm" onclick="showView('rooster')">Rooster instellen →</button>
       </div>` : ''}
 
       <!-- KOMENDE ACTIVITEITEN -->
       <div class="card" style="margin-bottom:20px">
         <div class="card-header">
-          <div><h2>Komende activiteiten</h2><div class="card-meta">Week ${cw} – ${cw+6}${heeftRooster&&!isWeekend?' · alleen actieve klassen':''}</div></div>
-          ${heeftRooster && !isWeekend ? `
-          <button onclick="toggleDashboardFilter()" id="filter-toggle-btn" class="btn btn-sm">
-            <svg viewBox="0 0 20 20" fill="none"><path d="M3 5h14M6 10h8M9 15h2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-            Toon alles
-          </button>` : ''}
+          <div>
+            <h2>Komende activiteiten</h2>
+            <div class="card-meta">Week ${cw} – ${cw+6}${heeftRooster&&!isWeekend?' · alleen actieve klassen':''}</div>
+          </div>
+          ${heeftRooster && !isWeekend ?
+            `<button id="filter-toggle-btn" class="btn btn-sm" onclick="toggleDashboardFilter()">
+              <svg viewBox="0 0 20 20" fill="none"><path d="M3 5h14M6 10h8M9 15h2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+              Toon alles
+            </button>` : ''}
         </div>
         <div id="activiteiten-container">
           ${renderActiviteitenLijst(komend, takenKomend, klassen, heeftKomend, nu)}
         </div>
       </div>
 
-      <!-- MIJN KLASSEN — alleen actieve roulatieklassen tonen -->
-      <div class="card">
-        <div class="card-header">
-          <div><h2>Mijn klassen</h2><div class="card-meta">Klik op een klas voor de jaarplanning</div></div>
-          <div style="display:flex;gap:8px;align-items:center">
-            <button class="btn btn-sm" onclick="showView('klassen')">Alle klassen</button>
-            ${Auth.canEdit()?`<button class="btn btn-primary" onclick="openKlasModal()">
-              <svg viewBox="0 0 20 20" fill="none"><path d="M10 4v12M4 10h12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-              Nieuwe klas
-            </button>`:''}
-          </div>
-        </div>
-        <div style="padding:20px">
-          ${klassen.length===0
-            ? `<div class="empty-state"><h3>Nog geen klassen</h3></div>`
-            : `<div class="klas-grid">
-                ${(heeftRooster && !isWeekend && klassenVandaag.length > 0 ? klassenVandaag : klassen.filter(k => !k.roulatie || isRoulatieWeekActief(k, cw)).slice(0,6)).map(k => {
-                  const opd = alleOpd.filter(o=>o.klasId===k.id);
-                  const afg = opd.filter(o=>{const e=parseInt((o.weken||'99').split('-').pop().trim());return e<cw;}).length;
-                  const pct = opd.length?Math.round((afg/opd.length)*100):0;
-                  return `<div class="klas-card" onclick="window._selectedKlas='${k.id}';showView('jaarplanning')" style="cursor:pointer">
-                    <div class="klas-card-top">
-                      <div class="klas-naam">${escHtml(k.naam)}${k.roulatie?` <span style="font-size:10px;font-weight:600;padding:1px 5px;background:var(--amber-dim);color:var(--amber-text);border-radius:10px">⟳</span>`:''}</div>
-                    </div>
-                    <div class="klas-meta-row">Leerjaar ${k.leerjaar||'?'} · ${escHtml(k.niveau)} · ${escHtml(k.schooljaar||'')}</div>
+      <!-- Klasoverzicht: alleen desktop -->
+      <div class="db-klasoverzicht-desktop">
+        <div class="card">
+          <div class="card-header"><h2>Voortgang per klas</h2></div>
+          ${klassen.length === 0
+            ? `<div class="empty-state"><p>Nog geen klassen.</p></div>`
+            : `<div style="padding:16px 20px;display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px">
+                ${klassen.filter(k => !k.roulatie || isRoulatieWeekActief(k, cw)).map(k => {
+                  const opd = alleOpd.filter(o => o.klasId === k.id);
+                  const afgevinkt = opd.filter(o => o.afgevinkt).length;
+                  const pct = opd.length ? Math.round((afgevinkt/opd.length)*100) : 0;
+                  return `<div style="padding:14px;border:1px solid var(--border);border-radius:var(--radius);cursor:pointer" onclick="window._selectedKlas='${k.id}';showView('jaarplanning')">
+                    <div style="font-weight:600;font-size:13px;margin-bottom:4px">${escHtml(k.naam)}</div>
+                    <div style="font-size:11px;color:var(--ink-3);margin-bottom:8px">${escHtml(k.niveau)} · ${escHtml(k.schooljaar||'')}</div>
                     <div class="klas-progress"><div class="klas-progress-fill" style="width:${pct}%"></div></div>
                     <div class="klas-progress-label"><span>${opd.length} opdrachten</span><span>${pct}%</span></div>
                   </div>`;
@@ -148,57 +145,126 @@ async function renderDashboard() {
   } catch(e) { showError('Fout bij laden dashboard: ' + e.message); }
 }
 
+// ============================================================
+// ACTIVITEITEN LIJST — mobiel-vriendelijke kaarten
+// ============================================================
 function renderActiviteitenLijst(komend, takenKomend, klassen, heeftKomend, nu) {
   if (!heeftKomend) {
     return `<div class="empty-state" style="padding:28px 20px"><p>Geen activiteiten gepland voor de komende weken.</p></div>`;
   }
-  return `<div>${komend.map(o => {
+
+  const cw = getCurrentWeek();
+
+  const opdrachtenHTML = komend.map(o => {
     const klas = klassen.find(k => k.id === o.klasId);
-    const cw = getCurrentWeek();
     const isNu = weekInRange(o.weken, cw);
     const afgevinkt = !!o.afgevinkt;
-    return `<div style="display:flex;align-items:center;gap:12px;padding:12px 20px;border-bottom:1px solid var(--border);${afgevinkt?'opacity:0.55':''}${isNu?'background:rgba(22,163,74,0.02)':''}">
-      ${Auth.canEdit() ? `<button onclick="dashboardAfvinken('${o.id}')" style="width:26px;height:26px;border-radius:50%;border:2px solid ${afgevinkt?'var(--accent)':'var(--border-2)'};background:${afgevinkt?'var(--accent)':'#fff'};cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .15s">
-        ${afgevinkt?'<svg width="12" height="12" viewBox="0 0 20 20" fill="none"><path d="M4 10l5 5 7-8" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>':''}
-      </button>` : `<div style="width:26px;height:26px;border-radius:50%;border:2px solid ${afgevinkt?'var(--accent)':'var(--border-2)'};background:${afgevinkt?'var(--accent)':'#fff'};display:flex;align-items:center;justify-content:center;flex-shrink:0">${afgevinkt?'<svg width="12" height="12" viewBox="0 0 20 20" fill="none"><path d="M4 10l5 5 7-8" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>':''}</div>`}
-      <div style="flex:1;min-width:0">
-        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+    const heeftLinks = o.theorieLink || o.werkboekLink || o.toetsBestand;
+
+    return `<div class="db-activiteit-kaart ${afgevinkt ? 'db-activiteit-afgevinkt' : ''} ${isNu ? 'db-activiteit-nu' : ''}">
+
+      <!-- Linkerbalk kleur -->
+      <div class="db-activiteit-balk" style="background:${typeKleurHex(o.type)}"></div>
+
+      <!-- Inhoud -->
+      <div class="db-activiteit-body">
+
+        <!-- Rij 1: week + klas + badge -->
+        <div class="db-activiteit-meta">
           <span class="week-pill ${isNu?'current':''}" style="font-size:11px">Wk ${o.weken}</span>
-          <span style="font-size:13px;font-weight:600;${afgevinkt?'text-decoration:line-through;color:var(--ink-3)':''}">${escHtml(o.naam)}</span>
+          <span class="db-activiteit-klas">${escHtml(klas?.naam||'—')}</span>
           <span class="badge ${typeKleur(o.type)}" style="font-size:10px">${escHtml(o.type)}</span>
+          ${isNu ? `<span class="db-nu-badge">● Nu</span>` : ''}
         </div>
-        <div style="font-size:12px;color:var(--ink-3);margin-top:2px">${escHtml(klas?.naam||'—')}${klas?.roulatie?' ⟳':''}
-          ${o.afgevinktDoor?`<span style="margin-left:6px;font-size:11px;font-weight:700;font-family:monospace;background:var(--accent);color:#fff;padding:1px 5px;border-radius:4px">${escHtml(o.afgevinktDoor)}</span>`:''}
-        </div>
+
+        <!-- Naam -->
+        <div class="db-activiteit-naam ${afgevinkt?'db-naam-afgevinkt':''}">${escHtml(o.naam)}</div>
+
+        <!-- Beschrijving -->
+        ${o.beschrijving ? `<div class="db-activiteit-beschr">${escHtml(o.beschrijving)}</div>` : ''}
+
+        <!-- Link-knoppen: theorie, werkboek, toets -->
+        ${heeftLinks ? `
+        <div class="db-activiteit-links">
+          ${o.theorieLink ? `
+            <a href="${escHtml(o.theorieLink)}" target="_blank" rel="noopener" class="db-link-btn db-link-theorie" onclick="event.stopPropagation()">
+              <svg viewBox="0 0 20 20" fill="none"><path d="M4 4h8l4 4v8H4V4z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M12 4v4h4M7 10h6M7 13h4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+              Theorie
+            </a>` : ''}
+          ${o.werkboekLink ? `
+            <a href="${escHtml(o.werkboekLink)}" target="_blank" rel="noopener" class="db-link-btn db-link-werkboek" onclick="event.stopPropagation()">
+              <svg viewBox="0 0 20 20" fill="none"><path d="M4 3h8l4 4v11H4V3z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M12 3v4h4" stroke="currentColor" stroke-width="1.5"/><path d="M7 10h6M7 13h3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+              Werkboek
+            </a>` : ''}
+          ${o.toetsBestand ? `
+            <span class="db-link-btn db-link-toets">
+              <svg viewBox="0 0 20 20" fill="none"><path d="M6 10l2.5 2.5L14 7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><rect x="3" y="3" width="14" height="14" rx="2" stroke="currentColor" stroke-width="1.5"/></svg>
+              ${escHtml(o.toetsBestand)}
+            </span>` : ''}
+        </div>` : ''}
+
+        <!-- Afvinken rij -->
+        ${Auth.canEdit() ? `
+        <div class="db-activiteit-acties">
+          ${o.afgevinktDoor ? `<span class="db-afgevinkt-door">${escHtml(o.afgevinktDoor)}</span>` : ''}
+          <button
+            class="db-afvinken-btn ${afgevinkt ? 'db-afvinken-btn-klaar' : ''}"
+            onclick="dashboardAfvinken('${o.id}')"
+          >
+            ${afgevinkt
+              ? `<svg viewBox="0 0 20 20" fill="none"><path d="M4 10l5 5 7-8" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg> Klaar`
+              : `<svg viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="7" stroke="currentColor" stroke-width="1.5"/></svg> Afvinken`
+            }
+          </button>
+        </div>` : ''}
       </div>
-      <button onclick="window._selectedKlas='${o.klasId}';showView('jaarplanning')" style="width:28px;height:28px;border:1.5px solid var(--border);border-radius:var(--radius-sm);background:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;color:var(--ink-3)">
-        <svg width="12" height="12" viewBox="0 0 20 20" fill="none"><path d="M4 10h12M11 5l5 5-5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      </button>
     </div>`;
-  }).join('')}
-  ${takenKomend.map(t => {
+  }).join('');
+
+  const takenHTML = takenKomend.map(t => {
     const d = new Date(t.deadline);
     const binnenkort = (d - nu) < 3*24*60*60*1000;
     const heeftOpgepakt = (t.opgepakt||[]).includes(Auth.currentUser?.id);
-    return `<div style="display:flex;align-items:center;gap:12px;padding:12px 20px;border-bottom:1px solid var(--border)">
-      ${Auth.canEdit()?`<button onclick="dashboardTaakAfvinken('${t.id}')" style="width:26px;height:26px;border-radius:50%;border:2px solid var(--border-2);background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0"></button>`:`<div style="width:26px;height:26px;border-radius:50%;border:2px solid var(--border-2);background:#fff;flex-shrink:0"></div>`}
-      <div style="flex:1;min-width:0">
-        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-          <span style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:10px;background:var(--amber-dim);color:var(--amber-text)">📅 ${d.toLocaleDateString('nl-NL',{day:'numeric',month:'short'})}</span>
-          <span style="font-size:13px;font-weight:600">${escHtml(t.naam)}</span>
+    return `<div class="db-activiteit-kaart db-activiteit-taak">
+      <div class="db-activiteit-balk" style="background:var(--amber)"></div>
+      <div class="db-activiteit-body">
+        <div class="db-activiteit-meta">
+          <span style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:10px;background:var(--amber-dim);color:var(--amber-text)">
+            📅 ${d.toLocaleDateString('nl-NL',{day:'numeric',month:'short'})}
+          </span>
           <span class="badge badge-amber" style="font-size:10px">Taak</span>
-          ${binnenkort?`<span style="font-size:10px;font-weight:700;color:var(--red)">⚠ Binnenkort</span>`:''}
+          ${binnenkort ? `<span style="font-size:10px;font-weight:700;color:var(--red)">⚠ Binnenkort</span>` : ''}
         </div>
-        <div style="font-size:12px;color:var(--ink-3);margin-top:2px;display:flex;align-items:center;gap:6px">
-          Sectietaak
-          ${Auth.canEdit()?`<button onclick="dashboardTaakOppakken('${t.id}')" style="font-size:11px;padding:2px 8px;border-radius:5px;border:1.5px solid ${heeftOpgepakt?'var(--accent)':'var(--border-2)'};background:${heeftOpgepakt?'var(--accent-dim)':'#fff'};color:${heeftOpgepakt?'var(--accent-text)':'var(--ink-3)'};cursor:pointer;font-weight:500">${heeftOpgepakt?'✓ Opgepakt':'+ Oppakken'}</button>`:''}
-        </div>
+        <div class="db-activiteit-naam">${escHtml(t.naam)}</div>
+        ${t.beschrijving ? `<div class="db-activiteit-beschr">${escHtml(t.beschrijving)}</div>` : ''}
+        ${Auth.canEdit() ? `
+        <div class="db-activiteit-acties">
+          <button
+            class="db-oppakken-btn ${heeftOpgepakt ? 'db-oppakken-btn-actief' : ''}"
+            onclick="dashboardTaakOppakken('${t.id}')"
+          >${heeftOpgepakt ? '✓ Opgepakt' : '+ Oppakken'}</button>
+          <button
+            class="db-afvinken-btn"
+            onclick="dashboardTaakAfvinken('${t.id}')"
+          >
+            <svg viewBox="0 0 20 20" fill="none"><path d="M4 10l5 5 7-8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Afgerond
+          </button>
+        </div>` : ''}
       </div>
-      <button onclick="showView('taken')" style="width:28px;height:28px;border:1.5px solid var(--border);border-radius:var(--radius-sm);background:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;color:var(--ink-3)">
-        <svg width="12" height="12" viewBox="0 0 20 20" fill="none"><path d="M4 10h12M11 5l5 5-5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      </button>
     </div>`;
-  }).join('')}</div>`;
+  }).join('');
+
+  return `<div class="db-activiteiten-lijst">${opdrachtenHTML}${takenHTML}</div>`;
+}
+
+function typeKleurHex(t) {
+  const m = {
+    'Theorie':'#2563EB','Opdracht':'#16A34A','Groepsopdracht':'#16A34A',
+    'Toets':'#D97706','Eindtoets':'#DC2626','Praktijk':'#9333EA',
+    'Project':'#0891B2','Presentatie':'#78716C','Overig':'#A8A29E',
+  };
+  return m[t] || '#A8A29E';
 }
 
 async function toggleDashboardFilter() {
