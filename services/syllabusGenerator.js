@@ -87,10 +87,6 @@ function parseModules(text) {
 function guessTaskLevelApplicability(taskCode, taskText) {
   const text = normalizeText(taskText).toLowerCase();
 
-  // Basisheuristiek
-  // 3 x -> alle niveaus
-  // 1 x -> BB-only of BB-lijn
-  // 2 x is in pdf lastig; daarom gebruiken we module- en contextregels.
   const totalTriples = (text.match(/x x x/g) || []).length;
   const totalDoubles = (text.match(/x x/g) || []).length;
   const totalSingles = (text.match(/(^|\n)x($|\n)/g) || []).length;
@@ -102,11 +98,9 @@ function guessTaskLevelApplicability(taskCode, taskText) {
 
   if (totalDoubles > 0) {
     if (moduleCode === '3') {
-      // Binnen besturen/automatiseren komen veel KB/GL combinaties voor
       kb = true;
       gl = true;
     } else {
-      // In overige modules is dubbel meestal BB/KB
       bb = true;
       kb = true;
     }
@@ -114,7 +108,6 @@ function guessTaskLevelApplicability(taskCode, taskText) {
 
   if (totalSingles > 0) bb = true;
 
-  // Als nog niets gevonden is, zet alles open zodat de flow niet blokkeert.
   if (!bb && !kb && !gl) {
     bb = true; kb = true; gl = true;
   }
