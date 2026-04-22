@@ -1,0 +1,350 @@
+/* ============================================================
+   MOBIEL DASHBOARD — Activiteitenkaarten
+   Toegevoegd onderaan styles.css (of als apart bestand importeren)
+   ============================================================ */
+
+/* ── Dashboard: stat-grid alleen op desktop ── */
+.db-stat-grid-desktop { display: grid; grid-template-columns: repeat(4,1fr); gap: 12px; margin-bottom: 20px; }
+.db-klasoverzicht-desktop { display: block; }
+
+/* ── Vandaag-rij ── */
+.db-vandaag-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 12px 16px;
+}
+.db-vandaag-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink-3);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+}
+.db-vandaag-klassen { display: flex; gap: 6px; flex-wrap: wrap; flex: 1; }
+.db-klas-badge {
+  padding: 4px 10px;
+  background: var(--accent-dim);
+  color: var(--accent-text);
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+}
+.db-klas-badge-roulatie { background: var(--amber-dim); color: var(--amber-text); }
+.db-rooster-btn { margin-left: auto; white-space: nowrap; }
+.db-rooster-tip {
+  background: var(--amber-dim);
+  border: 1px solid rgba(217,119,6,0.2);
+  border-radius: var(--radius-sm);
+  padding: 12px 16px;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  font-size: 13px;
+  color: var(--amber-text);
+  font-weight: 500;
+}
+
+/* ── Activiteiten lijst ── */
+.db-activiteiten-lijst {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+/* ── Activiteitenkaart ── */
+.db-activiteit-kaart {
+  display: flex;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  transition: background 0.1s;
+}
+.db-activiteit-kaart:last-child { border-bottom: none; }
+.db-activiteit-kaart:hover { background: var(--surface-2); }
+
+.db-activiteit-afgevinkt { opacity: 0.55; }
+.db-activiteit-nu { background: rgba(22,163,74,0.03); }
+.db-activiteit-nu:hover { background: rgba(22,163,74,0.06); }
+
+/* Gekleurde linkerbalk */
+.db-activiteit-balk {
+  width: 4px;
+  flex-shrink: 0;
+  border-radius: 0;
+}
+
+/* Kaartinhoud */
+.db-activiteit-body {
+  flex: 1;
+  padding: 14px 16px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* Meta-rij: week, klas, badge */
+.db-activiteit-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.db-activiteit-klas {
+  font-size: 12px;
+  color: var(--ink-3);
+  font-weight: 500;
+}
+.db-nu-badge {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--accent-text);
+  background: var(--accent-dim);
+  padding: 1px 6px;
+  border-radius: 10px;
+}
+
+/* Naam */
+.db-activiteit-naam {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--ink);
+  line-height: 1.35;
+}
+.db-naam-afgevinkt {
+  text-decoration: line-through;
+  color: var(--ink-3);
+}
+
+/* Beschrijving */
+.db-activiteit-beschr {
+  font-size: 13px;
+  color: var(--ink-3);
+  line-height: 1.45;
+}
+
+/* ── Link-knoppen: theorie, werkboek, toets ── */
+.db-activiteit-links {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+
+.db-link-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 7px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  font-weight: 600;
+  text-decoration: none;
+  border: 1.5px solid transparent;
+  cursor: pointer;
+  transition: all 0.12s;
+  -webkit-tap-highlight-color: transparent;
+  min-height: 36px; /* touch target */
+}
+.db-link-btn svg { width: 14px; height: 14px; flex-shrink: 0; }
+
+.db-link-theorie {
+  background: var(--blue-dim);
+  color: var(--blue-text);
+  border-color: rgba(37,99,235,0.15);
+}
+.db-link-theorie:hover { background: #bfdbfe; border-color: var(--blue); }
+
+.db-link-werkboek {
+  background: #f0fdf4;
+  color: var(--accent-text);
+  border-color: rgba(22,163,74,0.2);
+}
+.db-link-werkboek:hover { background: var(--accent-dim); border-color: var(--accent); }
+
+.db-link-toets {
+  background: var(--amber-dim);
+  color: var(--amber-text);
+  border-color: rgba(217,119,6,0.2);
+  cursor: default;
+}
+
+/* ── Actieknoppen: afvinken, oppakken ── */
+.db-activiteit-acties {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+  flex-wrap: wrap;
+}
+
+.db-afgevinkt-door {
+  font-size: 11px;
+  font-weight: 700;
+  font-family: monospace;
+  background: var(--accent);
+  color: #fff;
+  padding: 2px 7px;
+  border-radius: 5px;
+}
+
+.db-afvinken-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 8px 14px;
+  border-radius: var(--radius-sm);
+  border: 1.5px solid var(--border-2);
+  background: var(--surface);
+  color: var(--ink-3);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+  min-height: 40px; /* touch target */
+  -webkit-tap-highlight-color: transparent;
+  font-family: var(--font);
+}
+.db-afvinken-btn svg { width: 14px; height: 14px; }
+.db-afvinken-btn:hover { border-color: var(--accent); color: var(--accent-text); background: var(--accent-dim); }
+.db-afvinken-btn-klaar {
+  border-color: var(--accent);
+  background: var(--accent-dim);
+  color: var(--accent-text);
+}
+
+.db-oppakken-btn {
+  display: inline-flex;
+  align-items: center;
+  padding: 8px 14px;
+  border-radius: var(--radius-sm);
+  border: 1.5px solid var(--border-2);
+  background: var(--surface);
+  color: var(--ink-3);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+  min-height: 40px;
+  font-family: var(--font);
+  -webkit-tap-highlight-color: transparent;
+}
+.db-oppakken-btn-actief {
+  border-color: var(--accent);
+  background: var(--accent-dim);
+  color: var(--accent-text);
+}
+
+/* ============================================================
+   MOBIEL — Overrides (max-width: 768px)
+   ============================================================ */
+@media (max-width: 768px) {
+
+  /* ── Verberg alles behalve dashboard op mobiel ── */
+  #view-klassen,
+  #view-jaarplanning,
+  #view-lesprofielen,
+  #view-taken,
+  #view-opdrachten,
+  #view-toetsen,
+  #view-schooljaren,
+  #view-gebruikers,
+  #view-vakken,
+  #view-rooster {
+    display: none !important;
+  }
+
+  /* ── Verberg sidebar nav-items die niet dashboard zijn ── */
+  .sidebar .nav-item:not([data-view="dashboard"]) {
+    display: none;
+  }
+  /* Verberg nav-labels en groepen die leeg worden ── */
+  .sidebar .nav-group .nav-label { display: none; }
+
+  /* ── Verberg bottom-nav items behalve dashboard ── */
+  .bottom-nav-item:not([data-view="dashboard"]) {
+    display: none;
+  }
+
+  /* ── Login pagina mobiel ── */
+  .login-card {
+    padding: 28px 24px;
+    border-radius: var(--radius-lg);
+    margin: 0 8px;
+  }
+  .login-heading { font-size: 22px; }
+  .login-desc { font-size: 13px; margin-bottom: 20px; }
+  .demo-accounts { flex-direction: column; gap: 6px; }
+  .demo-accounts button {
+    padding: 12px;
+    font-size: 13px;
+    text-align: left;
+  }
+  .btn-login {
+    padding: 14px;
+    font-size: 15px;
+    min-height: 48px; /* touch target */
+  }
+  .form-field input, .form-field select {
+    padding: 13px;
+    font-size: 16px; /* voorkomt zoom op iOS */
+    min-height: 48px;
+  }
+
+  /* ── Dashboard: verberg stats en klasoverzicht ── */
+  .db-stat-grid-desktop { display: none; }
+  .db-klasoverzicht-desktop { display: none; }
+
+  /* ── Dashboard: vandaag-rij compacter ── */
+  .db-vandaag-row { padding: 10px 14px; gap: 8px; }
+  .db-vandaag-label { font-size: 11px; width: 100%; }
+  .db-rooster-btn { margin-left: 0; }
+
+  /* ── Activiteitenkaarten groter op mobiel ── */
+  .db-activiteit-body { padding: 16px 14px; gap: 8px; }
+  .db-activiteit-naam { font-size: 16px; }
+  .db-activiteit-beschr { font-size: 13px; }
+
+  /* ── Link-knoppen: volle breedte op small screens ── */
+  .db-activiteit-links { flex-direction: column; gap: 6px; }
+  .db-link-btn {
+    width: 100%;
+    justify-content: center;
+    padding: 12px 16px;
+    font-size: 14px;
+    min-height: 48px;
+  }
+
+  /* ── Afvinken knop: volle breedte ── */
+  .db-activiteit-acties { flex-direction: column; align-items: stretch; }
+  .db-afvinken-btn, .db-oppakken-btn {
+    width: 100%;
+    justify-content: center;
+    padding: 12px 16px;
+    font-size: 14px;
+    min-height: 48px;
+  }
+
+  /* ── Card header compacter ── */
+  .card-header h2 { font-size: 15px; }
+
+  /* ── Week pill iets groter ── */
+  .week-pill { font-size: 12px; padding: 3px 8px; }
+}
+
+/* ============================================================
+   MOBIEL EXTRA KLEIN (max-width: 380px)
+   ============================================================ */
+@media (max-width: 380px) {
+  .db-activiteit-naam { font-size: 15px; }
+  .login-card { padding: 24px 16px; }
+}
