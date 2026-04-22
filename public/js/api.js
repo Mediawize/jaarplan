@@ -15,6 +15,14 @@ const API = {
     return data;
   },
 
+  async _fetchForm(url, formData) {
+    const res = await fetch(url, { method: 'POST', body: formData });
+    if (res.status === 401) { window.location.reload(); return null; }
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Serverfout');
+    return data;
+  },
+
   // AUTH
   async login(email, wachtwoord) { return this._fetch('/api/login', { method: 'POST', body: { email, wachtwoord } }); },
   async logout() { return this._fetch('/api/logout', { method: 'POST' }); },
@@ -64,6 +72,9 @@ const API = {
   async addLesprofiel(data) { return this._fetch('/api/lesprofielen', { method: 'POST', body: data }); },
   async updateLesprofiel(id, data) { return this._fetch(`/api/lesprofielen/${id}`, { method: 'PUT', body: data }); },
   async deleteLesprofiel(id) { return this._fetch(`/api/lesprofielen/${id}`, { method: 'DELETE' }); },
+
+  async analyseSyllabus(bestand) { const formData = new FormData(); formData.append('bestand', bestand); return this._fetchForm('/api/syllabus/analyse', formData); },
+  async genereerLesprofielUitSyllabus(data) { return this._fetch('/api/syllabus/genereer', { method: 'POST', body: data }); },
 
   // TAKEN
   async getTaken() { return this._fetch('/api/taken'); },
