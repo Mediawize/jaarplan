@@ -1,3 +1,4 @@
+require('dotenv').config();
 const express = require('express');
 const session = require('express-session');
 const multer = require('multer');
@@ -10,6 +11,7 @@ const { Schooljaar } = require('./db/schooljaar');
 const { analyseSyllabusPdf, generateLesprofielFromPdf } = require('./services/syllabusGenerator');
 
 const app = express();
+app.set('trust proxy', 1); // Vertrouw reverse proxy (Nginx)
 const PORT = process.env.PORT || 3001;
 
 if (!process.env.SESSION_SECRET) {
