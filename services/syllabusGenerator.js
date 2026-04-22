@@ -512,13 +512,9 @@ async function verbeterMetAI(weken, moduleNaam, niveau) {
   const wekenSamenvatting = weken.map((w, i) => {
     const activiteiten = w.activiteiten.map(a =>
       `  - [${a.type}] ${a.omschrijving} (syllabus: ${a.syllabus})`
-    ).join('
-');
-    return `Week ${i + 1}:
-${activiteiten}`;
-  }).join('
-
-');
+    ).join('\n');
+    return 'Week ' + (i + 1) + ':\n' + activiteiten;
+  }).join('\n\n');
 
   const prompt = `Je bent een ervaren docent PIE (Produceren, Installeren & Energie) die lesplannen schrijft.
 
