@@ -103,11 +103,10 @@ function renderLoginShell() {
       <div class="form-field"><label>E-mailadres</label><input type="email" id="login-email" placeholder="naam@school.nl" autocomplete="email"></div>
       <div class="form-field"><label>Wachtwoord</label><input type="password" id="login-password" placeholder="••••••••" autocomplete="current-password"></div>
       <button class="btn-login" onclick="doLogin()">Inloggen</button>
-      <div class="login-demo"><p>Demo accounts:</p><div class="demo-accounts">
-        <button onclick="fillDemo('t.nieuweboer@atlascollege.nl','admin123')">🔑 Beheerder</button>
-        <button onclick="fillDemo('docent@school.nl','docent123')">👨‍🏫 Docent</button>
-        <button onclick="fillDemo('management@school.nl','mgmt123')">👔 Management</button>
-      </div></div>
+      <div style="text-align:right;margin-top:8px">
+        <button onclick="toonWachtwoordVergetenScherm()" style="background:none;border:none;color:var(--ink-3);font-size:13px;cursor:pointer;text-decoration:underline">Wachtwoord vergeten?</button>
+      </div>
+
     </div>
   `;
 }
@@ -121,10 +120,10 @@ async function doLogin() {
   try {
     const result = await API.login(email, pw);
     if (result?.error) { errEl.textContent = result.error; errEl.style.display = 'block'; return; }
-      Auth.currentUser = result.user;
-      if (!checkMustChangePassword()) {
-        startApp();
-      }
+    Auth.currentUser = result.user;
+    if (!checkMustChangePassword()) {
+      startApp();
+    }
   } catch (e) {
     errEl.textContent = e.message || 'Inloggen mislukt';
     errEl.style.display = 'block';
