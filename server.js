@@ -7,6 +7,7 @@ const rateLimit = require('express-rate-limit');
 const helmet = require('helmet');
 const db = require('./db/database');
 const { Schooljaar } = require('./db/schooljaar');
+const { analyseSyllabusPdf, generateLesprofielFromPdf } = require('./services/syllabusGenerator');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -134,6 +135,20 @@ const syllabusUpload = upload.fields([
   { name: 'bestand', maxCount: 1 },
   { name: 'file', maxCount: 1 }
 ]);
+
+const syllabusUploadTokens = new Map();
+
+function createUploadToken() {
+  return `syllabus_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function cleanupSyllabusUploadToken(token) {
+  const item = syllabusUploadTokens.get(token);
+  if (item?.filePath && fs.existsSync(item.filePath)) {
+    try { fs.unlinkSync(item.filePath); } catch (_) {}
+  }
+  syllabusUploadTokens.delete(token);
+}
 
 function cleanSyllabusText(text = '') {
   return text
@@ -573,6 +588,14 @@ app.post('/api/import-lesprofiel', requireCanEdit, upload.single('bestand'), asy
 });
 
 
+
+app.get('/api/analyse-syllabus', requireCanEdit, (req, res) => {
+  return res.json({
+    success: true,
+    message: 'Endpoint actief. Gebruik POST met een PDF-bestand om de syllabus te analyseren.'
+  });
+});
+
 app.post('/api/analyse-syllabus', requireCanEdit, syllabusUpload, async (req, res) => {
   const file = pickUploadedFile(req);
 
@@ -586,35 +609,21 @@ app.post('/api/analyse-syllabus', requireCanEdit, syllabusUpload, async (req, re
       return res.status(400).json({ error: 'Alleen PDF-bestanden worden ondersteund bij analyseren.' });
     }
 
-    let pdfParse;
-    try {
-      pdfParse = require('pdf-parse');
-    } catch (e) {
-      if (file.path && fs.existsSync(file.path)) fs.unlinkSync(file.path);
-      return res.status(500).json({
-        error: 'pdf-parse ontbreekt. Voer op de VPS uit: npm install pdf-parse'
-      });
-    }
+    const analysed = await analyseSyllabusPdf(file.path);
+    const uploadToken = createUploadToken();
 
-    const buffer = fs.readFileSync(file.path);
-    const parsed = await pdfParse(buffer);
-    const text = cleanSyllabusText(parsed.text || '');
-    const modules = extractProfielModules(text);
-
-    if (file.path && fs.existsSync(file.path)) fs.unlinkSync(file.path);
-
-    if (!modules.length) {
-      return res.status(422).json({
-        error: 'Er zijn geen profielmodules herkend in deze PDF.',
-        preview: text.slice(0, 1500)
-      });
-    }
+    syllabusUploadTokens.set(uploadToken, {
+      filePath: file.path,
+      originalname: file.originalname,
+      createdAt: Date.now()
+    });
 
     return res.json({
       success: true,
+      uploadToken,
       bestand: file.originalname,
-      modules,
-      preview: text.slice(0, 1500)
+      modules: analysed.modules,
+      preview: (analysed.sourceText || '').slice(0, 1500)
     });
   } catch (e) {
     console.error('Fout bij /api/analyse-syllabus:', e);
@@ -623,6 +632,65 @@ app.post('/api/analyse-syllabus', requireCanEdit, syllabusUpload, async (req, re
     } catch (_) {}
     return res.status(500).json({
       error: 'Fout bij analyseren van syllabus',
+      details: e.message
+    });
+  }
+});
+
+app.post('/api/genereer-lesprofiel-uit-syllabus', requireCanEdit, async (req, res) => {
+  try {
+    const { uploadToken, moduleCode, niveau, aantalWeken, urenTheorie, urenPraktijk, naam, vakId } = req.body || {};
+
+    if (!uploadToken || !moduleCode || !niveau || !aantalWeken || !urenTheorie || !urenPraktijk || !vakId) {
+      return res.status(400).json({ error: 'Niet alle verplichte velden zijn ingevuld.' });
+    }
+
+    const uploadInfo = syllabusUploadTokens.get(uploadToken);
+    if (!uploadInfo || !uploadInfo.filePath || !fs.existsSync(uploadInfo.filePath)) {
+      cleanupSyllabusUploadToken(uploadToken);
+      return res.status(400).json({ error: 'De geüploade syllabus is niet meer beschikbaar. Analyseer de PDF opnieuw.' });
+    }
+
+    const vak = db.getVakken().find(v => v.id === vakId);
+    if (!vak) {
+      return res.status(404).json({ error: 'Vak niet gevonden.' });
+    }
+
+    const gegenereerd = await generateLesprofielFromPdf(uploadInfo.filePath, {
+      moduleCode: String(moduleCode),
+      niveau: String(niveau).toUpperCase(),
+      aantalWeken: Number(aantalWeken),
+      urenTheorie: Number(urenTheorie),
+      urenPraktijk: Number(urenPraktijk),
+      naam,
+      vakId
+    });
+
+    const profiel = db.addLesprofiel({
+      naam: gegenereerd.naam,
+      vakId: vak.id,
+      docentId: req.session.user.id,
+      aantalWeken: gegenereerd.aantalWeken,
+      urenPerWeek: gegenereerd.urenPerWeek,
+      beschrijving: gegenereerd.beschrijving || '',
+      niveau: gegenereerd.niveau || '',
+      weken: gegenereerd.weken || []
+    });
+
+    cleanupSyllabusUploadToken(uploadToken);
+
+    return res.json({
+      success: true,
+      profiel,
+      meta: {
+        module: gegenereerd.module,
+        selectie: gegenereerd.selectie || []
+      }
+    });
+  } catch (e) {
+    console.error('Fout bij /api/genereer-lesprofiel-uit-syllabus:', e);
+    return res.status(500).json({
+      error: 'Fout bij genereren van lesprofiel uit syllabus',
       details: e.message
     });
   }
