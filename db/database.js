@@ -221,31 +221,19 @@ function parseJSON(val, fallback = []) {
 function seedIfEmpty() {
   const count = db.prepare('SELECT COUNT(*) as c FROM gebruikers').get().c;
   if (count > 0) return;
-  console.log('Database seeden met startdata...');
-  const users = [
-    { id: 'u1', naam: 'Tom', achternaam: 'Nieuweboer', email: 't.nieuweboer@atlascollege.nl', wachtwoord: bcrypt.hashSync('admin123', 10), rol: 'admin', initialen: 'TNB', vakken: '[]', hoofdklassen: '[]' },
-    { id: 'u2', naam: 'Jan', achternaam: 'Jansen', email: 'docent@school.nl', wachtwoord: bcrypt.hashSync('docent123', 10), rol: 'docent', initialen: 'JJA', vakken: '["v1","v2"]', hoofdklassen: '[]' },
-    { id: 'u3', naam: 'Fatima', achternaam: 'El Amrani', email: 'felam@school.nl', wachtwoord: bcrypt.hashSync('docent123', 10), rol: 'docent', initialen: 'FEA', vakken: '["v1"]', hoofdklassen: '[]' },
-    { id: 'u4', naam: 'Management', achternaam: 'Viewer', email: 'management@school.nl', wachtwoord: bcrypt.hashSync('mgmt123', 10), rol: 'management', initialen: 'MGT', vakken: '[]', hoofdklassen: '[]' },
-  ];
-  const vakken = [
-    { id: 'v1', naam: 'PIE', volledig: 'Produceren, Installeren & Energie', kleur: '#2D5A3D' },
-    { id: 'v2', naam: 'M&O', volledig: 'Management & Organisatie', kleur: '#1A4A7A' },
-    { id: 'v3', naam: 'Economie', volledig: 'Economie', kleur: '#C4821A' },
-  ];
-  const klassen = [
-    { id: 'k1', naam: '3 HAVO A', leerjaar: 3, niveau: 'HAVO', vakId: 'v1', docentId: 'u2', schooljaar: '2025-2026', aantalWeken: 38, urenPerWeek: 3 },
-    { id: 'k2', naam: '3 HAVO B', leerjaar: 3, niveau: 'HAVO', vakId: 'v1', docentId: 'u2', schooljaar: '2025-2026', aantalWeken: 38, urenPerWeek: 3 },
-    { id: 'k3', naam: '4 VWO A', leerjaar: 4, niveau: 'VWO', vakId: 'v1', docentId: 'u3', schooljaar: '2025-2026', aantalWeken: 38, urenPerWeek: 4 },
-    { id: 'k4', naam: '5 HAVO A', leerjaar: 5, niveau: 'HAVO', vakId: 'v2', docentId: 'u2', schooljaar: '2025-2026', aantalWeken: 38, urenPerWeek: 2 },
-  ];
-  const insUser = db.prepare('INSERT INTO gebruikers (id,naam,achternaam,email,wachtwoord,rol,initialen,vakken,hoofdklassen) VALUES (?,?,?,?,?,?,?,?,?)');
-  const insVak = db.prepare('INSERT INTO vakken (id,naam,volledig,kleur) VALUES (?,?,?,?)');
-  const insKlas = db.prepare('INSERT INTO klassen (id,naam,leerjaar,niveau,vakId,docentId,schooljaar,aantalWeken,urenPerWeek,docenten) VALUES (?,?,?,?,?,?,?,?,?,?)');
-  users.forEach(u => insUser.run(u.id, u.naam, u.achternaam, u.email, u.wachtwoord, u.rol, u.initialen, u.vakken, u.hoofdklassen));
-  vakken.forEach(v => insVak.run(v.id, v.naam, v.volledig, v.kleur));
-  klassen.forEach(k => insKlas.run(k.id, k.naam, k.leerjaar, k.niveau, k.vakId, k.docentId, k.schooljaar, k.aantalWeken, k.urenPerWeek, JSON.stringify([k.docentId])));
-  console.log('Seed klaar!');
+  console.log('Database seeden: eerste beheerder aanmaken...');
+  // Alleen de beheerder wordt aangemaakt bij een lege database.
+  // Wachtwoord MOET direct gewijzigd worden via de beheerdersomgeving.
+  const adminWachtwoord = process.env.ADMIN_INIT_PASSWORD || 'WijzigDitNu!';
+  const id = genId();
+  db.prepare('INSERT INTO gebruikers (id,naam,achternaam,email,wachtwoord,rol,initialen,vakken,hoofdklassen,mustChangePassword) VALUES (?,?,?,?,?,?,?,?,?,?)')
+    .run(id, 'Beheerder', '', process.env.ADMIN_EMAIL || 'admin@school.nl', bcrypt.hashSync(adminWachtwoord, 10), 'admin', 'ADM', '[]', '[]', 1);
+  console.log('\n========================================');
+  console.log('Eerste beheerder aangemaakt:');
+  console.log('  E-mail:     ' + (process.env.ADMIN_EMAIL || 'admin@school.nl'));
+  console.log('  Wachtwoord: ' + adminWachtwoord);
+  console.log('  ⚠️  Wijzig dit wachtwoord direct na eerste login!');
+  console.log('========================================\n');
 }
 
 // ============================================================
