@@ -549,14 +549,14 @@ ${wekenSamenvatting}`;
         'content-type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'claude-opus-4-5',
+        model: 'claude-sonnet-4-5-20251015',
         max_tokens: 4000,
         messages: [{ role: 'user', content: prompt }]
       })
     });
 
     if (!response.ok) {
-      console.warn('AI verbetering mislukt:', response.status);
+      const errBody = await response.text(); console.warn('AI verbetering mislukt:', response.status, errBody);
       return weken;
     }
 
