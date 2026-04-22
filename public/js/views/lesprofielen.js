@@ -7,6 +7,134 @@
 //  - getPeriodeVoorWeekLP expliciete condities
 // ============================================================
 
+
+const syllabusWizardState = {
+  uploadToken: '',
+  modules: []
+};
+
+function openSyllabusWizard() {
+  syllabusWizardState.uploadToken = '';
+  syllabusWizardState.modules = [];
+  openModal(`
+    <h2>Lesprofiel uit syllabus</h2>
+    <p class="modal-sub">Upload een syllabus PDF, kies daarna de profielmodule, het niveau en de verdeling over weken.</p>
+    <div class="form-grid">
+      <div class="form-field form-full">
+        <label>Syllabus PDF *</label>
+        <input type="file" id="syllabus-pdf-input" accept="application/pdf">
+      </div>
+      <div class="form-field form-full">
+        <button class="btn" onclick="analyseerSyllabusUpload()">PDF analyseren</button>
+      </div>
+      <div id="syllabus-analyse-result" class="form-field form-full" style="display:none"></div>
+      <div class="form-field">
+        <label>Module *</label>
+        <select id="syllabus-module-select" disabled><option value="">Analyseer eerst de syllabus</option></select>
+      </div>
+      <div class="form-field">
+        <label>Niveau *</label>
+        <select id="syllabus-niveau-select">
+          <option value="BB">vmbo-b / BB</option>
+          <option value="KB">vmbo-k / KB</option>
+          <option value="GL">vmbo-gl / GL</option>
+        </select>
+      </div>
+      <div class="form-field">
+        <label>Aantal weken *</label>
+        <input id="syllabus-aantal-weken" type="number" min="1" value="7">
+      </div>
+      <div class="form-field">
+        <label>Uur theorie per week *</label>
+        <input id="syllabus-uren-theorie" type="number" min="1" value="2">
+      </div>
+      <div class="form-field">
+        <label>Uur praktijk per week *</label>
+        <input id="syllabus-uren-praktijk" type="number" min="1" value="4">
+      </div>
+      <div class="form-field">
+        <label>Naam lesprofiel</label>
+        <input id="syllabus-profiel-naam" placeholder="bijv. Installeren en monteren BB periode 1">
+      </div>
+      <div class="form-field form-full">
+        <label>Vak *</label>
+        <select id="syllabus-vak-select"></select>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModalDirect()">Sluiten</button>
+      <button class="btn btn-primary" onclick="genereerLesprofielUitSyllabusWizard()">Genereer lesprofiel</button>
+    </div>
+  `);
+  vulSyllabusVakSelect();
+}
+
+async function vulSyllabusVakSelect() {
+  const vakken = await API.getVakken();
+  const sel = document.getElementById('syllabus-vak-select');
+  if (!sel) return;
+  sel.innerHTML = vakken.map(v => `<option value="${v.id}">${escHtml(v.naam)}</option>`).join('');
+}
+
+async function analyseerSyllabusUpload() {
+  const input = document.getElementById('syllabus-pdf-input');
+  const result = document.getElementById('syllabus-analyse-result');
+  const moduleSel = document.getElementById('syllabus-module-select');
+  if (!input?.files?.[0]) { alert('Kies eerst een syllabus PDF.'); return; }
+  result.style.display = 'block';
+  result.innerHTML = `<div class="alert alert-info">Syllabus wordt geanalyseerd...</div>`;
+  try {
+    const data = await API.analyseSyllabus(input.files[0]);
+    syllabusWizardState.uploadToken = data.uploadToken;
+    syllabusWizardState.modules = data.modules || [];
+    moduleSel.disabled = false;
+    moduleSel.innerHTML = `<option value="">Kies een module</option>` + syllabusWizardState.modules.map(m => `<option value="${m.code}">Module ${m.code} ${escHtml(m.naam)} (${m.taskCount} onderdelen)</option>`).join('');
+    result.innerHTML = `<div class="alert alert-success">${syllabusWizardState.modules.length} profielmodules gevonden. Kies nu de module, het niveau en de wekenverdeling.</div>`;
+  } catch (e) {
+    result.innerHTML = `<div class="alert" style="background:var(--red-light);color:var(--red);border:1px solid rgba(176,58,46,0.2)">${escHtml(e.message)}</div>`;
+  }
+}
+
+async function genereerLesprofielUitSyllabusWizard() {
+  const moduleCode = document.getElementById('syllabus-module-select')?.value;
+  const niveau = document.getElementById('syllabus-niveau-select')?.value;
+  const aantalWeken = Number(document.getElementById('syllabus-aantal-weken')?.value || 0);
+  const urenTheorie = Number(document.getElementById('syllabus-uren-theorie')?.value || 0);
+  const urenPraktijk = Number(document.getElementById('syllabus-uren-praktijk')?.value || 0);
+  const naam = document.getElementById('syllabus-profiel-naam')?.value?.trim();
+  const vakId = document.getElementById('syllabus-vak-select')?.value;
+
+  if (!syllabusWizardState.uploadToken) { alert('Analyseer eerst de syllabus.'); return; }
+  if (!moduleCode || !niveau || !aantalWeken || !urenTheorie || !urenPraktijk || !vakId) {
+    alert('Vul alle velden in.');
+    return;
+  }
+
+  try {
+    const res = await API.genereerLesprofielUitSyllabus({
+      uploadToken: syllabusWizardState.uploadToken,
+      moduleCode,
+      niveau,
+      aantalWeken,
+      urenTheorie,
+      urenPraktijk,
+      naam,
+      vakId
+    });
+    Cache.invalidateAll();
+    await renderLesprofielen();
+    const verder = confirm(`Lesprofiel "${res.profiel.naam}" is aangemaakt. Nog een module maken?`);
+    if (verder) {
+      openSyllabusWizard();
+    } else {
+      closeModalDirect();
+    }
+  } catch (e) {
+    alert(e.message);
+  }
+}
+
+
 function openImportModal() {
   openModal(`
     <h2>Lesprofiel importeren</h2>
@@ -69,6 +197,7 @@ async function renderLesprofielen() {
         <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
           <a href="/api/lesprofiel-template" class="btn btn-sm" download>⬇ Template</a>
           <button class="btn btn-sm" onclick="openImportModal()">↑ Importeren</button>
+          <button class="btn btn-sm" onclick="openSyllabusWizard()">⚡ Uit syllabus</button>
           <button class="btn btn-sm btn-primary" onclick="openProfielModal()">+ Nieuw lesprofiel</button>
         </div>
       </div>
