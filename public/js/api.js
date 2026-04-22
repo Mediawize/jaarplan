@@ -118,6 +118,7 @@ const API = {
     formData.append('bestand', file);
     return this._fetchForm('/api/analyse-syllabus', formData);
   },
+  async genereerLesprofielUitSyllabus(data) { return this._fetch('/api/genereer-lesprofiel-uit-syllabus', { method: 'POST', body: data }); },
 
   // TAKEN
   async getTaken() { return this._fetch('/api/taken'); },
