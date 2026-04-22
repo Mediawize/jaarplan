@@ -3,7 +3,6 @@ const session = require('express-session');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
-const { analyseSyllabusPdf, generateLesprofielFromPdf } = require('./services/syllabusGenerator');
 const rateLimit = require('express-rate-limit');
 const helmet = require('helmet');
 const db = require('./db/database');
@@ -121,6 +120,88 @@ function requireCanEdit(req, res, next) {
     return res.status(403).json({ error: 'Geen schrijfrechten' });
   }
   next();
+}
+
+
+function pickUploadedFile(req) {
+  if (req.file) return req.file;
+  if (req.files?.bestand?.[0]) return req.files.bestand[0];
+  if (req.files?.file?.[0]) return req.files.file[0];
+  return null;
+}
+
+const syllabusUpload = upload.fields([
+  { name: 'bestand', maxCount: 1 },
+  { name: 'file', maxCount: 1 }
+]);
+
+function cleanSyllabusText(text = '') {
+  return text
+    .replace(/\r/g, '\n')
+    .replace(/\u00a0/g, ' ')
+    .replace(/[ \t]+\n/g, '\n')
+    .replace(/\n{3,}/g, '\n\n');
+}
+
+function extractProfielModules(text = '') {
+  const normalized = cleanSyllabusText(text);
+  const lines = normalized.split('\n').map(l => l.trim()).filter(Boolean);
+  const modules = [];
+  let currentModule = null;
+  let currentItem = null;
+
+  function pushItem() {
+    if (currentModule && currentItem && currentItem.code && currentItem.titel) {
+      currentItem.titel = currentItem.titel.replace(/\s+/g, ' ').trim();
+      currentModule.items.push(currentItem);
+    }
+    currentItem = null;
+  }
+
+  function pushModule() {
+    pushItem();
+    if (currentModule) {
+      currentModule.titel = currentModule.titel.replace(/\s+/g, ' ').trim();
+      modules.push(currentModule);
+    }
+    currentModule = null;
+  }
+
+  for (const line of lines) {
+    const moduleMatch = line.match(/^(\d+)\s+PROFIELMODULE\s+(.+)$/i);
+    if (moduleMatch) {
+      pushModule();
+      currentModule = {
+        moduleNummer: Number(moduleMatch[1]),
+        titel: moduleMatch[2].trim(),
+        items: []
+      };
+      continue;
+    }
+
+    const codeMatch = line.match(/^(P\/PIE\/[0-9.]+)\s*(.+)?$/i);
+    if (currentModule && codeMatch) {
+      pushItem();
+      currentItem = {
+        code: codeMatch[1].trim(),
+        titel: (codeMatch[2] || '').trim()
+      };
+      continue;
+    }
+
+    if (currentItem && !/^De kandidaat kan:/i.test(line) && !/^UITWERKING/i.test(line) && !/^De volgende professionele kennis/i.test(line)) {
+      if (!/^[xX](\s+[xX]){0,2}$/.test(line)) {
+        currentItem.titel += ' ' + line;
+      }
+    }
+  }
+
+  pushModule();
+
+  return modules.map(m => ({
+    ...m,
+    items: m.items.filter(i => i.code && i.titel)
+  })).filter(m => m.items.length > 0);
 }
 
 // ============================================================
@@ -420,65 +501,6 @@ app.get('/api/stats', requireAuth, (req, res) => {
 });
 
 // ============================================================
-// SYLLABUS
-// ============================================================
-
-
-app.post('/api/syllabus/analyse', requireCanEdit, upload.single('bestand'), async (req, res) => {
-  if (!req.file) return res.status(400).json({ error: 'Geen PDF ontvangen' });
-  try {
-    const analyse = await analyseSyllabusPdf(req.file.path);
-    res.json({
-      success: true,
-      uploadToken: path.basename(req.file.path),
-      modules: analyse.modules
-    });
-  } catch (e) {
-    if (req.file?.path && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
-    res.status(500).json({ error: 'Syllabus kon niet worden gelezen: ' + e.message });
-  }
-});
-
-app.post('/api/syllabus/genereer', requireCanEdit, async (req, res) => {
-  const { uploadToken, moduleCode, niveau, aantalWeken, urenTheorie, urenPraktijk, naam, vakId } = req.body || {};
-  if (!uploadToken || !moduleCode || !niveau || !aantalWeken || !urenTheorie || !urenPraktijk || !vakId) {
-    return res.status(400).json({ error: 'Vul alle velden in' });
-  }
-
-  const safeToken = path.basename(uploadToken);
-  const filePath = path.join(uploadDir, safeToken);
-  if (!fs.existsSync(filePath)) {
-    return res.status(400).json({ error: 'De tijdelijke syllabus is niet meer beschikbaar. Upload hem opnieuw.' });
-  }
-
-  try {
-    const gegenereerd = await generateLesprofielFromPdf(filePath, {
-      moduleCode,
-      niveau,
-      aantalWeken,
-      urenTheorie,
-      urenPraktijk,
-      naam
-    });
-
-    const profiel = db.addLesprofiel({
-      naam: gegenereerd.naam,
-      vakId,
-      docentId: req.session.user.id,
-      aantalWeken: gegenereerd.aantalWeken,
-      urenPerWeek: gegenereerd.urenPerWeek,
-      niveau: gegenereerd.niveau,
-      beschrijving: gegenereerd.beschrijving,
-      weken: gegenereerd.weken
-    });
-
-    res.json({ success: true, profiel, meta: { module: gegenereerd.module, selectie: gegenereerd.selectie } });
-  } catch (e) {
-    res.status(500).json({ error: 'Genereren mislukt: ' + e.message });
-  }
-});
-
-// ============================================================
 // UPLOAD
 // ============================================================
 app.post('/api/upload', requireCanEdit, upload.single('bestand'), (req, res) => {
@@ -547,6 +569,62 @@ app.post('/api/import-lesprofiel', requireCanEdit, upload.single('bestand'), asy
   } catch (e) {
     if (req.file?.path && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
     res.status(500).json({ error: 'Fout bij verwerken: ' + e.message });
+  }
+});
+
+
+app.post('/api/analyse-syllabus', requireCanEdit, syllabusUpload, async (req, res) => {
+  const file = pickUploadedFile(req);
+
+  try {
+    if (!file) {
+      return res.status(400).json({ error: 'Geen PDF ontvangen. Kies eerst een syllabusbestand.' });
+    }
+
+    if (!/\.pdf$/i.test(file.originalname || '')) {
+      if (file.path && fs.existsSync(file.path)) fs.unlinkSync(file.path);
+      return res.status(400).json({ error: 'Alleen PDF-bestanden worden ondersteund bij analyseren.' });
+    }
+
+    let pdfParse;
+    try {
+      pdfParse = require('pdf-parse');
+    } catch (e) {
+      if (file.path && fs.existsSync(file.path)) fs.unlinkSync(file.path);
+      return res.status(500).json({
+        error: 'pdf-parse ontbreekt. Voer op de VPS uit: npm install pdf-parse'
+      });
+    }
+
+    const buffer = fs.readFileSync(file.path);
+    const parsed = await pdfParse(buffer);
+    const text = cleanSyllabusText(parsed.text || '');
+    const modules = extractProfielModules(text);
+
+    if (file.path && fs.existsSync(file.path)) fs.unlinkSync(file.path);
+
+    if (!modules.length) {
+      return res.status(422).json({
+        error: 'Er zijn geen profielmodules herkend in deze PDF.',
+        preview: text.slice(0, 1500)
+      });
+    }
+
+    return res.json({
+      success: true,
+      bestand: file.originalname,
+      modules,
+      preview: text.slice(0, 1500)
+    });
+  } catch (e) {
+    console.error('Fout bij /api/analyse-syllabus:', e);
+    try {
+      if (file?.path && fs.existsSync(file.path)) fs.unlinkSync(file.path);
+    } catch (_) {}
+    return res.status(500).json({
+      error: 'Fout bij analyseren van syllabus',
+      details: e.message
+    });
   }
 });
 
