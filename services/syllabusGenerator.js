@@ -481,16 +481,128 @@ async function generateLesprofielFromPdf(filePath, options) {
   const naam = options.naam || `${module.naam} ${niveau}`;
   const urenPerWeek = (Number(options.urenTheorie) || 0) + (Number(options.urenPraktijk) || 0);
 
+  // AI verbetering van omschrijvingen en weekthema's
+  const verbeterdeWeken = await verbeterMetAI(weken, module.naam, niveau);
+
   return {
     naam,
     niveau,
     module: { code: module.code, naam: module.naam },
     selectie: module.tasks.map(t => ({ code: t.code, title: t.title })),
-    aantalWeken: weken.length,
+    aantalWeken: verbeterdeWeken.length,
     urenPerWeek,
-    beschrijving: `Automatisch gegenereerd — module ${module.code} ${module.naam}, niveau ${niveau}. ${theorieCount} theorie en ${praktijkCount} praktijk activiteiten.`,
-    weken
+    beschrijving: `Automatisch gegenereerd — module ${module.code} ${module.naam}, niveau ${niveau}.`,
+    weken: verbeterdeWeken
   };
+}
+
+// ============================================================
+// AI VERBETERING — omschrijvingen en weekthema's via Claude API
+// Stuurt de ruwe weken naar Claude die er nette, beknopte
+// Nederlandse teksten van maakt zoals een docent ze schrijft.
+// ============================================================
+async function verbeterMetAI(weken, moduleNaam, niveau) {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) {
+    console.warn('ANTHROPIC_API_KEY niet ingesteld — AI verbetering overgeslagen');
+    return weken;
+  }
+
+  // Bouw een compact overzicht van alle weken voor de AI
+  const wekenSamenvatting = weken.map((w, i) => {
+    const activiteiten = w.activiteiten.map(a =>
+      `  - [${a.type}] ${a.omschrijving} (syllabus: ${a.syllabus})`
+    ).join('
+');
+    return `Week ${i + 1}:
+${activiteiten}`;
+  }).join('
+
+');
+
+  const prompt = `Je bent een ervaren docent PIE (Produceren, Installeren & Energie) die lesplannen schrijft.
+
+Ik geef je een ruwe lesplanning voor module "${moduleNaam}", niveau ${niveau}.
+Verbeter voor elke week:
+1. De OMSCHRIJVING van elke activiteit: kort, actiegericht, maximaal 1 zin, geschreven zoals een docent het zou opschrijven. Geen puntkomma's, geen haakjes met "onderwerpen", geen syllabusjargon.
+2. Het THEMA van de week: 3-5 woorden die de kern van de week vangen (bijv. "CAD-tekenen en ontwerpen" of "Elektrische schakelingen aansluiten").
+
+Geef je antwoord ALLEEN als JSON, exact dit formaat, geen uitleg eromheen:
+{
+  "weken": [
+    {
+      "weekIndex": 1,
+      "thema": "kort weekthema hier",
+      "activiteiten": [
+        { "type": "Theorie", "omschrijving": "verbeterde omschrijving" },
+        { "type": "Praktijk", "omschrijving": "verbeterde omschrijving" }
+      ]
+    }
+  ]
+}
+
+Ruwe lesplanning:
+${wekenSamenvatting}`;
+
+  try {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'claude-opus-4-5',
+        max_tokens: 4000,
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+
+    if (!response.ok) {
+      console.warn('AI verbetering mislukt:', response.status);
+      return weken;
+    }
+
+    const data = await response.json();
+    const rawText = (data.content || [])
+      .filter(b => b.type === 'text')
+      .map(b => b.text)
+      .join('');
+
+    // JSON extraheren (strip eventuele markdown backticks)
+    const jsonMatch = rawText.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      console.warn('AI gaf geen geldig JSON terug');
+      return weken;
+    }
+
+    const verbeterd = JSON.parse(jsonMatch[0]);
+
+    // Verwerk de verbeterde teksten terug in de weken
+    return weken.map(week => {
+      const verbWeek = (verbeterd.weken || []).find(v => v.weekIndex === week.weekIndex);
+      if (!verbWeek) return week;
+
+      const verbeterdePActiviteiten = week.activiteiten.map(act => {
+        const verbAct = (verbWeek.activiteiten || []).find(v =>
+          v.type === act.type
+        );
+        if (!verbAct) return act;
+        return { ...act, omschrijving: verbAct.omschrijving || act.omschrijving };
+      });
+
+      return {
+        ...week,
+        thema: verbWeek.thema || week.thema,
+        activiteiten: verbeterdePActiviteiten
+      };
+    });
+
+  } catch (e) {
+    console.warn('AI verbetering fout:', e.message);
+    return weken; // fallback op origineel bij fout
+  }
 }
 
 module.exports = {
