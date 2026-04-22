@@ -92,7 +92,6 @@ app.use(express.json());
 // ---- ROUTES ----
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'landing.html')));
 app.get('/app', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
-// Reset wachtwoord pagina (publiek)
 app.get('/reset-wachtwoord', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 
 app.use(express.static(path.join(__dirname, 'public')));
@@ -123,7 +122,7 @@ function requireCanEdit(req, res, next) {
   next();
 }
 
-
+// ---- SYLLABUS UPLOAD HELPERS ----
 function pickUploadedFile(req) {
   if (req.file) return req.file;
   if (req.files?.bestand?.[0]) return req.files.bestand[0];
@@ -150,74 +149,16 @@ function cleanupSyllabusUploadToken(token) {
   syllabusUploadTokens.delete(token);
 }
 
-function cleanSyllabusText(text = '') {
-  return text
-    .replace(/\r/g, '\n')
-    .replace(/\u00a0/g, ' ')
-    .replace(/[ \t]+\n/g, '\n')
-    .replace(/\n{3,}/g, '\n\n');
-}
-
-function extractProfielModules(text = '') {
-  const normalized = cleanSyllabusText(text);
-  const lines = normalized.split('\n').map(l => l.trim()).filter(Boolean);
-  const modules = [];
-  let currentModule = null;
-  let currentItem = null;
-
-  function pushItem() {
-    if (currentModule && currentItem && currentItem.code && currentItem.titel) {
-      currentItem.titel = currentItem.titel.replace(/\s+/g, ' ').trim();
-      currentModule.items.push(currentItem);
-    }
-    currentItem = null;
-  }
-
-  function pushModule() {
-    pushItem();
-    if (currentModule) {
-      currentModule.titel = currentModule.titel.replace(/\s+/g, ' ').trim();
-      modules.push(currentModule);
-    }
-    currentModule = null;
-  }
-
-  for (const line of lines) {
-    const moduleMatch = line.match(/^(\d+)\s+PROFIELMODULE\s+(.+)$/i);
-    if (moduleMatch) {
-      pushModule();
-      currentModule = {
-        moduleNummer: Number(moduleMatch[1]),
-        titel: moduleMatch[2].trim(),
-        items: []
-      };
-      continue;
-    }
-
-    const codeMatch = line.match(/^(P\/PIE\/[0-9.]+)\s*(.+)?$/i);
-    if (currentModule && codeMatch) {
-      pushItem();
-      currentItem = {
-        code: codeMatch[1].trim(),
-        titel: (codeMatch[2] || '').trim()
-      };
-      continue;
-    }
-
-    if (currentItem && !/^De kandidaat kan:/i.test(line) && !/^UITWERKING/i.test(line) && !/^De volgende professionele kennis/i.test(line)) {
-      if (!/^[xX](\s+[xX]){0,2}$/.test(line)) {
-        currentItem.titel += ' ' + line;
-      }
+// FIX 1: Periodieke opruiming van verlopen syllabus upload tokens (30 min)
+// Voorkomt geheugenlek als iemand uploadt maar nooit genereert
+setInterval(() => {
+  const nu = Date.now();
+  for (const [token, info] of syllabusUploadTokens.entries()) {
+    if (nu - info.createdAt > 30 * 60 * 1000) {
+      cleanupSyllabusUploadToken(token);
     }
   }
-
-  pushModule();
-
-  return modules.map(m => ({
-    ...m,
-    items: m.items.filter(i => i.code && i.titel)
-  })).filter(m => m.items.length > 0);
-}
+}, 10 * 60 * 1000);
 
 // ============================================================
 // AUTH
@@ -254,7 +195,6 @@ app.get('/api/session', (req, res) => {
   res.json({ user: req.session.user || null });
 });
 
-// ---- Eigen wachtwoord wijzigen (ingelogde gebruiker) ----
 app.post('/api/auth/wijzig-wachtwoord', requireAuth, (req, res) => {
   const { huidigWachtwoord, nieuwWachtwoord } = req.body;
   if (!nieuwWachtwoord || nieuwWachtwoord.length < 8) {
@@ -262,53 +202,39 @@ app.post('/api/auth/wijzig-wachtwoord', requireAuth, (req, res) => {
   }
   const user = db.getGebruiker(req.session.user.id);
   if (!user) return res.status(404).json({ error: 'Gebruiker niet gevonden' });
-
-  // Als mustChangePassword true is, hoeven we het huidige wachtwoord niet te verifiëren
   if (!user.mustChangePassword) {
-    const { bcrypt: _b } = require; // gebruik bcryptjs
     const bcryptjs = require('bcryptjs');
     if (!huidigWachtwoord || !bcryptjs.compareSync(huidigWachtwoord, user.wachtwoord)) {
       return res.status(401).json({ error: 'Huidig wachtwoord is onjuist.' });
     }
   }
-
   db.wijzigWachtwoord(req.session.user.id, nieuwWachtwoord);
   req.session.user.mustChangePassword = false;
   res.json({ success: true });
 });
 
-// ---- Wachtwoord vergeten: stuur reset e-mail ----
 app.post('/api/auth/wachtwoord-vergeten', resetLimiter, async (req, res) => {
   const { email } = req.body;
   if (!email) return res.status(400).json({ error: 'E-mailadres verplicht' });
-
   const user = db.getGebruikerByEmail(email);
-  // Altijd succes teruggeven zodat e-mailadressen niet te raden zijn
   if (!user) return res.json({ success: true });
-
   const token = db.genToken();
   db.slaResetTokenOp(user.id, token);
-
   const baseUrl = process.env.APP_URL || `${req.protocol}://${req.get('host')}`;
   await stuurResetMail(user.email, user.naam, token, baseUrl);
-
   res.json({ success: true });
 });
 
-// ---- Reset wachtwoord via token (publiek) ----
 app.post('/api/auth/reset-wachtwoord', resetLimiter, (req, res) => {
   const { token, nieuwWachtwoord } = req.body;
   if (!token || !nieuwWachtwoord) return res.status(400).json({ error: 'Token en wachtwoord verplicht' });
   if (nieuwWachtwoord.length < 8) return res.status(400).json({ error: 'Wachtwoord moet minimaal 8 tekens zijn.' });
-
   const user = db.verifieerResetToken(token);
   if (!user) return res.status(400).json({ error: 'Ongeldige of verlopen link. Vraag een nieuwe aan.' });
-
   db.wijzigWachtwoord(user.id, nieuwWachtwoord);
   res.json({ success: true });
 });
 
-// ---- Controleer reset token geldigheid ----
 app.get('/api/auth/check-reset-token/:token', (req, res) => {
   const user = db.verifieerResetToken(req.params.token);
   if (!user) return res.status(400).json({ geldig: false });
@@ -322,10 +248,8 @@ app.get('/api/gebruikers', requireAuth, (req, res) => {
   res.json(db.getGebruikers().map(u => ({ ...u, wachtwoord: undefined, resetToken: undefined })));
 });
 app.post('/api/gebruikers', requireAdmin, (req, res) => {
-  // Nieuw aangemaakte gebruikers krijgen altijd mustChangePassword=true
   const r = db.addGebruiker({ ...req.body, mustChangePassword: true });
   if (r?.error) return res.status(400).json(r);
-  // Geef het tijdelijke wachtwoord terug zodat de admin het kan delen
   res.json({ ...r, wachtwoord: undefined, tijdelijkWachtwoord: req.body.wachtwoord });
 });
 app.put('/api/gebruikers/:id', requireAdmin, (req, res) => {
@@ -587,8 +511,9 @@ app.post('/api/import-lesprofiel', requireCanEdit, upload.single('bestand'), asy
   }
 });
 
-
-
+// ============================================================
+// SYLLABUS ANALYSE + GENEREER LESPROFIEL
+// ============================================================
 app.get('/api/analyse-syllabus', requireCanEdit, (req, res) => {
   return res.json({
     success: true,
@@ -638,9 +563,9 @@ app.post('/api/analyse-syllabus', requireCanEdit, syllabusUpload, async (req, re
 });
 
 app.post('/api/genereer-lesprofiel-uit-syllabus', requireCanEdit, async (req, res) => {
-  try {
-    const { uploadToken, moduleCode, niveau, aantalWeken, urenTheorie, urenPraktijk, naam, vakId } = req.body || {};
+  const { uploadToken, moduleCode, niveau, aantalWeken, urenTheorie, urenPraktijk, naam, vakId } = req.body || {};
 
+  try {
     if (!uploadToken || !moduleCode || !niveau || !aantalWeken || !urenTheorie || !urenPraktijk || !vakId) {
       return res.status(400).json({ error: 'Niet alle verplichte velden zijn ingevuld.' });
     }
@@ -689,6 +614,8 @@ app.post('/api/genereer-lesprofiel-uit-syllabus', requireCanEdit, async (req, re
     });
   } catch (e) {
     console.error('Fout bij /api/genereer-lesprofiel-uit-syllabus:', e);
+    // FIX 2: ook bij een fout de tijdelijke bestanden opruimen
+    if (uploadToken) cleanupSyllabusUploadToken(uploadToken);
     return res.status(500).json({
       error: 'Fout bij genereren van lesprofiel uit syllabus',
       details: e.message
