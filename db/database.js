@@ -1,5 +1,8 @@
 // ============================================================
 // db/database.js — SQLite database setup en queries
+// FIXES:
+//  - Migratie: niveau NULL → '' normalisatie voor bestaande records
+//  - getKlassen: niveau altijd als string teruggeven (null → '')
 // ============================================================
 
 const Database = require('better-sqlite3');
@@ -178,6 +181,9 @@ function migreer() {
     db.exec("ALTER TABLE klassen ADD COLUMN roulatieStart INTEGER DEFAULT 35");
     console.log('Migratie: roulatieStart kolom toegevoegd aan klassen');
   }
+  // FIX: normaliseer niveau NULL → '' voor bestaande klassen en lesprofielen
+  db.exec("UPDATE klassen SET niveau = '' WHERE niveau IS NULL");
+  db.exec("UPDATE lesprofielen SET niveau = '' WHERE niveau IS NULL");
 }
 
 migreer();
@@ -347,6 +353,8 @@ module.exports = {
       roulatie: !!k.roulatie,
       roulatieBlok: k.roulatieBlok || 5,
       roulatieStart: k.roulatieStart || 35,
+      // FIX: niveau altijd als string teruggeven (null → '')
+      niveau: k.niveau || '',
     }));
     if (!docentId) return alle;
     return alle.filter(k => k.docentId === docentId || (k.docenten || []).includes(docentId));
@@ -359,13 +367,15 @@ module.exports = {
       roulatie: !!k.roulatie,
       roulatieBlok: k.roulatieBlok || 5,
       roulatieStart: k.roulatieStart || 35,
+      // FIX: niveau altijd als string teruggeven
+      niveau: k.niveau || '',
     } : null;
   },
   addKlas(d) {
     const id = genId();
     const docenten = d.docenten || (d.docentId ? [d.docentId] : []);
     Q.insKlas.run(
-      id, d.naam, d.leerjaar, d.niveau, d.vakId, d.docentId || null,
+      id, d.naam, d.leerjaar, d.niveau || '', d.vakId, d.docentId || null,
       d.schooljaar, d.aantalWeken || 38, d.urenPerWeek || 3,
       JSON.stringify(docenten),
       d.roulatie ? 1 : 0,
@@ -377,7 +387,7 @@ module.exports = {
   updateKlas(id, d) {
     const docenten = d.docenten || (d.docentId ? [d.docentId] : []);
     Q.updKlas.run(
-      d.naam, d.leerjaar, d.niveau, d.vakId, d.docentId || null,
+      d.naam, d.leerjaar, d.niveau || '', d.vakId, d.docentId || null,
       d.schooljaar, d.urenPerWeek || 3, JSON.stringify(docenten),
       d.roulatie ? 1 : 0,
       d.roulatieBlok || 5,
@@ -444,11 +454,16 @@ module.exports = {
   deleteOpdracht(id) { Q.delOpdracht.run(id); },
 
   getLesprofielen() {
-    return Q.getLesprofielen.all().map(p => ({ ...p, weken: parseJSON(p.weken) }));
+    return Q.getLesprofielen.all().map(p => ({
+      ...p,
+      weken: parseJSON(p.weken),
+      // FIX: niveau altijd als string
+      niveau: p.niveau || '',
+    }));
   },
   getLesprofiel(id) {
     const p = Q.getLesprofiel.get(id);
-    return p ? { ...p, weken: parseJSON(p.weken) } : null;
+    return p ? { ...p, weken: parseJSON(p.weken), niveau: p.niveau || '' } : null;
   },
   addLesprofiel(d) {
     const id = genId();
@@ -469,42 +484,53 @@ module.exports = {
     const t = Q.getTaak.get(id);
     return t ? { ...t, opgepakt: parseJSON(t.opgepakt), afgerond: !!t.afgerond } : null;
   },
-  addTaak({ naam, beschrijving, deadline, aangemaaktDoor }) {
+  addTaak(d) {
     const id = genId();
-    Q.insTaak.run(id, naam, beschrijving || null, deadline || null, aangemaaktDoor || null);
+    Q.insTaak.run(id, d.naam, d.beschrijving || null, d.deadline || null, d.aangemaaktDoor || null);
     return this.getTaak(id);
   },
-  updateTaak(id, { naam, beschrijving, deadline }) {
-    Q.updTaak.run(naam, beschrijving || null, deadline || null, id);
+  updateTaak(id, d) {
+    const t = this.getTaak(id);
+    if (!t) return;
+    Q.updTaak.run(d.naam ?? t.naam, d.beschrijving ?? t.beschrijving, d.deadline ?? t.deadline, id);
   },
-  updateTaakOpgepakt(id, opgepakt) { Q.updTaakOpgepakt.run(JSON.stringify(opgepakt), id); },
-  updateTaakAfgerond(id, afgerond, afgerondDoor) {
-    Q.updTaakAfgerond.run(afgerond ? 1 : 0, afgerond ? afgerondDoor : null, afgerond ? new Date().toISOString() : null, id);
+  taakOppakken(id, userId) {
+    const t = this.getTaak(id);
+    if (!t) return null;
+    const opgepakt = t.opgepakt || [];
+    const nieuw = opgepakt.includes(userId) ? opgepakt.filter(x => x !== userId) : [...opgepakt, userId];
+    Q.updTaakOpgepakt.run(JSON.stringify(nieuw), id);
+    return this.getTaak(id);
+  },
+  taakAfvinken(id, userId) {
+    const t = this.getTaak(id);
+    if (!t) return null;
+    if (t.afgerond) {
+      Q.updTaakAfgerond.run(0, null, null, id);
+    } else {
+      Q.updTaakAfgerond.run(1, userId, new Date().toISOString(), id);
+    }
+    return this.getTaak(id);
   },
   deleteTaak(id) { Q.delTaak.run(id); },
 
   getRooster(userId) {
-    const rij = Q.getRooster.get(userId);
-    return rij ? JSON.parse(rij.rooster || '{}') : {};
+    const r = Q.getRooster.get(userId);
+    return r ? parseJSON(r.rooster, {}) : {};
   },
   saveRooster(userId, rooster) {
-    const json = JSON.stringify(rooster);
     const bestaand = Q.getRooster.get(userId);
-    if (bestaand) { Q.updRooster.run(json, userId); } else { Q.insRooster.run(userId, json); }
+    if (bestaand) { Q.updRooster.run(JSON.stringify(rooster), userId); }
+    else { Q.insRooster.run(userId, JSON.stringify(rooster)); }
   },
 
-  getStats(docentId = null) {
-    const klassen = this.getKlassen(docentId);
-    const klasIds = klassen.map(k => k.id);
-    const alleOpd = this.getOpdrachten();
-    const opdrachten = alleOpd.filter(o => klasIds.includes(o.klasId));
+  getStats() {
     return {
-      aantalKlassen: klassen.length,
-      aantalOpdrachten: opdrachten.length,
-      aantalToetsen: opdrachten.filter(o => o.toetsBestand).length,
-      aantalVakken: [...new Set(klassen.map(k => k.vakId))].length,
-      aantalSchooljaren: this.getSchooljaren().length,
-      aantalLesprofielen: this.getLesprofielen().length,
+      aantalKlassen: db.prepare('SELECT COUNT(*) as c FROM klassen').get().c,
+      aantalOpdrachten: db.prepare('SELECT COUNT(*) as c FROM opdrachten').get().c,
+      aantalToetsen: db.prepare("SELECT COUNT(*) as c FROM opdrachten WHERE toetsBestand IS NOT NULL AND toetsBestand != ''").get().c,
+      aantalVakken: db.prepare('SELECT COUNT(*) as c FROM vakken').get().c,
+      aantalGebruikers: db.prepare('SELECT COUNT(*) as c FROM gebruikers').get().c,
     };
-  }
+  },
 };
