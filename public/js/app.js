@@ -1,5 +1,6 @@
 // ============================================================
 // app.js — Hoofdmodule, routing, shell
+// MOBIEL: showView blokkeert niet-dashboard views op mobiel
 // ============================================================
 
 const Auth = {
@@ -62,6 +63,10 @@ function getSchooljaarLabel() {
   return `Schooljaar ${startJaar}–${startJaar + 1}`;
 }
 
+function isMobiel() {
+  return window.innerWidth <= 768;
+}
+
 function showError(msg) {
   const el = document.getElementById('global-error');
   if (!el) return;
@@ -81,6 +86,11 @@ function closeModalDirect() { const o = document.getElementById('modal-overlay')
 function showLoading(viewId) {
   const el = document.getElementById('view-' + viewId);
   if (el) el.innerHTML = '<div style="padding:60px;text-align:center;color:var(--ink-3)">Laden...</div>';
+}
+
+function toggleSidebarItem(el) {
+  const v = el.dataset.view;
+  if (el.style.display === 'none') el.style.display = 'none'; // no-op, handled by CSS
 }
 
 function renderLoginShell() {
@@ -185,28 +195,18 @@ function renderAppShell() {
       <div id="view-gebruikers" class="view" style="display:none"></div>
       <div id="view-vakken" class="view" style="display:none"></div>
     </main>
+    <!-- Bottom nav: op mobiel alleen dashboard knop -->
     <nav class="bottom-nav" id="bottom-nav">
-      <button class="bottom-nav-item" data-view="dashboard" onclick="showView('dashboard')">
+      <button class="bottom-nav-item active" data-view="dashboard" onclick="showView('dashboard')">
         <svg viewBox="0 0 20 20" fill="none"><rect x="2" y="2" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.5"/><rect x="11" y="2" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.5"/><rect x="2" y="11" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.5"/><rect x="11" y="11" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.5"/></svg>
-        <span>Home</span>
+        <span>Dashboard</span>
       </button>
-      <button class="bottom-nav-item" data-view="jaarplanning" onclick="showView('jaarplanning')">
-        <svg viewBox="0 0 20 20" fill="none"><rect x="2" y="3" width="16" height="15" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M6 2v2M14 2v2M2 8h16" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-        <span>Planning</span>
-      </button>
-      <button class="bottom-nav-item" data-view="taken" onclick="showView('taken')">
-        <svg viewBox="0 0 20 20" fill="none"><path d="M6 10l2.5 2.5L14 7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><rect x="3" y="3" width="14" height="14" rx="2" stroke="currentColor" stroke-width="1.5"/></svg>
-        <span>Taken</span>
-      </button>
-      <button class="bottom-nav-item" data-view="rooster" onclick="showView('rooster')">
-        <svg viewBox="0 0 20 20" fill="none"><rect x="2" y="3" width="16" height="15" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M6 2v2M14 2v2M2 8h16M6 12h2M10 12h2M14 12h2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-        <span>Rooster</span>
-      </button>
-      <button class="bottom-nav-item" onclick="toggleSidebar()">
-        <svg viewBox="0 0 20 20" fill="none"><path d="M3 6h14M3 10h14M3 14h14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-        <span>Meer</span>
+      <button class="bottom-nav-item" onclick="doLogout()">
+        <svg viewBox="0 0 20 20" fill="none"><path d="M13 3h4v14h-4M8 14l4-4-4-4M12 10H3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <span>Uitloggen</span>
       </button>
     </nav>
+    <div id="modal-overlay" style="display:none"></div>
   `;
 }
 
@@ -227,11 +227,25 @@ function updateSidebar() {
   if (navAdmin) navAdmin.style.display = Auth.isAdmin() ? 'block' : 'none';
 }
 
+// MOBIEL: alleen dashboard beschikbaar
+// Op desktop: alle views beschikbaar
 function showView(view) {
+  const mobiel = isMobiel();
+
+  // Op mobiel altijd naar dashboard sturen
+  if (mobiel && view !== 'dashboard') {
+    view = 'dashboard';
+  }
+
   const views = ['dashboard','klassen','rooster','jaarplanning','lesprofielen','taken','opdrachten','toetsen','schooljaren','gebruikers','vakken'];
-  views.forEach(v => { const el = document.getElementById('view-' + v); if (el) el.style.display = v === view ? 'block' : 'none'; });
+  views.forEach(v => {
+    const el = document.getElementById('view-' + v);
+    if (el) el.style.display = v === view ? 'block' : 'none';
+  });
+
   document.querySelectorAll('.nav-item').forEach(i => i.classList.toggle('active', i.dataset.view === view));
   document.querySelectorAll('.bottom-nav-item').forEach(i => i.classList.toggle('active', i.dataset.view === view));
+
   const renderers = {
     dashboard: renderDashboard,
     klassen: renderKlassen,
