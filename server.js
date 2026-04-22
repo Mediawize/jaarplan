@@ -3,6 +3,7 @@ const session = require('express-session');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const { analyseSyllabusPdf, generateLesprofielFromPdf } = require('./services/syllabusGenerator');
 const rateLimit = require('express-rate-limit');
 const helmet = require('helmet');
 const db = require('./db/database');
@@ -416,6 +417,65 @@ app.put('/api/rooster/:userId', requireAuth, (req, res) => {
 // ============================================================
 app.get('/api/stats', requireAuth, (req, res) => {
   res.json(db.getStats());
+});
+
+// ============================================================
+// SYLLABUS
+// ============================================================
+
+
+app.post('/api/syllabus/analyse', requireCanEdit, upload.single('bestand'), async (req, res) => {
+  if (!req.file) return res.status(400).json({ error: 'Geen PDF ontvangen' });
+  try {
+    const analyse = await analyseSyllabusPdf(req.file.path);
+    res.json({
+      success: true,
+      uploadToken: path.basename(req.file.path),
+      modules: analyse.modules
+    });
+  } catch (e) {
+    if (req.file?.path && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
+    res.status(500).json({ error: 'Syllabus kon niet worden gelezen: ' + e.message });
+  }
+});
+
+app.post('/api/syllabus/genereer', requireCanEdit, async (req, res) => {
+  const { uploadToken, moduleCode, niveau, aantalWeken, urenTheorie, urenPraktijk, naam, vakId } = req.body || {};
+  if (!uploadToken || !moduleCode || !niveau || !aantalWeken || !urenTheorie || !urenPraktijk || !vakId) {
+    return res.status(400).json({ error: 'Vul alle velden in' });
+  }
+
+  const safeToken = path.basename(uploadToken);
+  const filePath = path.join(uploadDir, safeToken);
+  if (!fs.existsSync(filePath)) {
+    return res.status(400).json({ error: 'De tijdelijke syllabus is niet meer beschikbaar. Upload hem opnieuw.' });
+  }
+
+  try {
+    const gegenereerd = await generateLesprofielFromPdf(filePath, {
+      moduleCode,
+      niveau,
+      aantalWeken,
+      urenTheorie,
+      urenPraktijk,
+      naam
+    });
+
+    const profiel = db.addLesprofiel({
+      naam: gegenereerd.naam,
+      vakId,
+      docentId: req.session.user.id,
+      aantalWeken: gegenereerd.aantalWeken,
+      urenPerWeek: gegenereerd.urenPerWeek,
+      niveau: gegenereerd.niveau,
+      beschrijving: gegenereerd.beschrijving,
+      weken: gegenereerd.weken
+    });
+
+    res.json({ success: true, profiel, meta: { module: gegenereerd.module, selectie: gegenereerd.selectie } });
+  } catch (e) {
+    res.status(500).json({ error: 'Genereren mislukt: ' + e.message });
+  }
 });
 
 // ============================================================
