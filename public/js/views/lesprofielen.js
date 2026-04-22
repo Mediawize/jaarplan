@@ -120,7 +120,7 @@ async function openProfielModal(vakId=null, profielId=null) {
       <div class="form-field"><label>Naam *</label><input id="prof-naam" placeholder="bijv. Introductie ondernemen" value="${escHtml(p?.naam||'')}"></div>
       <div class="form-field"><label>Vak *</label><select id="prof-vak">${vakken.map(v=>`<option value="${v.id}" ${v.id===selectedVak?'selected':''}>${escHtml(v.naam)} — ${escHtml(v.volledig)}</option>`).join('')}</select></div>
       <div class="form-field"><label>Niveau</label><select id="prof-niveau"><option value="" ${!p?.niveau?'selected':''}>— Geen niveau —</option>${['VMBO-B','VMBO-K','VMBO-GT','HAVO','VWO'].map(n=>`<option value="${n}" ${p?.niveau===n?'selected':''}>${n}</option>`).join('')}</select></div>
-      <div class="form-field"><label>Aantal weken *</label><select id="prof-weken">${[1,2,3,4,5,6,7,8,9,10].map(n=>`<option value="${n}" ${(p?.aantalWeken||4)===n?'selected':''}>${n} ${n===1?'week':'weken'}</option>`).join('')}</select></div>
+      <div class="form-field"><label>Aantal weken *</label><input id="prof-weken" type="number" min="1" max="40" value="${p?.aantalWeken||4}" style="padding:8px 12px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:14px;width:100%;font-family:inherit;box-sizing:border-box"></div>
       <div class="form-field"><label>Uren per week</label><select id="prof-uren">${[1,2,3,4,5,6,7,8,9,10].map(n=>`<option value="${n}" ${(p?.urenPerWeek||3)===n?'selected':''}>${n} uur/week</option>`).join('')}</select></div>
       <div class="form-field form-full"><label>Beschrijving</label><textarea id="prof-beschrijving">${escHtml(p?.beschrijving||'')}</textarea></div>
     </div>
@@ -139,6 +139,7 @@ async function saveProfiel(profielId) {
   const urenPerWeek = parseInt(document.getElementById('prof-uren').value);
   const beschrijving = document.getElementById('prof-beschrijving').value.trim();
   if (!naam||!vakId) { alert('Vul naam en vak in.'); return; }
+  if (!aantalWeken || aantalWeken < 1 || aantalWeken > 40) { alert('Aantal weken moet tussen 1 en 40 zijn.'); return; }
 
   let weken;
   if (profielId) {
