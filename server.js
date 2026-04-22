@@ -1,4 +1,5 @@
 const express = require('express');
+const helmet = require('helmet');
 const session = require('express-session');
 const multer = require('multer');
 const path = require('path');
@@ -34,6 +35,7 @@ const storage = multer.diskStorage({
 const upload = multer({ storage, limits: { fileSize: 25 * 1024 * 1024 } });
 
 app.use(express.json());
+app.use(helmet({ contentSecurityPolicy: false }));
 
 // ---- ROUTES ----
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'landing.html')));
