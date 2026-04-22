@@ -121,8 +121,10 @@ async function doLogin() {
   try {
     const result = await API.login(email, pw);
     if (result?.error) { errEl.textContent = result.error; errEl.style.display = 'block'; return; }
-    Auth.currentUser = result.user;
-    startApp();
+      Auth.currentUser = result.user;
+      if (!checkMustChangePassword()) {
+        startApp();
+      }
   } catch (e) {
     errEl.textContent = e.message || 'Inloggen mislukt';
     errEl.style.display = 'block';
@@ -276,7 +278,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     const { user } = await API.getSession();
     if (user) {
       Auth.currentUser = user;
-      startApp();
+      if (!checkMustChangePassword()) {
+        startApp();
+      }
     } else {
       document.getElementById('login-screen').style.display = 'flex';
       document.getElementById('app-shell').style.display = 'none';
