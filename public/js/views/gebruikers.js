@@ -1,26 +1,55 @@
+// ============================================================
+// gebruikers.js — Gebruikersbeheer
+// NIEUW:
+//  - Tijdelijk wachtwoord tonen na aanmaken (admin kopieert zelf)
+//  - mustChangePassword badge in de tabel
+//  - Knop om wachtwoord opnieuw in te stellen voor een gebruiker
+// ============================================================
+
 async function renderGebruikers() {
   if (!Auth.isAdmin()) { document.getElementById('view-gebruikers').innerHTML = `<div class="empty-state"><h3>Geen toegang</h3></div>`; return; }
   showLoading('gebruikers');
   try {
     const [gebruikers, vakken] = await Promise.all([API.getGebruikers(), API.getVakken()]);
     document.getElementById('view-gebruikers').innerHTML = `
-      <div class="page-header"><div class="page-header-left"><h1>Gebruikers</h1></div><button class="btn btn-primary" onclick="openGebruikerModal()">+ Gebruiker toevoegen</button></div>
-      <div class="alert alert-info" style="margin-bottom:20px">Initialen (3 letters) worden automatisch berekend of handmatig ingesteld. Ze verschijnen bij afgevinkte activiteiten.</div>
+      <div class="page-header">
+        <div class="page-header-left"><h1>Gebruikers</h1></div>
+        <button class="btn btn-primary" onclick="openGebruikerModal()">+ Gebruiker toevoegen</button>
+      </div>
+      <div class="alert alert-info" style="margin-bottom:20px">
+        Nieuwe gebruikers krijgen automatisch een <strong>eenmalig wachtwoord</strong>. Bij de eerste login moeten zij zelf een nieuw wachtwoord instellen.
+      </div>
       <div class="card">
         <div class="card-header"><h2>Alle gebruikers (${gebruikers.length})</h2></div>
         <table class="data-table">
-          <thead><tr><th>Naam</th><th>Initialen</th><th>E-mail</th><th>Rol</th><th>Vakken</th><th></th></tr></thead>
+          <thead><tr><th>Naam</th><th>Initialen</th><th>E-mail</th><th>Rol</th><th>Vakken</th><th>Status</th><th></th></tr></thead>
           <tbody>
             ${gebruikers.map(g=>`<tr>
               <td style="font-weight:600">${escHtml(g.naam)} ${escHtml(g.achternaam||'')}</td>
-              <td><span style="font-family:monospace;font-size:13px;font-weight:700;background:var(--accent-light);color:var(--accent);padding:3px 8px;border-radius:6px">${escHtml(getInitialen(g))}</span></td>
+              <td><span style="font-family:monospace;font-size:13px;font-weight:700;background:var(--accent-dim);color:var(--accent-text);padding:3px 8px;border-radius:6px">${escHtml(getInitialen(g))}</span></td>
               <td>${escHtml(g.email)}</td>
               <td><span class="role-badge ${g.rol==='admin'?'role-admin':g.rol==='management'?'role-management':'role-docent'}">${escHtml(g.rol)}</span></td>
               <td>${(g.vakken||[]).map(id=>{const v=vakken.find(v=>v.id===id);return v?`<span class="badge badge-green">${escHtml(v.naam)}</span>`:''}).join(' ')}</td>
+              <td>
+                ${g.mustChangePassword
+                  ? `<span style="font-size:11px;padding:2px 8px;border-radius:10px;background:var(--amber-dim);color:var(--amber-text);font-weight:600">⏳ Tijdelijk ww</span>`
+                  : `<span style="font-size:11px;padding:2px 8px;border-radius:10px;background:var(--accent-dim);color:var(--accent-text);font-weight:600">✓ Actief</span>`
+                }
+              </td>
               <td style="text-align:right">
                 <div style="display:flex;gap:6px;justify-content:flex-end">
-                  <button class="icon-btn" onclick="openGebruikerModal('${g.id}')"><svg viewBox="0 0 20 20" fill="none"><path d="M14.5 3.5l2 2L7 15l-3 1 1-3 9.5-9.5z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
-                  ${g.id!==Auth.currentUser.id?`<button class="icon-btn" onclick="deleteGebruiker('${g.id}')" style="color:var(--red)"><svg viewBox="0 0 20 20" fill="none"><path d="M5 5l10 10M15 5L5 15" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button>`:`<span style="font-size:12px;color:var(--ink-muted)">ingelogd</span>`}
+                  <button class="icon-btn" onclick="openGebruikerModal('${g.id}')" title="Bewerken">
+                    <svg viewBox="0 0 20 20" fill="none"><path d="M14.5 3.5l2 2L7 15l-3 1 1-3 9.5-9.5z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                  </button>
+                  <button class="icon-btn" onclick="resetWachtwoordVoorGebruiker('${g.id}','${escHtml(g.naam+' '+(g.achternaam||'')).trim()}')" title="Nieuw wachtwoord instellen">
+                    <svg viewBox="0 0 20 20" fill="none"><path d="M4 10a6 6 0 1 1 12 0M4 10v4h4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                  </button>
+                  ${g.id!==Auth.currentUser.id
+                    ? `<button class="icon-btn" onclick="deleteGebruiker('${g.id}')" style="color:var(--red)" title="Verwijderen">
+                        <svg viewBox="0 0 20 20" fill="none"><path d="M5 5l10 10M15 5L5 15" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+                       </button>`
+                    : `<span style="font-size:12px;color:var(--ink-muted)">ingelogd</span>`
+                  }
                 </div>
               </td>
             </tr>`).join('')}
@@ -41,7 +70,11 @@ async function openGebruikerModal(userId = null) {
       <div class="form-field"><label>Voornaam *</label><input id="g-naam" type="text" value="${escHtml(u?.naam||'')}"></div>
       <div class="form-field"><label>Achternaam *</label><input id="g-achternaam" type="text" value="${escHtml(u?.achternaam||'')}"></div>
       <div class="form-field form-full"><label>E-mailadres *</label><input id="g-email" type="email" value="${escHtml(u?.email||'')}"></div>
-      <div class="form-field"><label>${u?'Nieuw wachtwoord (leeg = ongewijzigd)':'Wachtwoord *'}</label><input id="g-wachtwoord" type="password" placeholder="${u?'Leeg laten':''}" autocomplete="new-password"></div>
+      <div class="form-field">
+        <label>${u?'Nieuw wachtwoord (leeg = ongewijzigd)':'Tijdelijk wachtwoord *'}</label>
+        <input id="g-wachtwoord" type="text" placeholder="${u?'Leeg laten om ongewijzigd te laten':'bijv. Welkom2024!'}" autocomplete="new-password">
+        ${!u ? `<div style="font-size:11px;color:var(--ink-muted);margin-top:4px">Dit wachtwoord deel je zelf met de gebruiker. Bij eerste inlog moeten zij het wijzigen.</div>` : ''}
+      </div>
       <div class="form-field"><label>Rol *</label><select id="g-rol" onchange="toggleVakSelect()">
         <option value="docent" ${u?.rol==='docent'?'selected':''}>Docent</option>
         <option value="admin" ${u?.rol==='admin'?'selected':''}>Beheerder</option>
@@ -115,13 +148,88 @@ async function saveGebruiker(userId) {
   const initialen = document.getElementById('g-initialen').value.trim().toUpperCase().slice(0,3) || null;
   const vakken = Array.from(document.querySelectorAll('.g-vak:checked')).map(cb=>cb.value);
   if (!naam||!achternaam||!email||(!userId&&!ww)) { alert('Vul alle verplichte velden in.'); return; }
+
   const data = { naam, achternaam, email, rol, initialen, vakken: rol==='docent'?vakken:[] };
   if (ww) data.wachtwoord = ww;
+
   try {
-    if (userId) { await API.updateGebruiker(userId, data); } else { await API.addGebruiker(data); }
-    closeModalDirect();
-    renderGebruikers();
+    if (userId) {
+      await API.updateGebruiker(userId, data);
+      closeModalDirect();
+      renderGebruikers();
+    } else {
+      // Nieuw account — toon tijdelijk wachtwoord aan admin
+      const r = await API.addGebruiker(data);
+      closeModalDirect();
+      toonTijdelijkWachtwoordModal(naam, email, ww);
+    }
   } catch(e) { showError(e.message); }
+}
+
+function toonTijdelijkWachtwoordModal(naam, email, wachtwoord) {
+  openModal(`
+    <h2>✓ Gebruiker aangemaakt</h2>
+    <p class="modal-sub">Deel de volgende inloggegevens met <strong>${escHtml(naam)}</strong>.</p>
+    <div style="background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:16px 20px;margin:16px 0">
+      <div style="font-size:12px;color:var(--ink-muted);margin-bottom:4px">E-mailadres</div>
+      <div style="font-weight:600;font-size:15px;margin-bottom:12px">${escHtml(email)}</div>
+      <div style="font-size:12px;color:var(--ink-muted);margin-bottom:4px">Tijdelijk wachtwoord</div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <code id="tijdelijk-ww" style="font-size:16px;font-weight:700;background:var(--amber-dim);color:var(--amber-text);padding:6px 12px;border-radius:6px;letter-spacing:0.05em">${escHtml(wachtwoord)}</code>
+        <button class="btn btn-sm" onclick="kopieerWachtwoord()">Kopiëren</button>
+      </div>
+    </div>
+    <div class="alert alert-info" style="font-size:12px">
+      Bij de eerste inlog wordt deze gebruiker gevraagd een eigen wachtwoord in te stellen.
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-primary" onclick="closeModalDirect();renderGebruikers()">Sluiten</button>
+    </div>
+  `);
+}
+
+function kopieerWachtwoord() {
+  const el = document.getElementById('tijdelijk-ww');
+  if (el) {
+    navigator.clipboard.writeText(el.textContent).then(() => {
+      el.style.background = 'var(--accent-dim)';
+      el.style.color = 'var(--accent-text)';
+      setTimeout(() => { el.style.background = 'var(--amber-dim)'; el.style.color = 'var(--amber-text)'; }, 1500);
+    });
+  }
+}
+
+// ---- Admin: wachtwoord opnieuw instellen voor een gebruiker ----
+function resetWachtwoordVoorGebruiker(userId, naam) {
+  openModal(`
+    <h2>Wachtwoord opnieuw instellen</h2>
+    <p class="modal-sub">Stel een nieuw tijdelijk wachtwoord in voor <strong>${escHtml(naam)}</strong>.</p>
+    <div id="reset-admin-error" class="login-error" style="display:none"></div>
+    <div class="form-field">
+      <label>Nieuw tijdelijk wachtwoord *</label>
+      <input id="reset-admin-ww" type="text" placeholder="bijv. Welkom2024!" autocomplete="new-password">
+      <div style="font-size:11px;color:var(--ink-muted);margin-top:4px">Minimaal 8 tekens. Deel dit daarna zelf met de gebruiker.</div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModalDirect()">Annuleren</button>
+      <button class="btn btn-primary" onclick="slaResetAdminOp('${userId}','${escHtml(naam)}')">Wachtwoord instellen</button>
+    </div>
+  `);
+}
+
+async function slaResetAdminOp(userId, naam) {
+  const ww = document.getElementById('reset-admin-ww').value.trim();
+  const errEl = document.getElementById('reset-admin-error');
+  if (ww.length < 8) { errEl.textContent = 'Wachtwoord moet minimaal 8 tekens zijn.'; errEl.style.display = 'block'; return; }
+  try {
+    // Gebruik updateGebruiker met mustChangePassword expliciet true
+    const gebruiker = (await API.getGebruikers()).find(g => g.id === userId);
+    if (!gebruiker) { errEl.textContent = 'Gebruiker niet gevonden.'; errEl.style.display = 'block'; return; }
+    await API.updateGebruiker(userId, { ...gebruiker, wachtwoord: ww, mustChangePassword: true });
+    closeModalDirect();
+    const email = gebruiker.email;
+    toonTijdelijkWachtwoordModal(naam, email, ww);
+  } catch(e) { errEl.textContent = e.message; errEl.style.display = 'block'; }
 }
 
 async function deleteGebruiker(id) {
