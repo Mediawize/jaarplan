@@ -253,10 +253,20 @@ function extractRowActivities(moduleText, niveau) {
     }
     if (!includeForNiveau) return;
 
+    // Strip x-rijen en ruis uit tekst
+    const cleanRowText = rowText
+      .replace(/\s*x\s*x\s*x\s*$/i, '')
+      .replace(/\s*x\s*x\s*$/i, '')
+      .replace(/\s*x\s*$/i, '')
+      .replace(/\bx\b/gi, '')
+      .trim();
+
+    if (!cleanRowText || cleanRowText.length < 5) return;
+
     // Bouw omschrijving
-    const parts = [rowText, ...bullets.slice(0, 3)];
+    const parts = [cleanRowText, ...bullets.slice(0, 3)];
     const omschrijving = parts.join(' · ').replace(/\s+/g, ' ').trim().slice(0, 200);
-    const type = classifyByText(rowText + ' ' + bullets.join(' '));
+    const type = classifyByText(cleanRowText + ' ' + bullets.join(' '));
 
     activities.push({
       type,
@@ -334,7 +344,48 @@ function extractRowActivities(moduleText, niveau) {
 }
 
 // ============================================================
-// VERDELING OVER WEKEN — GEMIXT
+// SAMENVOEGEN: meerdere activiteiten van hetzelfde type
+// worden per week gecombineerd tot één activiteit.
+// Resultaat: per week max 1 theorie + 1 praktijk.
+// ============================================================
+function samenvoegen(items, type, uren) {
+  if (!items.length) return null;
+
+  // Verzamel unieke omschrijvingen (kort, zonder bullets)
+  const kernOmschrijvingen = items.map(item => {
+    // Pak alleen het eerste deel vóór de eerste '·'
+    return item.omschrijving.split(' · ')[0].trim();
+  });
+
+  // Verwijder duplicaten
+  const uniek = [...new Set(kernOmschrijvingen)].filter(Boolean);
+
+  // Korte samenvatting: eerste zin + aantal onderwerpen
+  let omschrijving;
+  if (uniek.length === 1) {
+    omschrijving = uniek[0];
+  } else if (uniek.length <= 3) {
+    omschrijving = uniek.join('; ');
+  } else {
+    // Te veel om op te noemen: eerste twee + "en meer"
+    omschrijving = uniek.slice(0, 2).join('; ') + ` (+${uniek.length - 2} onderwerpen)`;
+  }
+
+  // Syllabuscodes samenvoegen
+  const codes = [...new Set(items.map(i => i.syllabus).filter(Boolean))];
+
+  return {
+    type,
+    uren: Math.max(1, Number(uren) || 1),
+    omschrijving: omschrijving.slice(0, 200),
+    syllabus: codes.join(', '),
+    link: '',
+    bestand: null
+  };
+}
+
+// ============================================================
+// VERDELING OVER WEKEN — max 1 theorie + 1 praktijk per week
 // ============================================================
 function distributeActivities(activities, aantalWeken, urenTheorie, urenPraktijk) {
   const weken = Array.from({ length: aantalWeken }, (_, idx) => ({
@@ -343,36 +394,39 @@ function distributeActivities(activities, aantalWeken, urenTheorie, urenPraktijk
     activiteiten: []
   }));
 
-  const theorie = activities
-    .filter(a => a.type === 'Theorie')
-    .map(a => ({ ...a, uren: Math.max(1, Number(urenTheorie) || 1) }));
+  const theorie = activities.filter(a => a.type === 'Theorie');
+  const praktijk = activities.filter(a => a.type !== 'Theorie');
 
-  const praktijk = activities
-    .filter(a => a.type !== 'Theorie')
-    .map(a => ({ ...a, uren: Math.max(1, Number(urenPraktijk) || 1) }));
-
+  // Verdeel items evenredig over weken
   const theoriePerWeek = Math.ceil(theorie.length / aantalWeken);
   const praktijkPerWeek = Math.ceil(praktijk.length / aantalWeken);
 
-  let tIdx = 0;
-  let pIdx = 0;
-
   for (let w = 0; w < aantalWeken; w++) {
-    for (let t = 0; t < theoriePerWeek && tIdx < theorie.length; t++, tIdx++) {
-      weken[w].activiteiten.push(theorie[tIdx]);
+    // Pak de items voor deze week
+    const tStart = w * theoriePerWeek;
+    const tItems = theorie.slice(tStart, tStart + theoriePerWeek);
+
+    const pStart = w * praktijkPerWeek;
+    const pItems = praktijk.slice(pStart, pStart + praktijkPerWeek);
+
+    // Samenvoegen tot één activiteit per type
+    if (tItems.length > 0) {
+      const samengevoegd = samenvoegen(tItems, 'Theorie', urenTheorie);
+      if (samengevoegd) weken[w].activiteiten.push(samengevoegd);
     }
-    for (let p = 0; p < praktijkPerWeek && pIdx < praktijk.length; p++, pIdx++) {
-      weken[w].activiteiten.push(praktijk[pIdx]);
+    if (pItems.length > 0) {
+      const samengevoegd = samenvoegen(pItems, 'Praktijk', urenPraktijk);
+      if (samengevoegd) weken[w].activiteiten.push(samengevoegd);
     }
   }
 
-  while (tIdx < theorie.length) { weken[tIdx % aantalWeken].activiteiten.push(theorie[tIdx++]); }
-  while (pIdx < praktijk.length) { weken[pIdx % aantalWeken].activiteiten.push(praktijk[pIdx++]); }
-
+  // Thema instellen op de praktijk-activiteit (meest concreet)
   weken.forEach(week => {
-    const eerste = week.activiteiten[0];
+    const praktijkAct = week.activiteiten.find(a => a.type === 'Praktijk');
+    const theorieAct = week.activiteiten.find(a => a.type === 'Theorie');
+    const eerste = praktijkAct || theorieAct;
     week.thema = eerste
-      ? eerste.omschrijving.split(' · ')[0].slice(0, 60)
+      ? eerste.omschrijving.split(';')[0].split(' · ')[0].trim().slice(0, 60)
       : `Week ${week.weekIndex}`;
   });
 
