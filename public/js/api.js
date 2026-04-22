@@ -4,21 +4,62 @@
 
 const API = {
   async _fetch(url, opts = {}) {
-    const res = await fetch(url, {
-      headers: { 'Content-Type': 'application/json' },
-      ...opts,
-      body: opts.body ? JSON.stringify(opts.body) : undefined
-    });
-    if (res.status === 401) { window.location.reload(); return null; }
-    const data = await res.json();
+    const fetchOpts = {
+      method: opts.method || 'GET',
+      credentials: 'same-origin',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(opts.headers || {})
+      }
+    };
+
+    if (opts.body !== undefined) {
+      fetchOpts.body = JSON.stringify(opts.body);
+    }
+
+    const res = await fetch(url, fetchOpts);
+
+    if (res.status === 401) {
+      window.location.reload();
+      return null;
+    }
+
+    const contentType = (res.headers.get('content-type') || '').toLowerCase();
+    let data;
+
+    if (contentType.includes('application/json')) {
+      data = await res.json();
+    } else {
+      const text = await res.text();
+      throw new Error(`Server gaf geen JSON terug (${res.status}). Eerste deel response: ${text.slice(0, 200)}`);
+    }
+
     if (!res.ok) throw new Error(data.error || 'Serverfout');
     return data;
   },
 
-  async _fetchForm(url, formData) {
-    const res = await fetch(url, { method: 'POST', body: formData });
-    if (res.status === 401) { window.location.reload(); return null; }
-    const data = await res.json();
+  async _fetchForm(url, formData, opts = {}) {
+    const res = await fetch(url, {
+      method: opts.method || 'POST',
+      credentials: 'same-origin',
+      body: formData
+    });
+
+    if (res.status === 401) {
+      window.location.reload();
+      return null;
+    }
+
+    const contentType = (res.headers.get('content-type') || '').toLowerCase();
+    let data;
+
+    if (contentType.includes('application/json')) {
+      data = await res.json();
+    } else {
+      const text = await res.text();
+      throw new Error(`Server gaf geen JSON terug (${res.status}). Eerste deel response: ${text.slice(0, 200)}`);
+    }
+
     if (!res.ok) throw new Error(data.error || 'Serverfout');
     return data;
   },
@@ -72,9 +113,11 @@ const API = {
   async addLesprofiel(data) { return this._fetch('/api/lesprofielen', { method: 'POST', body: data }); },
   async updateLesprofiel(id, data) { return this._fetch(`/api/lesprofielen/${id}`, { method: 'PUT', body: data }); },
   async deleteLesprofiel(id) { return this._fetch(`/api/lesprofielen/${id}`, { method: 'DELETE' }); },
-
-  async analyseSyllabus(bestand) { const formData = new FormData(); formData.append('bestand', bestand); return this._fetchForm('/api/syllabus/analyse', formData); },
-  async genereerLesprofielUitSyllabus(data) { return this._fetch('/api/syllabus/genereer', { method: 'POST', body: data }); },
+  async analyseSyllabus(file) {
+    const formData = new FormData();
+    formData.append('bestand', file);
+    return this._fetchForm('/api/analyse-syllabus', formData);
+  },
 
   // TAKEN
   async getTaken() { return this._fetch('/api/taken'); },
