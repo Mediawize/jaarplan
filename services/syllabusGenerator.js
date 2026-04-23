@@ -9,6 +9,7 @@
 
 const fs = require('fs');
 const pdfParse = require('pdf-parse');
+const { chatJson } = require('./aiClient');
 
 // ============================================================
 // TEKST NORMALISATIE
@@ -497,14 +498,13 @@ async function generateLesprofielFromPdf(filePath, options) {
 }
 
 // ============================================================
-// AI VERBETERING — omschrijvingen en weekthema's via Claude API
-// Stuurt de ruwe weken naar Claude die er nette, beknopte
-// Nederlandse teksten van maakt zoals een docent ze schrijft.
+// AI VERBETERING — omschrijvingen en weekthema's via OpenRouter
+// Stuurt de ruwe weken naar een gratis model dat nette, beknopte
+// Nederlandse docentteksten teruggeeft.
 // ============================================================
 async function verbeterMetAI(weken, moduleNaam, niveau) {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) {
-    console.warn('ANTHROPIC_API_KEY niet ingesteld — AI verbetering overgeslagen');
+  if (!process.env.OPENROUTER_API_KEY) {
+    console.warn('OPENROUTER_API_KEY niet ingesteld — AI verbetering overgeslagen');
     return weken;
   }
 
@@ -541,41 +541,13 @@ Ruwe lesplanning:
 ${wekenSamenvatting}`;
 
   try {
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-        'content-type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-5-20251015',
-        max_tokens: 4000,
-        messages: [{ role: 'user', content: prompt }]
-      })
+    const verbeterd = await chatJson({
+      system: 'Je schrijft kort, helder en praktisch Nederlands voor een docent PIE. Geef altijd alleen geldig JSON terug.',
+      user: prompt,
+      maxTokens: 2500,
+      temperature: 0.2
     });
 
-    if (!response.ok) {
-      const errBody = await response.text(); console.warn('AI verbetering mislukt:', response.status, errBody);
-      return weken;
-    }
-
-    const data = await response.json();
-    const rawText = (data.content || [])
-      .filter(b => b.type === 'text')
-      .map(b => b.text)
-      .join('');
-
-    // JSON extraheren (strip eventuele markdown backticks)
-    const jsonMatch = rawText.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
-      console.warn('AI gaf geen geldig JSON terug');
-      return weken;
-    }
-
-    const verbeterd = JSON.parse(jsonMatch[0]);
-
-    // Verwerk de verbeterde teksten terug in de weken
     return weken.map(week => {
       const verbWeek = (verbeterd.weken || []).find(v => v.weekIndex === week.weekIndex);
       if (!verbWeek) return week;
