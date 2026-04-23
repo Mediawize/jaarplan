@@ -544,6 +544,8 @@ ${wekenSamenvatting}`;
     const verbeterd = await chatJson({
       system: 'Je schrijft kort, helder en praktisch Nederlands voor een docent PIE. Geef altijd alleen geldig JSON terug.',
       user: prompt,
+      model: process.env.OPENROUTER_MODEL_SYLLABUS || 'openrouter/free',
+      fallbackModel: process.env.OPENROUTER_MODEL_CONTENT || process.env.OPENROUTER_MODEL || 'google/gemma-3-4b-it:free',
       maxTokens: 2500,
       temperature: 0.2
     });
