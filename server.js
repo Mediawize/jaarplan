@@ -13,6 +13,7 @@ const helmet = require('helmet');
 const db = require('./db/database');
 const { Schooljaar } = require('./db/schooljaar');
 const { analyseSyllabusPdf, generateLesprofielFromPdf } = require('./services/syllabusGenerator');
+const { chatJson } = require('./services/aiClient');
 
 const app = express();
 app.set('trust proxy', 1);
@@ -24,8 +25,8 @@ if (!process.env.SESSION_SECRET) {
 if (!process.env.RESEND_API_KEY) {
   console.warn('⚠️  WAARSCHUWING: RESEND_API_KEY niet ingesteld — wachtwoord reset e-mails werken niet.');
 }
-if (!process.env.ANTHROPIC_API_KEY) {
-  console.warn('⚠️  WAARSCHUWING: ANTHROPIC_API_KEY niet ingesteld — werkboekje/toets generatoren werken niet.');
+if (!process.env.OPENROUTER_API_KEY) {
+  console.warn('⚠️  WAARSCHUWING: OPENROUTER_API_KEY niet ingesteld — AI generatoren werken niet.');
 }
 
 // ---- RESEND e-mail helper ----
@@ -639,7 +640,7 @@ app.post('/api/instellingen/logo', requireAdmin, upload.single('logo'), (req, re
 });
 
 // ============================================================
-// HELPER: tekst extractie uit Word/PDF/PPT
+// HELPER: tekst extractie uit Word/PDF/TXT
 // ============================================================
 async function extractTekstUitBestand(filePath, originalname) {
   const ext = path.extname(originalname).toLowerCase();
@@ -649,7 +650,10 @@ async function extractTekstUitBestand(filePath, originalname) {
     return result.value;
   }
   if (ext === '.pdf') {
-    return { type: 'pdf', base64: fs.readFileSync(filePath).toString('base64') };
+    const pdfParse = require('pdf-parse');
+    const buffer = fs.readFileSync(filePath);
+    const result = await pdfParse(buffer);
+    return result.value || result.text || '';
   }
   try { return fs.readFileSync(filePath, 'utf8'); } catch { return ''; }
 }
@@ -780,41 +784,23 @@ async function bouwDocxBuffer({ schoolnaam, logoBestand, titel, secties, documen
 app.post('/api/genereer-werkboekje', requireCanEdit, upload.single('bestand'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'Geen bestand geüpload' });
   try {
-    const Anthropic = require('@anthropic-ai/sdk');
     const schoolnaam  = db.getInstelling('schoolnaam')  || '';
     const logoBestand = db.getInstelling('logoBestand') || null;
     const { titel } = req.body;
     const inhoud = await extractTekstUitBestand(req.file.path, req.file.originalname);
-    const client = new Anthropic();
 
-    let messages;
-    if (inhoud && inhoud.type === 'pdf') {
-      messages = [{
-        role: 'user',
-        content: [
-          { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: inhoud.base64 } },
-          { type: 'text', text: `Analyseer dit document en maak er een gestructureerd werkboekje van voor leerlingen.
-Geef de output ALLEEN als JSON (geen markdown, geen uitleg, geen backticks), in dit exacte formaat:
+    const data = await chatJson({
+      system: 'Je maakt heldere onderwijsdocumenten voor Nederlandse leerlingen. Geef altijd alleen geldig JSON terug.',
+      user: `Analyseer deze tekst en maak er een gestructureerd werkboekje van voor leerlingen.
+Geef de output ALLEEN als JSON, in exact dit formaat:
 {"titel":"Werkboekje titel","secties":[{"type":"heading","tekst":"..."},{"type":"tekst","tekst":"..."},{"type":"antwoordruimte","regels":3}]}
-Regels: voeg na elke vraag/opdracht een antwoordruimte toe (2-5 regels). Gebruik korte heldere taal. Maximaal 20 secties.` }
-        ]
-      }];
-    } else {
-      messages = [{
-        role: 'user',
-        content: `Analyseer deze tekst en maak er een gestructureerd werkboekje van voor leerlingen.
-Geef de output ALLEEN als JSON (geen markdown, geen uitleg, geen backticks):
-{"titel":"Werkboekje titel","secties":[{"type":"heading","tekst":"..."},{"type":"tekst","tekst":"..."},{"type":"antwoordruimte","regels":3}]}
-Regels: voeg na elke vraag/opdracht een antwoordruimte toe. Maximaal 20 secties.
+Regels: voeg na elke vraag of opdracht een antwoordruimte toe van 2 tot 5 regels. Gebruik korte heldere taal. Maximaal 20 secties.
 
-Tekst:
-${String(inhoud).slice(0, 8000)}`
-      }];
-    }
-
-    const response = await client.messages.create({ model: 'claude-opus-4-5', max_tokens: 2000, messages });
-    const rawJson = response.content[0].text.replace(/```json|```/g, '').trim();
-    const data = JSON.parse(rawJson);
+Tekst uit bestand:
+${String(inhoud).slice(0, 20000)}`,
+      maxTokens: 2200,
+      temperature: 0.2
+    });
 
     const docxBuffer = await bouwDocxBuffer({
       schoolnaam, logoBestand,
@@ -841,38 +827,27 @@ ${String(inhoud).slice(0, 8000)}`
 app.post('/api/genereer-toets', requireCanEdit, upload.single('bestand'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'Geen bestand geüpload' });
   try {
-    const Anthropic = require('@anthropic-ai/sdk');
     const schoolnaam  = db.getInstelling('schoolnaam')  || '';
     const logoBestand = db.getInstelling('logoBestand') || null;
     const { titel, aantalVragen } = req.body;
     const nVragen = parseInt(aantalVragen) || 10;
     const inhoud = await extractTekstUitBestand(req.file.path, req.file.originalname);
-    const client = new Anthropic();
 
     const promptTekst = `Maak een toets met exact ${nVragen} vragen op basis van de inhoud.
-Geef de output ALLEEN als JSON (geen markdown, geen uitleg, geen backticks):
+Geef de output ALLEEN als JSON, in exact dit formaat:
 {"titel":"Toets: [onderwerp]","secties":[{"type":"tekst","tekst":"Naam: ___________________ Klas: _______ Datum: _______"},{"type":"tekst","tekst":"Totaal: ___ / ${nVragen * 2} punten   Cijfer: ___"},{"type":"heading","tekst":"Vragen"},{"type":"tekst","tekst":"1. [Vraag tekst] (2 punten)"},{"type":"antwoordruimte","regels":3}]}
-Regels: begin met naam/klas/datum en puntentelling. Elke vraag heeft antwoordruimte (2-4 regels) en puntenaantal. Mix open vragen en meerkeuzevragen. Nummer de vragen duidelijk.`;
+Regels: begin met naam, klas, datum en puntentelling. Elke vraag heeft antwoordruimte van 2 tot 4 regels en een puntenaantal. Mix open vragen en meerkeuzevragen. Nummer de vragen duidelijk.`;
 
-    let messages;
-    if (inhoud && inhoud.type === 'pdf') {
-      messages = [{
-        role: 'user',
-        content: [
-          { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: inhoud.base64 } },
-          { type: 'text', text: promptTekst }
-        ]
-      }];
-    } else {
-      messages = [{
-        role: 'user',
-        content: `${promptTekst}\n\nInhoud document:\n\n${String(inhoud).slice(0, 8000)}`
-      }];
-    }
+    const data = await chatJson({
+      system: 'Je maakt duidelijke toetsen voor Nederlandse leerlingen. Geef altijd alleen geldig JSON terug.',
+      user: `${promptTekst}
 
-    const response = await client.messages.create({ model: 'claude-opus-4-5', max_tokens: 3000, messages });
-    const rawJson = response.content[0].text.replace(/```json|```/g, '').trim();
-    const data = JSON.parse(rawJson);
+Inhoud document:
+
+${String(inhoud).slice(0, 20000)}`,
+      maxTokens: 2800,
+      temperature: 0.2
+    });
 
     const docxBuffer = await bouwDocxBuffer({
       schoolnaam, logoBestand,
