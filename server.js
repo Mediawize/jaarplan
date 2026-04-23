@@ -1,3 +1,7 @@
+// ============================================================
+// server.js — JaarPlan API server
+// NIEUW: School instellingen (logo + naam), Werkboekje generator, Toets generator
+// ============================================================
 
 const express = require('express');
 const session = require('express-session');
@@ -11,7 +15,7 @@ const { Schooljaar } = require('./db/schooljaar');
 const { analyseSyllabusPdf, generateLesprofielFromPdf } = require('./services/syllabusGenerator');
 
 const app = express();
-app.set('trust proxy', 1); // Vertrouw reverse proxy (Nginx)
+app.set('trust proxy', 1);
 const PORT = process.env.PORT || 3001;
 
 if (!process.env.SESSION_SECRET) {
@@ -19,6 +23,9 @@ if (!process.env.SESSION_SECRET) {
 }
 if (!process.env.RESEND_API_KEY) {
   console.warn('⚠️  WAARSCHUWING: RESEND_API_KEY niet ingesteld — wachtwoord reset e-mails werken niet.');
+}
+if (!process.env.ANTHROPIC_API_KEY) {
+  console.warn('⚠️  WAARSCHUWING: ANTHROPIC_API_KEY niet ingesteld — werkboekje/toets generatoren werken niet.');
 }
 
 // ---- RESEND e-mail helper ----
@@ -151,8 +158,6 @@ function cleanupSyllabusUploadToken(token) {
   syllabusUploadTokens.delete(token);
 }
 
-// FIX 1: Periodieke opruiming van verlopen syllabus upload tokens (30 min)
-// Voorkomt geheugenlek als iemand uploadt maar nooit genereert
 setInterval(() => {
   const nu = Date.now();
   for (const [token, info] of syllabusUploadTokens.entries()) {
@@ -525,26 +530,21 @@ app.get('/api/analyse-syllabus', requireCanEdit, (req, res) => {
 
 app.post('/api/analyse-syllabus', requireCanEdit, syllabusUpload, async (req, res) => {
   const file = pickUploadedFile(req);
-
   try {
     if (!file) {
       return res.status(400).json({ error: 'Geen PDF ontvangen. Kies eerst een syllabusbestand.' });
     }
-
     if (!/\.pdf$/i.test(file.originalname || '')) {
       if (file.path && fs.existsSync(file.path)) fs.unlinkSync(file.path);
       return res.status(400).json({ error: 'Alleen PDF-bestanden worden ondersteund bij analyseren.' });
     }
-
     const analysed = await analyseSyllabusPdf(file.path);
     const uploadToken = createUploadToken();
-
     syllabusUploadTokens.set(uploadToken, {
       filePath: file.path,
       originalname: file.originalname,
       createdAt: Date.now()
     });
-
     return res.json({
       success: true,
       uploadToken,
@@ -554,35 +554,26 @@ app.post('/api/analyse-syllabus', requireCanEdit, syllabusUpload, async (req, re
     });
   } catch (e) {
     console.error('Fout bij /api/analyse-syllabus:', e);
-    try {
-      if (file?.path && fs.existsSync(file.path)) fs.unlinkSync(file.path);
-    } catch (_) {}
-    return res.status(500).json({
-      error: 'Fout bij analyseren van syllabus',
-      details: e.message
-    });
+    try { if (file?.path && fs.existsSync(file.path)) fs.unlinkSync(file.path); } catch (_) {}
+    return res.status(500).json({ error: 'Fout bij analyseren van syllabus', details: e.message });
   }
 });
 
 app.post('/api/genereer-lesprofiel-uit-syllabus', requireCanEdit, async (req, res) => {
   const { uploadToken, moduleCode, niveau, aantalWeken, urenTheorie, urenPraktijk, naam, vakId } = req.body || {};
-
   try {
     if (!uploadToken || !moduleCode || !niveau || !aantalWeken || !urenTheorie || !urenPraktijk || !vakId) {
       return res.status(400).json({ error: 'Niet alle verplichte velden zijn ingevuld.' });
     }
-
     const uploadInfo = syllabusUploadTokens.get(uploadToken);
     if (!uploadInfo || !uploadInfo.filePath || !fs.existsSync(uploadInfo.filePath)) {
       cleanupSyllabusUploadToken(uploadToken);
       return res.status(400).json({ error: 'De geüploade syllabus is niet meer beschikbaar. Analyseer de PDF opnieuw.' });
     }
-
     const vak = db.getVakken().find(v => v.id === vakId);
     if (!vak) {
       return res.status(404).json({ error: 'Vak niet gevonden.' });
     }
-
     const gegenereerd = await generateLesprofielFromPdf(uploadInfo.filePath, {
       moduleCode: String(moduleCode),
       niveau: String(niveau).toUpperCase(),
@@ -592,7 +583,6 @@ app.post('/api/genereer-lesprofiel-uit-syllabus', requireCanEdit, async (req, re
       naam,
       vakId
     });
-
     const profiel = db.addLesprofiel({
       naam: gegenereerd.naam,
       vakId: vak.id,
@@ -603,25 +593,303 @@ app.post('/api/genereer-lesprofiel-uit-syllabus', requireCanEdit, async (req, re
       niveau: gegenereerd.niveau || '',
       weken: gegenereerd.weken || []
     });
-
     cleanupSyllabusUploadToken(uploadToken);
-
     return res.json({
       success: true,
       profiel,
-      meta: {
-        module: gegenereerd.module,
-        selectie: gegenereerd.selectie || []
-      }
+      meta: { module: gegenereerd.module, selectie: gegenereerd.selectie || [] }
     });
   } catch (e) {
     console.error('Fout bij /api/genereer-lesprofiel-uit-syllabus:', e);
-    // FIX 2: ook bij een fout de tijdelijke bestanden opruimen
     if (uploadToken) cleanupSyllabusUploadToken(uploadToken);
-    return res.status(500).json({
-      error: 'Fout bij genereren van lesprofiel uit syllabus',
-      details: e.message
+    return res.status(500).json({ error: 'Fout bij genereren van lesprofiel uit syllabus', details: e.message });
+  }
+});
+
+// ============================================================
+// SCHOOL INSTELLINGEN — logo + naam opslaan / ophalen
+// ============================================================
+app.get('/api/instellingen', requireAuth, (req, res) => {
+  const schoolnaam  = db.getInstelling('schoolnaam')  || '';
+  const logoBestand = db.getInstelling('logoBestand') || null;
+  res.json({ schoolnaam, logoBestand });
+});
+
+app.post('/api/instellingen/schoolnaam', requireAdmin, (req, res) => {
+  const { schoolnaam } = req.body;
+  if (!schoolnaam) return res.status(400).json({ error: 'Schoolnaam verplicht' });
+  db.setInstelling('schoolnaam', schoolnaam.trim());
+  res.json({ success: true });
+});
+
+app.post('/api/instellingen/logo', requireAdmin, upload.single('logo'), (req, res) => {
+  if (!req.file) return res.status(400).json({ error: 'Geen bestand ontvangen' });
+  const allowed = ['image/png', 'image/jpeg', 'image/jpg', 'image/svg+xml'];
+  if (!allowed.includes(req.file.mimetype)) {
+    fs.unlinkSync(req.file.path);
+    return res.status(400).json({ error: 'Alleen PNG, JPG of SVG toegestaan' });
+  }
+  const oud = db.getInstelling('logoBestand');
+  if (oud) {
+    const oudPad = path.join(uploadDir, oud);
+    if (fs.existsSync(oudPad)) { try { fs.unlinkSync(oudPad); } catch (_) {} }
+  }
+  db.setInstelling('logoBestand', req.file.filename);
+  res.json({ success: true, logoBestand: req.file.filename });
+});
+
+// ============================================================
+// HELPER: tekst extractie uit Word/PDF/PPT
+// ============================================================
+async function extractTekstUitBestand(filePath, originalname) {
+  const ext = path.extname(originalname).toLowerCase();
+  if (ext === '.docx' || ext === '.doc') {
+    const mammoth = require('mammoth');
+    const result = await mammoth.extractRawText({ path: filePath });
+    return result.value;
+  }
+  if (ext === '.pdf') {
+    return { type: 'pdf', base64: fs.readFileSync(filePath).toString('base64') };
+  }
+  try { return fs.readFileSync(filePath, 'utf8'); } catch { return ''; }
+}
+
+// ============================================================
+// HELPER: bouw docx buffer via docx-js
+// ============================================================
+async function bouwDocxBuffer({ schoolnaam, logoBestand, titel, secties, documentType }) {
+  const {
+    Document, Packer, Paragraph, TextRun, ImageRun,
+    Header, Footer, AlignmentType, HeadingLevel, BorderStyle,
+    PageNumber, TabStopType, TabStopPosition
+  } = require('docx');
+
+  let logoImageRun = null;
+  if (logoBestand) {
+    const logoPad = path.join(uploadDir, logoBestand);
+    if (fs.existsSync(logoPad)) {
+      const logoBuffer = fs.readFileSync(logoPad);
+      const ext = path.extname(logoBestand).toLowerCase().replace('.', '');
+      const mimeMap = { png: 'png', jpg: 'jpg', jpeg: 'jpg', svg: 'svg' };
+      try {
+        logoImageRun = new ImageRun({
+          data: logoBuffer,
+          transformation: { width: 80, height: 40 },
+          type: mimeMap[ext] || 'png'
+        });
+      } catch (_) { logoImageRun = null; }
+    }
+  }
+
+  const headerKinderen = [];
+  if (logoImageRun) {
+    headerKinderen.push(new Paragraph({
+      tabStops: [{ type: TabStopType.RIGHT, position: TabStopPosition.MAX }],
+      border: { bottom: { style: BorderStyle.SINGLE, size: 4, color: '2D5A3D', space: 6 } },
+      children: [
+        logoImageRun,
+        new TextRun({ text: '\t' }),
+        new TextRun({ text: schoolnaam || 'School', font: 'Arial', size: 18, color: '6B6560' })
+      ]
+    }));
+  } else {
+    headerKinderen.push(new Paragraph({
+      tabStops: [{ type: TabStopType.RIGHT, position: TabStopPosition.MAX }],
+      border: { bottom: { style: BorderStyle.SINGLE, size: 4, color: '2D5A3D', space: 6 } },
+      children: [
+        new TextRun({ text: schoolnaam || 'School', font: 'Arial', size: 20, bold: true, color: '2D5A3D' }),
+        new TextRun({ text: '\t' }),
+        new TextRun({ text: documentType === 'werkboekje' ? 'Werkboekje' : 'Toets', font: 'Arial', size: 18, color: '6B6560' })
+      ]
+    }));
+  }
+
+  const footerKinderen = [
+    new Paragraph({
+      alignment: AlignmentType.CENTER,
+      border: { top: { style: BorderStyle.SINGLE, size: 4, color: 'E0DDD8', space: 6 } },
+      children: [
+        new TextRun({ text: 'Pagina ', font: 'Arial', size: 16, color: 'A09890' }),
+        new PageNumber(),
+        new TextRun({ text: '  |  ' + (schoolnaam || 'School'), font: 'Arial', size: 16, color: 'A09890' })
+      ]
+    })
+  ];
+
+  const documentKinderen = [
+    new Paragraph({
+      heading: HeadingLevel.HEADING_1,
+      spacing: { before: 480, after: 240 },
+      children: [new TextRun({ text: titel, font: 'Arial', size: 44, bold: true, color: '1A3A26' })]
+    })
+  ];
+
+  for (const sectie of secties) {
+    if (sectie.type === 'heading') {
+      documentKinderen.push(new Paragraph({
+        heading: HeadingLevel.HEADING_2,
+        spacing: { before: 360, after: 120 },
+        children: [new TextRun({ text: sectie.tekst, font: 'Arial', size: 28, bold: true, color: '2D5A3D' })]
+      }));
+    } else if (sectie.type === 'subheading') {
+      documentKinderen.push(new Paragraph({
+        heading: HeadingLevel.HEADING_3,
+        spacing: { before: 240, after: 80 },
+        children: [new TextRun({ text: sectie.tekst, font: 'Arial', size: 24, bold: true, color: '3A7A4E' })]
+      }));
+    } else if (sectie.type === 'antwoordruimte') {
+      for (let i = 0; i < (sectie.regels || 3); i++) {
+        documentKinderen.push(new Paragraph({
+          spacing: { before: 0, after: 0 },
+          border: { bottom: { style: BorderStyle.SINGLE, size: 2, color: 'C0BBB5', space: 2 } },
+          children: [new TextRun({ text: ' ', font: 'Arial', size: 24 })]
+        }));
+      }
+      documentKinderen.push(new Paragraph({ spacing: { before: 120, after: 0 }, children: [] }));
+    } else {
+      documentKinderen.push(new Paragraph({
+        spacing: { before: 80, after: 80 },
+        children: [new TextRun({ text: sectie.tekst, font: 'Arial', size: 22 })]
+      }));
+    }
+  }
+
+  const doc = new Document({
+    styles: {
+      default: { document: { run: { font: 'Arial', size: 22 } } }
+    },
+    sections: [{
+      properties: {
+        page: {
+          size: { width: 11906, height: 16838 },
+          margin: { top: 1134, right: 1134, bottom: 1134, left: 1134 }
+        }
+      },
+      headers: { default: new Header({ children: headerKinderen }) },
+      footers: { default: new Footer({ children: footerKinderen }) },
+      children: documentKinderen
+    }]
+  });
+
+  return Packer.toBuffer(doc);
+}
+
+// ============================================================
+// WERKBOEKJE GENERATOR
+// ============================================================
+app.post('/api/genereer-werkboekje', requireCanEdit, upload.single('bestand'), async (req, res) => {
+  if (!req.file) return res.status(400).json({ error: 'Geen bestand geüpload' });
+  try {
+    const Anthropic = require('@anthropic-ai/sdk');
+    const schoolnaam  = db.getInstelling('schoolnaam')  || '';
+    const logoBestand = db.getInstelling('logoBestand') || null;
+    const { titel } = req.body;
+    const inhoud = await extractTekstUitBestand(req.file.path, req.file.originalname);
+    const client = new Anthropic();
+
+    let messages;
+    if (inhoud && inhoud.type === 'pdf') {
+      messages = [{
+        role: 'user',
+        content: [
+          { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: inhoud.base64 } },
+          { type: 'text', text: `Analyseer dit document en maak er een gestructureerd werkboekje van voor leerlingen.
+Geef de output ALLEEN als JSON (geen markdown, geen uitleg, geen backticks), in dit exacte formaat:
+{"titel":"Werkboekje titel","secties":[{"type":"heading","tekst":"..."},{"type":"tekst","tekst":"..."},{"type":"antwoordruimte","regels":3}]}
+Regels: voeg na elke vraag/opdracht een antwoordruimte toe (2-5 regels). Gebruik korte heldere taal. Maximaal 20 secties.` }
+        ]
+      }];
+    } else {
+      messages = [{
+        role: 'user',
+        content: `Analyseer deze tekst en maak er een gestructureerd werkboekje van voor leerlingen.
+Geef de output ALLEEN als JSON (geen markdown, geen uitleg, geen backticks):
+{"titel":"Werkboekje titel","secties":[{"type":"heading","tekst":"..."},{"type":"tekst","tekst":"..."},{"type":"antwoordruimte","regels":3}]}
+Regels: voeg na elke vraag/opdracht een antwoordruimte toe. Maximaal 20 secties.
+
+Tekst:
+${String(inhoud).slice(0, 8000)}`
+      }];
+    }
+
+    const response = await client.messages.create({ model: 'claude-opus-4-5', max_tokens: 2000, messages });
+    const rawJson = response.content[0].text.replace(/```json|```/g, '').trim();
+    const data = JSON.parse(rawJson);
+
+    const docxBuffer = await bouwDocxBuffer({
+      schoolnaam, logoBestand,
+      titel: titel || data.titel || 'Werkboekje',
+      secties: data.secties || [],
+      documentType: 'werkboekje'
     });
+
+    if (req.file?.path && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
+
+    const bestandsnaam = `werkboekje_${Date.now()}.docx`;
+    fs.writeFileSync(path.join(uploadDir, bestandsnaam), docxBuffer);
+    res.json({ success: true, bestandsnaam, titel: data.titel || titel || 'Werkboekje' });
+  } catch (e) {
+    if (req.file?.path && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
+    console.error('Werkboekje generator fout:', e);
+    res.status(500).json({ error: 'Fout bij genereren: ' + e.message });
+  }
+});
+
+// ============================================================
+// TOETS GENERATOR
+// ============================================================
+app.post('/api/genereer-toets', requireCanEdit, upload.single('bestand'), async (req, res) => {
+  if (!req.file) return res.status(400).json({ error: 'Geen bestand geüpload' });
+  try {
+    const Anthropic = require('@anthropic-ai/sdk');
+    const schoolnaam  = db.getInstelling('schoolnaam')  || '';
+    const logoBestand = db.getInstelling('logoBestand') || null;
+    const { titel, aantalVragen } = req.body;
+    const nVragen = parseInt(aantalVragen) || 10;
+    const inhoud = await extractTekstUitBestand(req.file.path, req.file.originalname);
+    const client = new Anthropic();
+
+    const promptTekst = `Maak een toets met exact ${nVragen} vragen op basis van de inhoud.
+Geef de output ALLEEN als JSON (geen markdown, geen uitleg, geen backticks):
+{"titel":"Toets: [onderwerp]","secties":[{"type":"tekst","tekst":"Naam: ___________________ Klas: _______ Datum: _______"},{"type":"tekst","tekst":"Totaal: ___ / ${nVragen * 2} punten   Cijfer: ___"},{"type":"heading","tekst":"Vragen"},{"type":"tekst","tekst":"1. [Vraag tekst] (2 punten)"},{"type":"antwoordruimte","regels":3}]}
+Regels: begin met naam/klas/datum en puntentelling. Elke vraag heeft antwoordruimte (2-4 regels) en puntenaantal. Mix open vragen en meerkeuzevragen. Nummer de vragen duidelijk.`;
+
+    let messages;
+    if (inhoud && inhoud.type === 'pdf') {
+      messages = [{
+        role: 'user',
+        content: [
+          { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: inhoud.base64 } },
+          { type: 'text', text: promptTekst }
+        ]
+      }];
+    } else {
+      messages = [{
+        role: 'user',
+        content: `${promptTekst}\n\nInhoud document:\n\n${String(inhoud).slice(0, 8000)}`
+      }];
+    }
+
+    const response = await client.messages.create({ model: 'claude-opus-4-5', max_tokens: 3000, messages });
+    const rawJson = response.content[0].text.replace(/```json|```/g, '').trim();
+    const data = JSON.parse(rawJson);
+
+    const docxBuffer = await bouwDocxBuffer({
+      schoolnaam, logoBestand,
+      titel: titel || data.titel || 'Toets',
+      secties: data.secties || [],
+      documentType: 'toets'
+    });
+
+    if (req.file?.path && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
+
+    const bestandsnaam = `toets_${Date.now()}.docx`;
+    fs.writeFileSync(path.join(uploadDir, bestandsnaam), docxBuffer);
+    res.json({ success: true, bestandsnaam, titel: data.titel || titel || 'Toets' });
+  } catch (e) {
+    if (req.file?.path && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
+    console.error('Toets generator fout:', e);
+    res.status(500).json({ error: 'Fout bij genereren: ' + e.message });
   }
 });
 
