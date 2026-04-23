@@ -27,8 +27,8 @@ if (!process.env.SESSION_SECRET) {
 if (!process.env.RESEND_API_KEY) {
   console.warn('⚠️  WAARSCHUWING: RESEND_API_KEY niet ingesteld — wachtwoord reset e-mails werken niet.');
 }
-if (!process.env.OPENROUTER_API_KEY) {
-  console.warn('⚠️  WAARSCHUWING: OPENROUTER_API_KEY niet ingesteld — AI generatoren werken niet.');
+if (!process.env.OPENAI_API_KEY) {
+  console.warn('⚠️  WAARSCHUWING: OPENAI_API_KEY niet ingesteld — AI generatoren werken niet.');
 }
 
 // ---- RESEND e-mail helper ----
