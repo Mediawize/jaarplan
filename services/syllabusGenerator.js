@@ -498,14 +498,13 @@ async function generateLesprofielFromPdf(filePath, options) {
 }
 
 // ============================================================
-// AI VERBETERING — omschrijvingen en weekthema's via OpenRouter
+// AI VERBETERING — omschrijvingen en weekthema's via OpenAI
 // Stuurt de ruwe weken naar een gratis model dat nette, beknopte
 // Nederlandse docentteksten teruggeeft.
 // ============================================================
 async function verbeterMetAI(weken, moduleNaam, niveau) {
-  if (!process.env.OPENROUTER_API_KEY) {
-    console.warn('OPENROUTER_API_KEY niet ingesteld — AI verbetering overgeslagen');
-    return weken;
+if (!process.env.OPENAI_API_KEY) {
+  console.warn('OPENAI_API_KEY niet ingesteld — AI verbetering werkt niet');
   }
 
   // Bouw een compact overzicht van alle weken voor de AI
