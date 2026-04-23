@@ -1,108 +1,57 @@
-const DEFAULT_CONTENT_MODEL = process.env.OPENROUTER_MODEL_CONTENT || process.env.OPENROUTER_MODEL || 'google/gemma-3-4b-it:free';
-const DEFAULT_SYLLABUS_MODEL = process.env.OPENROUTER_MODEL_SYLLABUS || 'openrouter/free';
-const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
-
 function extractJsonFromText(text) {
   if (!text) throw new Error('Leeg AI-antwoord ontvangen');
+
   const cleaned = String(text).replace(/```json|```/gi, '').trim();
-  const match = cleaned.match(/\{[\s\S]*\}/);
-  if (!match) throw new Error('Geen JSON gevonden in AI-antwoord');
-  return JSON.parse(match[0]);
-}
 
-function contentToText(content) {
-  if (Array.isArray(content)) {
-    return content.map(x => x?.text || x?.content || '').join('').trim();
+  try {
+    return JSON.parse(cleaned);
+  } catch (_) {
+    const match = cleaned.match(/\{[\s\S]*\}/);
+    if (!match) throw new Error('Geen JSON gevonden in AI-antwoord');
+    return JSON.parse(match[0]);
   }
-  return String(content || '').trim();
 }
 
-async function callOpenRouter({ model, fullPrompt, maxTokens, temperature }) {
-  const apiKey = process.env.OPENROUTER_API_KEY;
+async function chatJson({ system, user, prompt, systemPrompt, maxTokens = 3000, temperature = 0.2, model }) {
+  const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
-    throw new Error('OPENROUTER_API_KEY niet ingesteld');
+    throw new Error('OPENAI_API_KEY niet ingesteld');
   }
 
-  const response = await fetch(OPENROUTER_URL, {
+  const usedModel = model || process.env.OPENAI_MODEL || 'gpt-4o-mini';
+  const finalSystem = systemPrompt || system || '';
+  const finalUser = prompt || user || '';
+
+  const messages = [];
+  if (finalSystem) messages.push({ role: 'system', content: finalSystem });
+  messages.push({ role: 'user', content: finalUser });
+
+  const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-      'HTTP-Referer': process.env.APP_URL || 'http://localhost:3001',
-      'X-Title': 'JaarPlan'
+      'Content-Type': 'application/json'
     },
     body: JSON.stringify({
-      model,
+      model: usedModel,
       temperature,
       max_tokens: maxTokens,
       response_format: { type: 'json_object' },
-      messages: [
-        { role: 'user', content: fullPrompt }
-      ]
+      messages
     })
   });
 
-  const rawBody = await response.text();
-  let data = null;
-  try {
-    data = rawBody ? JSON.parse(rawBody) : null;
-  } catch {
-    data = null;
-  }
+  const data = await response.json();
 
   if (!response.ok) {
-    throw new Error(`OpenRouter fout ${response.status}: ${rawBody}`);
+    throw new Error(`OpenAI fout ${response.status}: ${JSON.stringify(data)}`);
   }
 
-  const content = contentToText(data?.choices?.[0]?.message?.content);
-  if (!content) {
-    throw new Error(`Leeg AI-antwoord ontvangen voor model ${model}`);
-  }
-
-  return content;
-}
-
-async function chatJson({
-  system,
-  user,
-  maxTokens = 3000,
-  temperature = 0.2,
-  model,
-  fallbackModel
-}) {
-  const primaryModel = model || DEFAULT_CONTENT_MODEL;
-  const secondaryModel = fallbackModel || (primaryModel === DEFAULT_SYLLABUS_MODEL ? DEFAULT_CONTENT_MODEL : DEFAULT_SYLLABUS_MODEL);
-  const fullPrompt = system ? `${system}\n\n${user}` : user;
-
-  const attempts = [
-    { model: primaryModel },
-    { model: primaryModel },
-    { model: secondaryModel }
-  ];
-
-  let lastError = null;
-
-  for (const attempt of attempts) {
-    try {
-      const content = await callOpenRouter({
-        model: attempt.model,
-        fullPrompt,
-        maxTokens,
-        temperature
-      });
-      return extractJsonFromText(content);
-    } catch (err) {
-      lastError = err;
-      console.warn(`AI poging mislukt met model ${attempt.model}: ${err.message}`);
-    }
-  }
-
-  throw lastError || new Error('Onbekende AI-fout');
+  const content = data?.choices?.[0]?.message?.content;
+  return extractJsonFromText(Array.isArray(content) ? content.map(x => x?.text || '').join('') : content);
 }
 
 module.exports = {
   chatJson,
   extractJsonFromText,
-  DEFAULT_CONTENT_MODEL,
-  DEFAULT_SYLLABUS_MODEL,
 };
