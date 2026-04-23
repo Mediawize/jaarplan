@@ -1,6 +1,7 @@
 // ============================================================
 // db/database.js — SQLite database setup en queries
 // NIEUW: mustChangePassword, resetToken, resetTokenExpiry kolommen
+// NIEUW: school_instellingen tabel voor logo en schoolnaam
 // ============================================================
 
 const Database = require('better-sqlite3');
@@ -134,6 +135,11 @@ db.exec(`
     rooster TEXT DEFAULT '{}',
     bijgewerkt TEXT DEFAULT (datetime('now'))
   );
+
+  CREATE TABLE IF NOT EXISTS school_instellingen (
+    sleutel TEXT PRIMARY KEY,
+    waarde   TEXT
+  );
 `);
 
 // ============================================================
@@ -196,6 +202,13 @@ function migreer() {
     db.exec("ALTER TABLE gebruikers ADD COLUMN resetTokenExpiry TEXT");
     console.log('Migratie: resetTokenExpiry kolom toegevoegd aan gebruikers');
   }
+
+  // School instellingen tabel (voor bestaande databases zonder deze tabel)
+  const instellingenTabel = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='school_instellingen'").get();
+  if (!instellingenTabel) {
+    db.exec(`CREATE TABLE school_instellingen (sleutel TEXT PRIMARY KEY, waarde TEXT)`);
+    console.log('Migratie: school_instellingen tabel aangemaakt');
+  }
 }
 
 migreer();
@@ -222,8 +235,6 @@ function seedIfEmpty() {
   const count = db.prepare('SELECT COUNT(*) as c FROM gebruikers').get().c;
   if (count > 0) return;
   console.log('Database seeden: eerste beheerder aanmaken...');
-  // Alleen de beheerder wordt aangemaakt bij een lege database.
-  // Wachtwoord MOET direct gewijzigd worden via de beheerdersomgeving.
   const adminWachtwoord = process.env.ADMIN_INIT_PASSWORD || 'WijzigDitNu!';
   const id = genId();
   db.prepare('INSERT INTO gebruikers (id,naam,achternaam,email,wachtwoord,rol,initialen,vakken,hoofdklassen,mustChangePassword) VALUES (?,?,?,?,?,?,?,?,?,?)')
@@ -300,6 +311,10 @@ const Q = {
   getRooster: db.prepare('SELECT rooster FROM roosters WHERE userId=?'),
   insRooster: db.prepare('INSERT INTO roosters (userId,rooster) VALUES (?,?)'),
   updRooster: db.prepare("UPDATE roosters SET rooster=?,bijgewerkt=datetime('now') WHERE userId=?"),
+
+  // School instellingen
+  getInstelling:  db.prepare('SELECT waarde FROM school_instellingen WHERE sleutel = ?'),
+  setInstelling:  db.prepare('INSERT OR REPLACE INTO school_instellingen (sleutel, waarde) VALUES (?, ?)'),
 };
 
 // ============================================================
@@ -340,7 +355,6 @@ module.exports = {
   },
   updateGebruiker(id, data) {
     if (data.wachtwoord) {
-      // Admin stelt wachtwoord in → mustChangePassword op 1 (tenzij expliciet false)
       const mustChange = data.mustChangePassword !== false ? 1 : 0;
       Q.updGebruikerMetWW.run(
         data.naam, data.achternaam, data.email,
@@ -354,16 +368,13 @@ module.exports = {
       Q.updGebruiker.run(data.naam, data.achternaam, data.email, data.rol, data.initialen || null, JSON.stringify(data.vakken || []), JSON.stringify(data.hoofdklassen || []), id);
     }
   },
-  // Gebruiker wijzigt eigen wachtwoord → mustChangePassword wordt 0
   wijzigWachtwoord(id, nieuwWachtwoord) {
     Q.updWachtwoord.run(bcrypt.hashSync(nieuwWachtwoord, 10), id);
   },
-  // Sla reset token op met vervaltijd (1 uur)
   slaResetTokenOp(id, token) {
     const expiry = new Date(Date.now() + 60 * 60 * 1000).toISOString();
     Q.updResetToken.run(token, expiry, id);
   },
-  // Verifieer reset token en check vervaltijd
   verifieerResetToken(token) {
     const u = this.getGebruikerByResetToken(token);
     if (!u) return null;
@@ -470,18 +481,8 @@ module.exports = {
     return this.getTaak(id);
   },
   updateTaak(id, d) { const t = this.getTaak(id); if (!t) return; Q.updTaak.run(d.naam ?? t.naam, d.beschrijving ?? t.beschrijving, d.deadline ?? t.deadline, id); },
-  taakOppakken(id, userId) {
-    const t = this.getTaak(id); if (!t) return null;
-    const opgepakt = t.opgepakt || [];
-    const nieuw = opgepakt.includes(userId) ? opgepakt.filter(x => x !== userId) : [...opgepakt, userId];
-    Q.updTaakOpgepakt.run(JSON.stringify(nieuw), id);
-    return this.getTaak(id);
-  },
-  taakAfvinken(id, userId) {
-    const t = this.getTaak(id); if (!t) return null;
-    if (t.afgerond) { Q.updTaakAfgerond.run(0, null, null, id); } else { Q.updTaakAfgerond.run(1, userId, new Date().toISOString(), id); }
-    return this.getTaak(id);
-  },
+  updateTaakOpgepakt(id, opgepakt) { Q.updTaakOpgepakt.run(JSON.stringify(opgepakt), id); },
+  updateTaakAfgerond(id, afgerond, userId) { Q.updTaakAfgerond.run(afgerond ? 1 : 0, afgerond ? userId : null, afgerond ? new Date().toISOString() : null, id); },
   deleteTaak(id) { Q.delTaak.run(id); },
 
   getRooster(userId) { const r = Q.getRooster.get(userId); return r ? parseJSON(r.rooster, {}) : {}; },
@@ -498,5 +499,16 @@ module.exports = {
       aantalVakken: db.prepare('SELECT COUNT(*) as c FROM vakken').get().c,
       aantalGebruikers: db.prepare('SELECT COUNT(*) as c FROM gebruikers').get().c,
     };
+  },
+
+  // ============================================================
+  // SCHOOL INSTELLINGEN
+  // ============================================================
+  getInstelling(sleutel) {
+    const row = Q.getInstelling.get(sleutel);
+    return row ? row.waarde : null;
+  },
+  setInstelling(sleutel, waarde) {
+    Q.setInstelling.run(sleutel, waarde);
   },
 };
