@@ -1,8 +1,10 @@
+require('dotenv').config();
 // ============================================================
 // server.js — JaarPlan API server
 // NIEUW: School instellingen (logo + naam), Werkboekje generator, Toets generator
 // ============================================================
 
+require('dotenv').config();
 const express = require('express');
 const session = require('express-session');
 const multer = require('multer');
