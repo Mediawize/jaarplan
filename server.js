@@ -780,6 +780,162 @@ async function bouwDocxBuffer({ schoolnaam, logoBestand, titel, secties, documen
 }
 
 // ============================================================
+// WERKBOEKJE VASTE LAYOUT — AI vult alleen inhoud in
+// ============================================================
+async function bouwWerkboekjeDocxVast({ schoolnaam, logoBestand, data }) {
+  const {
+    Document, Packer, Paragraph, TextRun, ImageRun,
+    Header, Footer, AlignmentType, HeadingLevel, BorderStyle,
+    PageNumber, TabStopType, TabStopPosition
+  } = require('docx');
+
+  // Logo laden
+  let logoImageRun = null;
+  if (logoBestand) {
+    const logoPad = path.join(uploadDir, logoBestand);
+    if (fs.existsSync(logoPad)) {
+      const logoBuffer = fs.readFileSync(logoPad);
+      const ext = path.extname(logoBestand).toLowerCase().replace('.', '');
+      try {
+        logoImageRun = new ImageRun({ data: logoBuffer, transformation: { width: 80, height: 40 }, type: { png:'png', jpg:'jpg', jpeg:'jpg', svg:'svg' }[ext] || 'png' });
+      } catch (_) {}
+    }
+  }
+
+  const headerKinderen = [new Paragraph({
+    tabStops: [{ type: TabStopType.RIGHT, position: TabStopPosition.MAX }],
+    border: { bottom: { style: BorderStyle.SINGLE, size: 4, color: '2D5A3D', space: 6 } },
+    children: logoImageRun
+      ? [logoImageRun, new TextRun({ text: '\t' }), new TextRun({ text: schoolnaam || 'School', font: 'Arial', size: 18, color: '6B6560' })]
+      : [new TextRun({ text: schoolnaam || 'School', font: 'Arial', size: 20, bold: true, color: '2D5A3D' }), new TextRun({ text: '\t' }), new TextRun({ text: 'Werkboekje', font: 'Arial', size: 18, color: '6B6560' })]
+  })];
+
+  const footerKinderen = [new Paragraph({
+    alignment: AlignmentType.CENTER,
+    border: { top: { style: BorderStyle.SINGLE, size: 4, color: 'E0DDD8', space: 6 } },
+    children: [
+      new TextRun({ text: 'Pagina ', font: 'Arial', size: 16, color: 'A09890' }),
+      new PageNumber(),
+      new TextRun({ text: '  |  ' + (schoolnaam || 'School'), font: 'Arial', size: 16, color: 'A09890' })
+    ]
+  })];
+
+  const k = []; // document kinderen
+
+  // ── Titel
+  k.push(new Paragraph({
+    spacing: { before: 0, after: 160 },
+    children: [new TextRun({ text: data.titel || 'Werkboekje', font: 'Arial', size: 52, bold: true, color: '1A3A26' })]
+  }));
+
+  // ── Leerlinggegevens
+  k.push(new Paragraph({
+    spacing: { before: 0, after: 320 },
+    border: {
+      top:    { style: BorderStyle.SINGLE, size: 4, color: 'D1D5DB', space: 6 },
+      bottom: { style: BorderStyle.SINGLE, size: 4, color: 'D1D5DB', space: 6 },
+      left:   { style: BorderStyle.SINGLE, size: 4, color: 'D1D5DB', space: 6 },
+      right:  { style: BorderStyle.SINGLE, size: 4, color: 'D1D5DB', space: 6 },
+    },
+    children: [
+      new TextRun({ text: 'Naam: ', bold: true, font: 'Arial', size: 22 }),
+      new TextRun({ text: '______________________   ', font: 'Arial', size: 22 }),
+      new TextRun({ text: 'Klas: ', bold: true, font: 'Arial', size: 22 }),
+      new TextRun({ text: '__________   ', font: 'Arial', size: 22 }),
+      new TextRun({ text: 'Datum: ', bold: true, font: 'Arial', size: 22 }),
+      new TextRun({ text: '__________', font: 'Arial', size: 22 }),
+    ]
+  }));
+
+  // ── Leerdoelen
+  if (data.leerdoelen?.length) {
+    k.push(new Paragraph({
+      spacing: { before: 0, after: 100 },
+      children: [new TextRun({ text: 'Leerdoelen', font: 'Arial', size: 26, bold: true, color: '2D5A3D' })]
+    }));
+    for (const doel of data.leerdoelen) {
+      k.push(new Paragraph({
+        spacing: { before: 60, after: 60 },
+        children: [
+          new TextRun({ text: '✓  ', font: 'Arial', size: 22, bold: true, color: '16A34A' }),
+          new TextRun({ text: doel, font: 'Arial', size: 22 })
+        ]
+      }));
+    }
+    k.push(new Paragraph({ spacing: { before: 200, after: 0 }, children: [] }));
+  }
+
+  // ── Introductie
+  if (data.introductie) {
+    k.push(new Paragraph({
+      spacing: { before: 0, after: 320 },
+      children: [new TextRun({ text: data.introductie, font: 'Arial', size: 22, italics: true, color: '44403C' })]
+    }));
+  }
+
+  // ── Secties
+  for (const [i, sectie] of (data.secties || []).entries()) {
+    k.push(new Paragraph({
+      heading: HeadingLevel.HEADING_2,
+      spacing: { before: 440, after: 180 },
+      children: [new TextRun({ text: `${i + 1}.  ${sectie.titel || ''}`, font: 'Arial', size: 30, bold: true, color: '2D5A3D' })]
+    }));
+
+    if (sectie.theorie) {
+      k.push(new Paragraph({
+        spacing: { before: 0, after: 220 },
+        children: [new TextRun({ text: sectie.theorie, font: 'Arial', size: 22 })]
+      }));
+    }
+
+    for (const [j, q] of (sectie.vragen || []).entries()) {
+      k.push(new Paragraph({
+        spacing: { before: 220, after: 100 },
+        children: [new TextRun({ text: `${j + 1}.  ${q.vraag || ''}`, font: 'Arial', size: 22, bold: true })]
+      }));
+      for (let r = 0; r < (q.regels || 3); r++) {
+        k.push(new Paragraph({
+          spacing: { before: 0, after: 0 },
+          border: { bottom: { style: BorderStyle.SINGLE, size: 2, color: 'C0BBB5', space: 2 } },
+          children: [new TextRun({ text: ' ', font: 'Arial', size: 24 })]
+        }));
+      }
+      k.push(new Paragraph({ spacing: { before: 100, after: 0 }, children: [] }));
+    }
+  }
+
+  // ── Samenvatting
+  if (data.samenvatting?.length) {
+    k.push(new Paragraph({
+      spacing: { before: 520, after: 140 },
+      border: { top: { style: BorderStyle.SINGLE, size: 4, color: '2D5A3D', space: 8 } },
+      children: [new TextRun({ text: 'Samenvatting', font: 'Arial', size: 28, bold: true, color: '1A3A26' })]
+    }));
+    for (const punt of data.samenvatting) {
+      k.push(new Paragraph({
+        spacing: { before: 80, after: 80 },
+        children: [
+          new TextRun({ text: '•  ', font: 'Arial', size: 22, bold: true, color: '2D5A3D' }),
+          new TextRun({ text: punt, font: 'Arial', size: 22 })
+        ]
+      }));
+    }
+  }
+
+  const doc = new Document({
+    styles: { default: { document: { run: { font: 'Arial', size: 22 } } } },
+    sections: [{
+      properties: { page: { size: { width: 11906, height: 16838 }, margin: { top: 1134, right: 1134, bottom: 1134, left: 1134 } } },
+      headers: { default: new Header({ children: headerKinderen }) },
+      footers: { default: new Footer({ children: footerKinderen }) },
+      children: k
+    }]
+  });
+
+  return Packer.toBuffer(doc);
+}
+
+// ============================================================
 // WERKBOEKJE GENERATOR
 // ============================================================
 app.post('/api/genereer-werkboekje', requireCanEdit, upload.single('bestand'), async (req, res) => {
@@ -792,23 +948,36 @@ app.post('/api/genereer-werkboekje', requireCanEdit, upload.single('bestand'), a
 
     const data = await chatJson({
       system: 'Je maakt heldere onderwijsdocumenten voor Nederlandse leerlingen. Geef altijd alleen geldig JSON terug.',
-      user: `Analyseer deze tekst en maak er een gestructureerd werkboekje van voor leerlingen.
-Geef de output ALLEEN als JSON, in exact dit formaat:
-{"titel":"Werkboekje titel","secties":[{"type":"heading","tekst":"..."},{"type":"tekst","tekst":"..."},{"type":"antwoordruimte","regels":3}]}
-Regels: voeg na elke vraag of opdracht een antwoordruimte toe van 2 tot 5 regels. Gebruik korte heldere taal. Maximaal 20 secties.
+      user: `Vul onderstaand JSON-template in voor een werkboekje op basis van de tekst. Geef ALLEEN geldige JSON terug, geen uitleg.
 
-Tekst uit bestand:
+Template:
+{
+  "titel": "Werkboekje: [onderwerp in 3-5 woorden]",
+  "leerdoelen": ["Na dit werkboekje kan de leerling ...", "..."],
+  "introductie": "Korte inleiding van 2-3 zinnen voor de leerling.",
+  "secties": [
+    {
+      "titel": "Sectietitel",
+      "theorie": "Korte theorie-uitleg voor de leerling (max 5 zinnen).",
+      "vragen": [
+        { "vraag": "Vraag?", "regels": 3 }
+      ]
+    }
+  ],
+  "samenvatting": ["Kernpunt 1", "Kernpunt 2", "Kernpunt 3"]
+}
+
+Regels: maximaal 4 secties, elke sectie 2-4 vragen, eenvoudig Nederlands, maximaal 4 leerdoelen.
+
+Tekst:
 ${String(inhoud).slice(0, 20000)}`,
-      maxTokens: 2200,
+      maxTokens: 2500,
       temperature: 0.2
     });
 
-    const docxBuffer = await bouwDocxBuffer({
-      schoolnaam, logoBestand,
-      titel: titel || data.titel || 'Werkboekje',
-      secties: data.secties || [],
-      documentType: 'werkboekje'
-    });
+    if (titel) data.titel = titel;
+
+    const docxBuffer = await bouwWerkboekjeDocxVast({ schoolnaam, logoBestand, data });
 
     if (req.file?.path && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
 
