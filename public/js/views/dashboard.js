@@ -39,6 +39,18 @@ async function renderDashboard() {
             </div>
           </div>
 
+          <!-- Mobiele voortgang banner -->
+          <div class="db-mobile-vg">
+            <div class="db-mobile-vg-top">
+              <span class="db-mobile-vg-label">Week ${cw} — voortgang</span>
+              <strong class="db-mobile-vg-pct">${voortgangPct}%</strong>
+            </div>
+            <div class="db-mobile-vg-balk">
+              <div class="db-mobile-vg-fill" style="width:${voortgangPct}%"></div>
+            </div>
+            <div class="db-mobile-vg-sub">${afgerondDezeWeek} van ${opdDezeWeek.length} lessen afgerond</div>
+          </div>
+
           <!-- Tabs + Filter -->
           <div class="db-tabs-row">
             <div class="db-tabs">
