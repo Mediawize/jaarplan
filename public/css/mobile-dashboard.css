@@ -398,14 +398,62 @@
 .db-snelle-actie svg { width: 15px; height: 15px; color: var(--ink-3); flex-shrink: 0; }
 .db-snelle-actie:hover { background: var(--surface-2); color: var(--ink); }
 
+/* ── Mobiele voortgang banner (verborgen op desktop) ── */
+.db-mobile-vg { display: none; }
+
 /* ============================================================
-   MOBIEL — overrides
+   TABLET — rechter paneel verbergen + voortgang banner
    ============================================================ */
 @media (max-width: 960px) {
   .db-layout { grid-template-columns: 1fr; }
   .db-right-panel { display: none; }
+
+  /* Voortgang banner */
+  .db-mobile-vg {
+    display: block;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px 16px;
+    margin-bottom: 16px;
+  }
+  .db-mobile-vg-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+  }
+  .db-mobile-vg-label { font-size: 12px; color: var(--ink-3); font-weight: 500; }
+  .db-mobile-vg-pct { font-size: 14px; font-weight: 700; color: var(--accent-text); }
+  .db-mobile-vg-balk {
+    height: 8px;
+    background: var(--surface-3, #F0EDE8);
+    border-radius: 4px;
+    overflow: hidden;
+    margin-bottom: 6px;
+  }
+  .db-mobile-vg-fill {
+    height: 100%;
+    background: var(--accent);
+    border-radius: 4px;
+    transition: width 0.5s ease;
+    min-width: 4px;
+  }
+  .db-mobile-vg-sub { font-size: 11px; color: var(--ink-3); }
+
+  /* Tabs scrollen als ze niet passen */
+  .db-tabs {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    flex-shrink: 1;
+  }
+  .db-tabs::-webkit-scrollbar { display: none; }
 }
 
+/* ============================================================
+   MOBIEL — overrides
+   ============================================================ */
 @media (max-width: 768px) {
   /* ── Verberg alle views behalve dashboard op mobiel ── */
   #view-klassen,
@@ -433,19 +481,46 @@
   .btn-login { padding: 14px; font-size: 15px; min-height: 48px; }
   .form-field input, .form-field select { padding: 13px; font-size: 16px; min-height: 48px; }
 
-  /* Dashboard */
+  /* Dashboard layout */
   .db-begroeting { font-size: 20px; }
-  .db-filter-wrap { display: none; }
+  .db-datum-sub { font-size: 12px; }
+
+  /* Tabs — touch-vriendelijk */
+  .db-tabs-row { gap: 6px; flex-wrap: wrap; }
+  .db-tab { padding: 8px 12px; font-size: 12px; min-height: 40px; }
+
+  /* Filter — zichtbaar op mobiel, volledige breedte */
+  .db-filter-wrap {
+    display: flex;
+    margin-left: 0;
+    width: 100%;
+  }
+  .db-filter-select { flex: 1; }
+
+  /* Kaartindeling */
+  .db-les-header { padding: 12px 14px; min-height: 56px; }
   .db-les-body { padding-left: 16px; }
-  .db-klas-cirkel { width: 28px; height: 28px; font-size: 9px; }
-  .db-les-naam { font-size: 15px; }
-  .db-les-acties { flex-direction: column; }
-  .db-afronden-btn, .db-opmerking-btn { width: 100%; justify-content: center; min-height: 44px; }
-  .db-les-header { padding: 12px 14px; }
-  .db-status-badge { font-size: 10px; }
+  .db-klas-cirkel { width: 30px; height: 30px; font-size: 9px; }
+  .db-les-naam { font-size: 14px; }
+  .db-les-sub { font-size: 11px; }
+  .db-status-badge { font-size: 10px; padding: 2px 7px; }
+
+  /* Actieknoppen — volledige breedte voor touch */
+  .db-les-acties { flex-direction: column; gap: 8px; }
+  .db-afronden-btn, .db-opmerking-btn {
+    width: 100%;
+    justify-content: center;
+    min-height: 46px;
+    font-size: 14px;
+  }
+
+  /* Materiaal knoppen */
+  .db-mat-btn { padding: 12px; min-height: 50px; }
+  .db-mat-label { font-size: 13px; }
 }
 
 @media (max-width: 380px) {
-  .db-les-naam { font-size: 14px; }
+  .db-les-naam { font-size: 13px; }
+  .db-tab { padding: 7px 10px; font-size: 11px; }
   .login-card { padding: 24px 16px; }
 }
