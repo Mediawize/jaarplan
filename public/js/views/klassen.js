@@ -18,7 +18,7 @@ async function renderKlassen() {
             const vak = vakken.find(v=>v.id===k.vakId);
             const klasDocenten = (k.docenten||[]).map(id => gebruikers.find(u=>u.id===id)).filter(Boolean);
             const opd = alleOpd.filter(o=>o.klasId===k.id);
-            const afg = opd.filter(o=>{const e=parseInt((o.weken||'99').split('-').pop().trim());return e<cw;}).length;
+            const afg = opd.filter(o => o.afgevinkt).length;
             const progress = opd.length?Math.round((afg/opd.length)*100):0;
             return `<div class="klas-card">
               <div class="klas-card-top">

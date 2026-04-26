@@ -503,8 +503,9 @@ async function generateLesprofielFromPdf(filePath, options) {
 // Nederlandse docentteksten teruggeeft.
 // ============================================================
 async function verbeterMetAI(weken, moduleNaam, niveau) {
-if (!process.env.OPENAI_API_KEY) {
-  console.warn('OPENAI_API_KEY niet ingesteld — AI verbetering werkt niet');
+  if (!process.env.OPENAI_API_KEY) {
+    console.warn('OPENAI_API_KEY niet ingesteld — AI verbetering werkt niet');
+    return weken;
   }
 
   // Bouw een compact overzicht van alle weken voor de AI

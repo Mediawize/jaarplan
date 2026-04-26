@@ -1,4 +1,3 @@
-require('dotenv').config();
 // ============================================================
 // server.js — JaarPlan API server
 // NIEUW: School instellingen (logo + naam), Werkboekje generator, Toets generator
