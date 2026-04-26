@@ -88,10 +88,6 @@ function showLoading(viewId) {
   if (el) el.innerHTML = '<div style="padding:60px;text-align:center;color:var(--ink-3)">Laden...</div>';
 }
 
-function toggleSidebarItem(el) {
-  const v = el.dataset.view;
-  if (el.style.display === 'none') el.style.display = 'none'; // no-op, handled by CSS
-}
 
 function renderLoginShell() {
   document.getElementById('login-screen').innerHTML = `
