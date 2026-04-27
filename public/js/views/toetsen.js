@@ -15,6 +15,43 @@ async function renderToetsen() {
     const metToets = alleOpd.filter(o => o.toetsBestand);
     const metTheorie = alleOpd.filter(o => o.theorieLink);
 
+    const renderToetsRijen = (lijst) => lijst.map(o => {
+      const klas = klassen.find(k => k.id === o.klasId);
+      const naam = escHtml(o.naam || '');
+      const klasNaam = escHtml(klas?.naam || '—');
+      const week = o.weeknummer || '—';
+      const syllabus = escHtml(o.syllabuscodes || '—');
+      const bestand = escHtml(o.toetsBestand || '');
+      return `<div style="padding:10px 20px;border-bottom:1px solid var(--border);display:flex;flex-wrap:wrap;gap:6px;align-items:center">
+        <div style="flex:2;min-width:120px">
+          <a href="/uploads/${bestand}" target="_blank" style="color:var(--accent);font-weight:500;font-size:13px;word-break:break-all">${bestand}</a>
+          <div style="font-size:12px;color:var(--ink-muted);margin-top:2px">${naam}</div>
+        </div>
+        <div style="flex:1;min-width:80px;font-size:13px">${klasNaam}</div>
+        <div style="font-size:12px;color:var(--ink-muted);white-space:nowrap">Week ${week}</div>
+        ${syllabus !== '—' ? `<div style="font-size:11px;color:var(--ink-muted)">${syllabus}</div>` : ''}
+        ${!readonly ? `<button class="btn btn-sm" onclick="openOpdrachtModal('${o.id}','${o.klasId}')">Bewerken</button>` : ''}
+      </div>`;
+    }).join('');
+
+    const renderTheorieRijen = (lijst) => lijst.map(o => {
+      const klas = klassen.find(k => k.id === o.klasId);
+      const naam = escHtml(o.naam || '');
+      const klasNaam = escHtml(klas?.naam || '—');
+      const week = o.weeknummer || '—';
+      const link = escHtml(o.theorieLink || '');
+      const linkKort = o.theorieLink ? o.theorieLink.replace(/^https?:\/\//, '').slice(0, 50) + (o.theorieLink.length > 55 ? '…' : '') : '';
+      return `<div style="padding:10px 20px;border-bottom:1px solid var(--border);display:flex;flex-wrap:wrap;gap:6px;align-items:center">
+        <div style="flex:2;min-width:120px">
+          <a href="${link}" target="_blank" style="color:var(--accent);font-weight:500;font-size:13px;word-break:break-all">${escHtml(linkKort)}</a>
+          <div style="font-size:12px;color:var(--ink-muted);margin-top:2px">${naam}</div>
+        </div>
+        <div style="flex:1;min-width:80px;font-size:13px">${klasNaam}</div>
+        <div style="font-size:12px;color:var(--ink-muted);white-space:nowrap">Week ${week}</div>
+        ${!readonly ? `<button class="btn btn-sm" onclick="openOpdrachtModal('${o.id}','${o.klasId}')">Bewerken</button>` : ''}
+      </div>`;
+    }).join('');
+
     document.getElementById('view-toetsen').innerHTML = `
       <div class="page-header">
         <div class="page-header-left"><h1>Toetsen & Materialen</h1></div>
@@ -33,43 +70,16 @@ async function renderToetsen() {
 
       <div class="card" style="margin-bottom:20px">
         <div class="card-header"><div><h2>Toetsen (${metToets.length})</h2><div class="card-meta">Alle gekoppelde toetsbestanden</div></div></div>
-        ${metToets.length === 0 ? `<div class="empty-state"><h3>Geen toetsen</h3><p>Koppel een toetsbestand bij een activiteit in de jaarplanning.</p></div>` : `
-        <table class="data-table">
-          <thead><tr><th>Bestand</th><th>Activiteit</th><th>Klas</th><th>Week</th><th>Syllabus</th>${!readonly ? '<th></th>' : ''}</tr></thead>
-          <tbody>
-          ${metToets.map(o => {
-            const klas = klassen.find(k => k.id === o.klasId);
-            return `<tr>
-              <td><a href="/uploads/${escHtml(o.toetsBestand)}" target="_blank" style="color:var(--accent);font-weight:500">${escHtml(o.toetsBestand)}</a></td>
-              <td>${escHtml(o.naam)}</td>
-              <td>${escHtml(klas?.naam || '—')}</td>
-              <td>Week ${o.weeknummer || '—'}</td>
-              <td>${escHtml(o.syllabuscodes || '—')}</td>
-              ${!readonly ? `<td><button class="btn btn-sm" onclick="openOpdrachtModal('${o.id}','${o.klasId}')">Bewerken</button></td>` : ''}
-            </tr>`;
-          }).join('')}
-          </tbody>
-        </table>`}
+        ${metToets.length === 0
+          ? `<div class="empty-state"><h3>Geen toetsen</h3><p>Koppel een toetsbestand bij een activiteit in de jaarplanning.</p></div>`
+          : renderToetsRijen(metToets)}
       </div>
 
       <div class="card">
         <div class="card-header"><div><h2>Theorie materialen (${metTheorie.length})</h2><div class="card-meta">Alle gekoppelde theorie-links</div></div></div>
-        ${metTheorie.length === 0 ? `<div class="empty-state"><h3>Geen theorie-links</h3><p>Koppel een theorie-link bij een activiteit in de jaarplanning.</p></div>` : `
-        <table class="data-table">
-          <thead><tr><th>Link</th><th>Activiteit</th><th>Klas</th><th>Week</th>${!readonly ? '<th></th>' : ''}</tr></thead>
-          <tbody>
-          ${metTheorie.map(o => {
-            const klas = klassen.find(k => k.id === o.klasId);
-            return `<tr>
-              <td><a href="${escHtml(o.theorieLink)}" target="_blank" style="color:var(--accent);font-weight:500">${escHtml(o.theorieLink)}</a></td>
-              <td>${escHtml(o.naam)}</td>
-              <td>${escHtml(klas?.naam || '—')}</td>
-              <td>Week ${o.weeknummer || '—'}</td>
-              ${!readonly ? `<td><button class="btn btn-sm" onclick="openOpdrachtModal('${o.id}','${o.klasId}')">Bewerken</button></td>` : ''}
-            </tr>`;
-          }).join('')}
-          </tbody>
-        </table>`}
+        ${metTheorie.length === 0
+          ? `<div class="empty-state"><h3>Geen theorie-links</h3><p>Koppel een theorie-link bij een activiteit in de jaarplanning.</p></div>`
+          : renderTheorieRijen(metTheorie)}
       </div>
     `;
   } catch (e) { showError('Fout bij laden: ' + e.message); }
@@ -257,7 +267,7 @@ async function doGenererenWerkboekje() {
     return;
   }
 
-  result.innerHTML = `<span style="color:var(--amber)">⏳ AI analyseert document en bouwt werkboekje... (15–30 sec)</span>`;
+  result.innerHTML = `<span style="color:var(--amber)">⏳ AI analyseert document en bouwt werkboekje... (15-30 sec)</span>`;
 
   const fd = new FormData();
   fd.append('bestand', bestandInput.files[0]);
@@ -267,16 +277,36 @@ async function doGenererenWerkboekje() {
     const res = await fetch('/api/genereer-werkboekje', { method: 'POST', body: fd });
     const data = await res.json();
     if (!data.success) throw new Error(data.error || 'Onbekende fout');
+
+    const waarschuwingHtml = data.waarschuwing
+      ? `<div style="margin-top:8px;padding:10px 12px;background:#FEF3C7;border:1px solid #D97706;border-radius:6px;font-size:12px;color:#92400E">
+           Waarschuwing: ${escHtml(data.waarschuwing)}<br>
+           <span style="margin-top:4px;display:block">Tip: gebruik Nieuw aanmaken om zelf het werkboekje stap voor stap in te vullen.</span>
+         </div>`
+      : '';
+
     result.innerHTML = `
       <div class="alert alert-info" style="background:var(--accent-dim);border:1px solid rgba(45,90,61,0.2);color:var(--accent-text)">
-        ✓ <strong>${escHtml(data.titel)}</strong> is klaar!<br>
+        Klaar: <strong>${escHtml(data.titel)}</strong><br>
         <a href="/uploads/${escHtml(data.bestandsnaam)}" download="${escHtml(data.bestandsnaam)}"
            style="color:var(--accent);font-weight:600;display:inline-block;margin-top:6px">
-          ⬇ Werkboekje downloaden (.docx)
+          Werkboekje downloaden (.docx)
         </a>
-      </div>`;
+      </div>${waarschuwingHtml}`;
   } catch (e) {
-    result.innerHTML = `<span style="color:var(--red)">Fout: ${escHtml(e.message)}</span>`;
+    const msg = e.message || '';
+    const isQuota = msg.includes('429') || msg.includes('quota') || msg.includes('insufficient');
+    if (isQuota) {
+      result.innerHTML = `<div style="padding:12px;background:#FEF3C7;border:1px solid #D97706;border-radius:6px;font-size:13px;color:#92400E">
+        AI quota bereikt. Je OpenAI tegoed is op.<br>
+        <span style="font-size:12px;margin-top:6px;display:block">
+          Klik op Terug en kies Nieuw aanmaken om zonder AI een werkboekje te maken,
+          of verleng je tegoed via platform.openai.com.
+        </span>
+      </div>`;
+    } else {
+      result.innerHTML = `<span style="color:var(--red)">Fout: ${escHtml(msg)}</span>`;
+    }
   }
 }
 
