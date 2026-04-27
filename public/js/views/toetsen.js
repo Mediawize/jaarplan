@@ -798,6 +798,16 @@ async function openToetsUpload() {
 
     <div class="form-grid">
       <div class="form-field">
+        <label>Documentsoort *</label>
+        <select id="ts-docsoort">
+          <option value="Toets">Toets</option>
+          <option value="Tentamen">Tentamen</option>
+          <option value="Examen">Examen</option>
+          <option value="Proefwerk">Proefwerk</option>
+          <option value="Repetitie">Repetitie</option>
+        </select>
+      </div>
+      <div class="form-field">
         <label>Vak *</label>
         <input id="ts-vak" placeholder="bijv. Aardrijkskunde" value="">
       </div>
@@ -856,6 +866,7 @@ async function doGenererenToets() {
 
   const fd = new FormData();
   fd.append('bestand', bestandInput.files[0]);
+  fd.append('documentSoort', document.getElementById('ts-docsoort')?.value || 'Toets');
   fd.append('vak', vak);
   fd.append('niveau', niveau);
   fd.append('aantalVragen', aantalVragen);
@@ -889,7 +900,7 @@ async function doGenererenToets() {
 const _toetsWizard = {
   stap: 1,
   data: {
-    vak: '', niveauLabel: 'VMBO-GL en TL', jaar: new Date().getFullYear().toString(),
+    documentSoort: 'Toets', vak: '', niveauLabel: 'VMBO-GL en TL', jaar: new Date().getFullYear().toString(),
     tijdvak: 'tijdvak 1', datum: '', tijd: '13.30 - 15.30 uur',
     code: '', aantalPaginas: '',
     secties: [{
@@ -921,6 +932,16 @@ function renderToetsWizardStap() {
   if (s === 1) {
     inhoud = `
       <div class="form-grid">
+        <div class="form-field">
+          <label>Documentsoort *</label>
+          <select id="tw-docsoort">
+            <option value="Toets" ${(_toetsWizard.data.documentSoort||'Toets')==='Toets'?'selected':''}>Toets</option>
+            <option value="Tentamen" ${(_toetsWizard.data.documentSoort||'')==='Tentamen'?'selected':''}>Tentamen</option>
+            <option value="Examen" ${(_toetsWizard.data.documentSoort||'')==='Examen'?'selected':''}>Examen</option>
+            <option value="Proefwerk" ${(_toetsWizard.data.documentSoort||'')==='Proefwerk'?'selected':''}>Proefwerk</option>
+            <option value="Repetitie" ${(_toetsWizard.data.documentSoort||'')==='Repetitie'?'selected':''}>Repetitie</option>
+          </select>
+        </div>
         <div class="form-field">
           <label>Vak *</label>
           <input id="tw-vak" placeholder="bijv. Aardrijkskunde" value="${escHtml(_toetsWizard.data.vak)}">
@@ -1086,6 +1107,7 @@ function twValideer() {
 function twSlaOp() {
   const s = _toetsWizard.stap;
   if (s === 1) {
+    _toetsWizard.data.documentSoort = document.getElementById('tw-docsoort')?.value || 'Toets';
     _toetsWizard.data.vak = document.getElementById('tw-vak')?.value.trim() || '';
     _toetsWizard.data.niveauLabel = document.getElementById('tw-niveau')?.value.trim() || '';
     _toetsWizard.data.jaar = document.getElementById('tw-jaar')?.value.trim() || '';
