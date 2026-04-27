@@ -326,7 +326,11 @@ const _wbWizard = {
     ],
     machines: ['', ''],
     secties: [
-      { titel: '', benodigdheden: [''], stappen: [{ stap: '' }, { stap: '' }, { stap: '' }] }
+      { titel: '', benodigdheden: [''], stappen: [
+        { stap: '', type: 'foto', afbeeldingBase64: null, afbeeldingType: null },
+        { stap: '', type: 'foto', afbeeldingBase64: null, afbeeldingType: null },
+        { stap: '', type: 'foto', afbeeldingBase64: null, afbeeldingType: null }
+      ]}
     ]
   }
 };
@@ -467,11 +471,47 @@ function renderWizardStap() {
         </div>
         <div class="form-field">
           <label>Stappen</label>
+          <div style="font-size:11px;color:var(--ink-muted);margin-bottom:8px">Per stap: max 250 tekens tekst. Kies type: foto (afbeelding + tekst naast elkaar) of tekening (volledige pagina).</div>
           ${sectie.stappen.map((stap, pi) => `
-            <div style="display:flex;gap:6px;margin-bottom:6px;align-items:flex-start">
-              <span style="font-size:12px;color:var(--ink-muted);padding-top:10px;min-width:14px">${pi + 1}</span>
-              <textarea id="wz-sec-stap-${si}-${pi}" rows="2" placeholder="Beschrijf de stap concreet..." style="flex:1;padding:8px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:13px;resize:vertical">${escHtml(stap.stap)}</textarea>
-              <button onclick="wizardVerwijderStap(${si},${pi})" style="color:var(--red);border:none;background:none;cursor:pointer;font-size:16px;padding:4px;margin-top:6px">✕</button>
+            <div style="border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px;margin-bottom:8px;background:var(--surface)">
+              <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
+                <span style="font-weight:600;font-size:13px;color:var(--accent);min-width:20px">Stap ${pi + 1}</span>
+                <select id="wz-stap-type-${si}-${pi}" style="font-size:12px;padding:3px 6px;border:1px solid var(--border);border-radius:4px;background:var(--surface)" onchange="wizardWijzigStapType(${si},${pi},this.value)">
+                  <option value="foto" ${(stap.type||'foto')==='foto'?'selected':''}>📷 Foto + tekst</option>
+                  <option value="tekening" ${stap.type==='tekening'?'selected':''}>📐 Tekening (hele pagina)</option>
+                </select>
+                <button onclick="wizardVerwijderStap(${si},${pi})" style="color:var(--red);border:none;background:none;cursor:pointer;font-size:14px;margin-left:auto">✕</button>
+              </div>
+              ${(stap.type||'foto') === 'tekening' ? `
+                <div style="font-size:12px;color:var(--ink-muted);margin-bottom:6px">Deze stap krijgt een volledige pagina voor de tekening.</div>
+                <div style="display:flex;gap:6px;align-items:center">
+                  <label style="font-size:12px;font-weight:500;min-width:60px">Tekening:</label>
+                  <input type="file" id="wz-stap-afb-${si}-${pi}" accept="image/*" style="font-size:12px" onchange="wizardLaadAfbeelding(${si},${pi},this)">
+                  ${stap.afbeeldingBase64 ? `<span style="font-size:11px;color:var(--accent)">✓ Geladen</span>` : ''}
+                </div>
+                <div style="margin-top:6px">
+                  <label style="font-size:12px;font-weight:500">Beschrijving (optioneel)</label>
+                  <textarea id="wz-sec-stap-${si}-${pi}" maxlength="250" rows="2" placeholder="Optionele beschrijving..." style="width:100%;padding:6px 8px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:12px;resize:none;margin-top:3px">${escHtml(stap.stap||'')}</textarea>
+                </div>
+              ` : `
+                <div style="display:flex;gap:8px">
+                  <div style="flex:1">
+                    <label style="font-size:12px;font-weight:500">Stap beschrijving * <span style="color:var(--ink-muted);font-weight:400">(max 250 tekens)</span></label>
+                    <textarea id="wz-sec-stap-${si}-${pi}" maxlength="250" rows="3" placeholder="Beschrijf de stap concreet en kort..." style="width:100%;padding:6px 8px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:12px;resize:none;margin-top:3px" oninput="wizardTelTekens(this,'wz-tc-${si}-${pi}')">${escHtml(stap.stap||'')}</textarea>
+                    <div style="font-size:11px;color:var(--ink-muted);text-align:right"><span id="wz-tc-${si}-${pi}">${(stap.stap||'').length}</span>/250</div>
+                  </div>
+                  <div style="width:110px;flex-shrink:0">
+                    <label style="font-size:12px;font-weight:500">Foto</label>
+                    <div id="wz-afb-preview-${si}-${pi}" onclick="document.getElementById('wz-stap-afb-${si}-${pi}').click()" style="margin-top:3px;width:100%;height:80px;border:2px dashed var(--border);border-radius:6px;cursor:pointer;display:flex;align-items:center;justify-content:center;overflow:hidden;background:var(--surface-2)">
+                      ${stap.afbeeldingBase64
+                        ? `<img src="${stap.afbeeldingBase64}" style="width:100%;height:100%;object-fit:cover">`
+                        : `<span style="font-size:10px;color:var(--ink-muted);text-align:center">+ Foto<br>uploaden</span>`}
+                    </div>
+                    <input type="file" id="wz-stap-afb-${si}-${pi}" accept="image/*" style="display:none" onchange="wizardLaadAfbeelding(${si},${pi},this)">
+                    ${stap.afbeeldingBase64 ? `<button onclick="wizardVerwijderAfbeelding(${si},${pi})" style="font-size:10px;color:var(--red);border:none;background:none;cursor:pointer;width:100%;margin-top:3px">Verwijderen</button>` : ''}
+                  </div>
+                </div>
+              `}
             </div>
           `).join('')}
           <button class="btn btn-sm" onclick="wizardVoegStapToe(${si})">+ Stap toevoegen</button>
@@ -572,10 +612,13 @@ function wizardSlaStapOp() {
     _wbWizard.data.secties = _wbWizard.data.secties.map((sectie, si) => ({
       titel: document.getElementById(`wz-sec-titel-${si}`)?.value.trim() || '',
       benodigdheden: (document.getElementById(`wz-sec-ben-${si}`)?.value || '').split(',').map(b => b.trim()).filter(b => b),
-      stappen: sectie.stappen.map((_, pi) => ({
-        stap: document.getElementById(`wz-sec-stap-${si}-${pi}`)?.value.trim() || '',
-        heeftAfbeelding: true
-      })).filter(p => p.stap)
+      stappen: sectie.stappen.map((stap, pi) => ({
+        stap: (document.getElementById(`wz-sec-stap-${si}-${pi}`)?.value.trim() || '').slice(0, 250),
+        type: document.getElementById(`wz-stap-type-${si}-${pi}`)?.value || 'foto',
+        heeftAfbeelding: true,
+        afbeeldingBase64: stap.afbeeldingBase64 || null,
+        afbeeldingType: stap.afbeeldingType || null,
+      })).filter(p => p.type === 'tekening' || p.stap)
     }));
   }
 }
@@ -620,7 +663,7 @@ function wizardVerwijderMachine(i) {
 }
 function wizardVoegSectieToe() {
   wizardSlaStapOp();
-  _wbWizard.data.secties.push({ titel: '', benodigdheden: [''], stappen: [{ stap: '' }, { stap: '' }] });
+  _wbWizard.data.secties.push({ titel: '', benodigdheden: [''], stappen: [{ stap: '', type: 'foto', afbeeldingBase64: null, afbeeldingType: null }, { stap: '', type: 'foto', afbeeldingBase64: null, afbeeldingType: null }] });
   renderWizardStap();
 }
 function wizardVerwijderSectie(i) {
@@ -630,13 +673,48 @@ function wizardVerwijderSectie(i) {
 }
 function wizardVoegStapToe(si) {
   wizardSlaStapOp();
-  _wbWizard.data.secties[si].stappen.push({ stap: '' });
+  _wbWizard.data.secties[si].stappen.push({ stap: '', type: 'foto', afbeeldingBase64: null, afbeeldingType: null });
   renderWizardStap();
 }
 function wizardVerwijderStap(si, pi) {
   wizardSlaStapOp();
   _wbWizard.data.secties[si].stappen.splice(pi, 1);
   renderWizardStap();
+}
+
+function wizardTelTekens(ta, teller_id) {
+  const el = document.getElementById(teller_id);
+  if (el) el.textContent = ta.value.length;
+}
+
+function wizardWijzigStapType(si, pi, type) {
+  wizardSlaStapOp();
+  _wbWizard.data.secties[si].stappen[pi].type = type;
+  renderWizardStap();
+}
+
+function wizardVerwijderAfbeelding(si, pi) {
+  wizardSlaStapOp();
+  _wbWizard.data.secties[si].stappen[pi].afbeeldingBase64 = null;
+  _wbWizard.data.secties[si].stappen[pi].afbeeldingType = null;
+  renderWizardStap();
+}
+
+function wizardLaadAfbeelding(si, pi, input) {
+  const file = input.files[0];
+  if (!file) return;
+  if (file.size > 5 * 1024 * 1024) {
+    alert('Afbeelding is te groot (max 5 MB)');
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    wizardSlaStapOp();
+    _wbWizard.data.secties[si].stappen[pi].afbeeldingBase64 = e.target.result;
+    _wbWizard.data.secties[si].stappen[pi].afbeeldingType = file.type;
+    renderWizardStap();
+  };
+  reader.readAsDataURL(file);
 }
 
 // ── Wizard: genereer het docx via de server
