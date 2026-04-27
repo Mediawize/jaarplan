@@ -1347,6 +1347,86 @@ app.post('/api/genereer-werkboekje-handmatig', requireCanEdit, async (req, res) 
 });
 
 
+// ============================================================
+// LESBRIEVEN — CRUD + AI genereren
+// ============================================================
+app.get('/api/lesbrieven', requireAuth, (req, res) => {
+  const { profielId, weekIdx, actIdx } = req.query;
+  res.json(db.getLesbrieven(profielId || null, weekIdx != null ? parseInt(weekIdx) : null, actIdx != null ? parseInt(actIdx) : null));
+});
+
+app.get('/api/lesbrieven/:id', requireAuth, (req, res) => {
+  const lb = db.getLesbrief(req.params.id);
+  if (!lb) return res.status(404).json({ error: 'Niet gevonden' });
+  res.json(lb);
+});
+
+app.post('/api/lesbrieven', requireCanEdit, (req, res) => {
+  const lb = db.addLesbrief(req.body);
+  res.json(lb);
+});
+
+app.put('/api/lesbrieven/:id', requireCanEdit, (req, res) => {
+  db.updateLesbrief(req.params.id, req.body);
+  res.json({ success: true });
+});
+
+app.delete('/api/lesbrieven/:id', requireCanEdit, (req, res) => {
+  db.deleteLesbrief(req.params.id);
+  res.json({ success: true });
+});
+
+app.post('/api/lesbrieven/genereer', requireCanEdit, async (req, res) => {
+  const { activiteitNaam, activiteitType, activiteitUren, profielNaam, weekThema, syllabuscodes } = req.body;
+  try {
+    const data = await chatJson({
+      system: 'Je maakt docentenlesbrieven voor Nederlandse MBO/VMBO docenten. Geef altijd alleen geldig JSON terug.',
+      user: `Maak een lesbrief voor een docent op basis van deze activiteit:
+- Naam: ${activiteitNaam || 'onbekend'}
+- Type: ${activiteitType || 'les'}
+- Duur: ${activiteitUren || 1} uur
+- Thema: ${weekThema || ''}
+- Lesprofiel: ${profielNaam || ''}
+- Syllabuscodes: ${syllabuscodes || ''}
+
+Geef ALLEEN geldige JSON terug in dit formaat:
+{
+  "voorbereiding": "Beschrijf wat de docent moet voorbereiden (materialen, lokaal, apparatuur). Max 3-4 zinnen.",
+  "benodigdheden": ["Materiaal 1", "Materiaal 2"],
+  "lesverloop": [
+    { "fase": "Introductie", "minuten": 10, "beschrijving": "Wat doet de docent in deze fase." },
+    { "fase": "Instructie", "minuten": 20, "beschrijving": "Hoe legt de docent de stof uit." },
+    { "fase": "Verwerking", "minuten": 30, "beschrijving": "Wat doen leerlingen, wat doet de docent." },
+    { "fase": "Afsluiting", "minuten": 5, "beschrijving": "Hoe sluit de docent de les af." }
+  ],
+  "stappenplan": [
+    { "stap": 1, "instructie": "Concrete instructie voor de docent." }
+  ],
+  "aandachtspunten": ["Veiligheidsaandachtspunt of didactische tip.", "..."],
+  "differentiatie": {
+    "snel": "Tips voor leerlingen die snel klaar zijn.",
+    "langzaam": "Tips voor leerlingen die extra tijd nodig hebben."
+  },
+  "opmerkingen": ""
+}
+
+Regels:
+- Lesverloop: tijden moeten optellen tot ${Math.round((activiteitUren || 1) * 60)} minuten
+- Max 6 stappen in stappenplan
+- Max 4 aandachtspunten
+- Schrijf in aanspreekvorm voor de docent (bijv. "Zorg ervoor dat...", "Controleer of...")`,
+      maxTokens: 1500,
+      temperature: 0.3
+    });
+    res.json({ success: true, data });
+  } catch (e) {
+    const msg = e.message || '';
+    const isQuota = msg.includes('429') || msg.includes('quota') || msg.includes('insufficient');
+    res.status(500).json({ error: isQuota ? 'AI_QUOTA' : 'Fout bij genereren: ' + msg });
+  }
+});
+
+
 // ---- HEALTH ----
 app.get('/health', (req, res) => res.json({ status: 'ok', db: 'sqlite' }));
 
