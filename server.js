@@ -1228,11 +1228,58 @@ async function bouwWerkboekjeDocxVast({ schoolnaam, logoBestand, data }) {
   for (const [i, sectie] of (data.secties || []).entries()) {
     if (sectie.titel) k.push(new Paragraph({ spacing: { before: 360, after: 140 }, border: { bottom: { style: BorderStyle.SINGLE, size: 4, color: GROEN, space: 4 } }, children: [new TextRun({ text: 'Opdracht ' + (i+1) + '  \u2014  ' + sectie.titel, font: 'Arial', size: 28, bold: true, color: GROEN })] }));
     if (sectie.benodigdheden?.length) k.push(new Paragraph({ spacing: { before: 60, after: 100 }, children: [new TextRun({ text: 'Benodigdheden:  ', font: 'Arial', size: 22, bold: true }), new TextRun({ text: sectie.benodigdheden.join('   \u00b7   '), font: 'Arial', size: 22, color: TEKST })] }));
+
     for (const [j, s] of (sectie.stappen || []).entries()) {
-      k.push(new Table({ width: { size: 9580, type: WidthType.DXA }, columnWidths: [9580], rows: [new TableRow({ children: [new TableCell({ borders: { top: RAND_GEEN, bottom: RAND_GEEN, left: RAND_GEEN, right: RAND_GEEN }, shading: { fill: GROEN_DIM, type: ShadingType.CLEAR }, margins: { top: 80, bottom: 80, left: 180, right: 180 }, width: { size: 9580, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: 'Stap ' + (j+1) + '   ', font: 'Arial', size: 24, bold: true, color: GROEN }), new TextRun({ text: s.stap || '', font: 'Arial', size: 22, color: '1A1A1A' })] })] })] })] }));
-      k.push(new Paragraph({ spacing: { before: 0, after: 0 }, border: { top: { style: BorderStyle.SINGLE, size: 4, color: GRIJS, space: 4 }, left: { style: BorderStyle.SINGLE, size: 4, color: GRIJS, space: 4 }, right: { style: BorderStyle.SINGLE, size: 4, color: GRIJS, space: 4 } }, alignment: AlignmentType.CENTER, children: [new TextRun({ text: '[ Afbeelding invoegen ]', font: 'Arial', size: 18, color: 'B0ABA5', italics: true })] }));
-      for (let r = 0; r < 6; r++) k.push(new Paragraph({ spacing: { before: 0, after: 0 }, border: { left: { style: BorderStyle.SINGLE, size: 4, color: GRIJS, space: 4 }, right: { style: BorderStyle.SINGLE, size: 4, color: GRIJS, space: 4 }, ...(r === 5 ? { bottom: { style: BorderStyle.SINGLE, size: 4, color: GRIJS, space: 4 } } : {}) }, children: [new TextRun({ text: ' ', font: 'Arial', size: 22 })] }));
-      k.push(new Paragraph({ spacing: { before: 200, after: 0 }, children: [] }));
+      const stapTekst = (s.stap || '').slice(0, 250);
+      const isTekening = s.type === 'tekening';
+
+      if (isTekening) {
+        // TEKENING: eigen pagina
+        k.push(new Paragraph({ pageBreakBefore: true, spacing: { before: 0, after: 100 }, children: [new TextRun({ text: 'Stap ' + (j+1) + (stapTekst ? '   ' + stapTekst : ''), font: 'Arial', size: 24, bold: true, color: GROEN })] }));
+        if (s.afbeeldingBase64) {
+          try {
+            const b64data = s.afbeeldingBase64.replace(/^data:[^;]+;base64,/, '');
+            const imgBuf = Buffer.from(b64data, 'base64');
+            const ext = (s.afbeeldingType || 'image/png').replace('image/', '');
+            const typeMap = { jpeg: 'jpg', jpg: 'jpg', png: 'png', gif: 'gif', webp: 'png' };
+            const imgType = typeMap[ext] || 'png';
+            k.push(new Paragraph({ spacing: { before: 200, after: 0 }, alignment: AlignmentType.CENTER, children: [new ImageRun({ data: imgBuf, transformation: { width: 480, height: 600 }, type: imgType })] }));
+          } catch (_) {
+            k.push(new Paragraph({ spacing: { before: 200, after: 0 }, alignment: AlignmentType.CENTER, children: [new TextRun({ text: '[ Tekening invoegen ]', font: 'Arial', size: 20, color: 'B0ABA5', italics: true })] }));
+          }
+        } else {
+          // Lege tekenruimte (heel de rest van pagina)
+          k.push(new Paragraph({ spacing: { before: 100, after: 0 }, border: { top: RAND_DUN, left: RAND_DUN, right: RAND_DUN }, alignment: AlignmentType.CENTER, children: [new TextRun({ text: '[ Tekening invoegen ]', font: 'Arial', size: 20, color: 'B0ABA5', italics: true })] }));
+          for (let r = 0; r < 28; r++) k.push(new Paragraph({ spacing: { before: 0, after: 0 }, border: { left: RAND_DUN, right: RAND_DUN, ...(r === 27 ? { bottom: RAND_DUN } : {}) }, children: [new TextRun({ text: ' ', font: 'Arial', size: 22 })] }));
+        }
+
+      } else {
+        // NORMALE STAP: stap-balk + foto naast tekst (2 kolommen) of lege kader
+        // Stap header balk
+        k.push(new Table({ width: { size: 9580, type: WidthType.DXA }, columnWidths: [9580], rows: [new TableRow({ children: [new TableCell({ borders: { top: RAND_GEEN, bottom: RAND_GEEN, left: RAND_GEEN, right: RAND_GEEN }, shading: { fill: GROEN_DIM, type: ShadingType.CLEAR }, margins: { top: 80, bottom: 80, left: 180, right: 180 }, width: { size: 9580, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: 'Stap ' + (j+1) + '   ', font: 'Arial', size: 24, bold: true, color: GROEN }), new TextRun({ text: stapTekst, font: 'Arial', size: 22, color: '1A1A1A' })] })] })] })] }));
+
+        if (s.afbeeldingBase64) {
+          // Foto aanwezig: afbeelding op vaste hoogte (8 cm breed, 6 cm hoog)
+          try {
+            const b64data = s.afbeeldingBase64.replace(/^data:[^;]+;base64,/, '');
+            const imgBuf = Buffer.from(b64data, 'base64');
+            const ext = (s.afbeeldingType || 'image/png').replace('image/', '');
+            const typeMap = { jpeg: 'jpg', jpg: 'jpg', png: 'png', gif: 'gif', webp: 'png' };
+            const imgType = typeMap[ext] || 'png';
+            k.push(new Paragraph({ spacing: { before: 60, after: 160 }, alignment: AlignmentType.LEFT, children: [new ImageRun({ data: imgBuf, transformation: { width: 302, height: 226 }, type: imgType })] }));
+          } catch (_) {
+            // Afbeelding kon niet geladen worden — lege kader
+            k.push(new Paragraph({ spacing: { before: 60, after: 0 }, border: { top: RAND_DUN, left: RAND_DUN, right: RAND_DUN }, alignment: AlignmentType.CENTER, children: [new TextRun({ text: '[ Afbeelding invoegen ]', font: 'Arial', size: 18, color: 'B0ABA5', italics: true })] }));
+            for (let r = 0; r < 6; r++) k.push(new Paragraph({ spacing: { before: 0, after: 0 }, border: { left: RAND_DUN, right: RAND_DUN, ...(r === 5 ? { bottom: RAND_DUN } : {}) }, children: [new TextRun({ text: ' ', font: 'Arial', size: 22 })] }));
+            k.push(new Paragraph({ spacing: { before: 160, after: 0 }, children: [] }));
+          }
+        } else {
+          // Geen foto: lege kader om zelf in te plakken
+          k.push(new Paragraph({ spacing: { before: 60, after: 0 }, border: { top: RAND_DUN, left: RAND_DUN, right: RAND_DUN }, alignment: AlignmentType.CENTER, children: [new TextRun({ text: '[ Afbeelding invoegen ]', font: 'Arial', size: 18, color: 'B0ABA5', italics: true })] }));
+          for (let r = 0; r < 6; r++) k.push(new Paragraph({ spacing: { before: 0, after: 0 }, border: { left: RAND_DUN, right: RAND_DUN, ...(r === 5 ? { bottom: RAND_DUN } : {}) }, children: [new TextRun({ text: ' ', font: 'Arial', size: 22 })] }));
+          k.push(new Paragraph({ spacing: { before: 160, after: 0 }, children: [] }));
+        }
+      }
     }
   }
 
