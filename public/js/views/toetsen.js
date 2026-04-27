@@ -668,28 +668,64 @@ async function wizardGenereer() {
 }
 
 // ============================================================
-// TOETS GENERATOR MODAL
+// TOETS GENERATOR — keuze: upload (AI) of wizard (handmatig)
 // ============================================================
 async function openToetsGenerator() {
   const inst = await getSchoolInstellingen();
-  const heeftInstellingen = !!(inst.schoolnaam);
 
   openModal(`
-    <h2>📝 Toets genereren</h2>
-    <p class="modal-sub">Upload lesmateriaal en de AI maakt er een complete toets van — met vragen, antwoordruimtes en puntenverdeling.</p>
+    <h2>📝 Toets maken</h2>
+    <p class="modal-sub">Kies hoe je de toets wilt aanmaken.</p>
 
-    ${!heeftInstellingen && Auth.isAdmin() ? `
-      <div class="alert alert-info" style="margin-bottom:14px">
-        <strong>Tip:</strong> Stel eerst de schoolnaam en het logo in via
-        <a href="#" onclick="closeModalDirect();openInstellingenModal()" style="color:var(--accent)">⚙️ Instellingen</a>.
-      </div>` : ''}
+    ${inst.schoolnaam
+      ? `<div style="font-size:13px;color:var(--ink-muted);margin-bottom:16px">
+           🏫 <strong>${escHtml(inst.schoolnaam)}</strong>${inst.logoBestand ? ' · Logo ✓' : ''}
+         </div>`
+      : Auth.isAdmin() ? `<div class="alert alert-info" style="margin-bottom:14px">
+           <strong>Tip:</strong> Stel eerst de schoolnaam in via
+           <a href="#" onclick="closeModalDirect();openInstellingenModal()" style="color:var(--accent)">⚙️ Instellingen</a>.
+         </div>` : ''
+    }
 
-    ${inst.schoolnaam ? `<div style="font-size:13px;color:var(--ink-muted);margin-bottom:14px">🏫 <strong>${escHtml(inst.schoolnaam)}</strong>${inst.logoBestand ? ' · Logo ✓' : ` · <a href='#' onclick='closeModalDirect();openInstellingenModal()' style='color:var(--accent)'>Logo toevoegen</a>`}</div>` : ''}
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:8px">
+      <div onclick="openToetsUpload()"
+           style="border:1.5px solid var(--border-2);border-radius:var(--radius);padding:20px 16px;cursor:pointer;text-align:center;transition:border-color .15s"
+           onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border-2)'">
+        <div style="font-size:28px;margin-bottom:8px">📤</div>
+        <div style="font-weight:600;font-size:14px;margin-bottom:4px">Bestand uploaden</div>
+        <div style="font-size:12px;color:var(--ink-muted)">AI maakt een toets in examen-stijl op basis van je lesmateriaal</div>
+      </div>
+      <div onclick="openToetsWizard()"
+           style="border:1.5px solid var(--border-2);border-radius:var(--radius);padding:20px 16px;cursor:pointer;text-align:center;transition:border-color .15s"
+           onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border-2)'">
+        <div style="font-size:28px;margin-bottom:8px">✏️</div>
+        <div style="font-weight:600;font-size:14px;margin-bottom:4px">Nieuw aanmaken</div>
+        <div style="font-size:12px;color:var(--ink-muted)">Stap voor stap invullen — bronnen, open vragen en meerkeuze</div>
+      </div>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModalDirect()">Annuleren</button>
+    </div>
+  `);
+}
+
+// ── Upload → AI
+async function openToetsUpload() {
+  const inst = await getSchoolInstellingen();
+  openModal(`
+    <h2>📤 Toets uit bestand</h2>
+    <p class="modal-sub">Upload lesmateriaal en de AI maakt er een toets van in officiele examen-stijl — met bronnen, pijltjes en meerkeuzetabellen.</p>
+    ${inst.schoolnaam ? `<div style="font-size:13px;color:var(--ink-muted);margin-bottom:12px">🏫 <strong>${escHtml(inst.schoolnaam)}</strong>${inst.logoBestand ? ' · Logo ✓' : ''}</div>` : ''}
 
     <div class="form-grid">
       <div class="form-field">
-        <label>Naam toets (optioneel)</label>
-        <input id="ts-titel" type="text" placeholder="bijv. Proefwerk H3 – Elektra">
+        <label>Vak *</label>
+        <input id="ts-vak" placeholder="bijv. Aardrijkskunde" value="">
+      </div>
+      <div class="form-field">
+        <label>Niveau</label>
+        <input id="ts-niveau" placeholder="bijv. VMBO-GL en TL" value="VMBO-GL en TL">
       </div>
       <div class="form-field">
         <label>Aantal vragen</label>
@@ -703,7 +739,7 @@ async function openToetsGenerator() {
     </div>
 
     <div class="form-field">
-      <label>Bestand * (Word, PDF)</label>
+      <label>Bestand * (Word of PDF)</label>
       <div class="upload-zone" onclick="document.getElementById('ts-bestand').click()" id="ts-zone"
            style="padding:24px;text-align:center;border:2px dashed var(--border);border-radius:var(--radius-sm);cursor:pointer">
         <div style="font-size:24px;margin-bottom:6px">↑</div>
@@ -716,7 +752,7 @@ async function openToetsGenerator() {
     <div id="ts-result" style="margin-top:8px;font-size:13px"></div>
 
     <div class="modal-actions">
-      <button class="btn" onclick="closeModalDirect()">Annuleren</button>
+      <button class="btn" onclick="openToetsGenerator()">← Terug</button>
       ${Auth.isAdmin() ? `<button class="btn" onclick="closeModalDirect();openInstellingenModal()">⚙️ Instellingen</button>` : ''}
       <button class="btn btn-primary" onclick="doGenererenToets()">📝 Genereren</button>
     </div>
@@ -725,7 +761,8 @@ async function openToetsGenerator() {
 
 async function doGenererenToets() {
   const bestandInput = document.getElementById('ts-bestand');
-  const titel = document.getElementById('ts-titel').value.trim();
+  const vak = document.getElementById('ts-vak')?.value.trim() || '';
+  const niveau = document.getElementById('ts-niveau')?.value.trim() || 'VMBO-GL en TL';
   const aantalVragen = document.getElementById('ts-vragen').value;
   const result = document.getElementById('ts-result');
 
@@ -733,11 +770,16 @@ async function doGenererenToets() {
     result.innerHTML = `<span style="color:var(--red)">Kies eerst een bestand.</span>`;
     return;
   }
-  result.innerHTML = `<span style="color:var(--amber)">⏳ AI maakt toets... (15–30 sec)</span>`;
+  if (!vak) {
+    result.innerHTML = `<span style="color:var(--red)">Vul het vak in.</span>`;
+    return;
+  }
+  result.innerHTML = `<span style="color:var(--amber)">⏳ AI bouwt toets in examen-stijl... (20-40 sec)</span>`;
 
   const fd = new FormData();
   fd.append('bestand', bestandInput.files[0]);
-  if (titel) fd.append('titel', titel);
+  fd.append('vak', vak);
+  fd.append('niveau', niveau);
   fd.append('aantalVragen', aantalVragen);
 
   try {
@@ -746,10 +788,324 @@ async function doGenererenToets() {
     if (!data.success) throw new Error(data.error || 'Onbekende fout');
     result.innerHTML = `
       <div class="alert alert-info" style="background:var(--accent-dim);border:1px solid rgba(45,90,61,0.2);color:var(--accent-text)">
-        ✓ <strong>${escHtml(data.titel)}</strong> is klaar!<br>
+        Klaar: <strong>${escHtml(data.titel)}</strong><br>
         <a href="/uploads/${escHtml(data.bestandsnaam)}" download="${escHtml(data.bestandsnaam)}"
            style="color:var(--accent);font-weight:600;display:inline-block;margin-top:6px">
-          ⬇ Toets downloaden (.docx)
+          Toets downloaden (.docx)
+        </a>
+      </div>`;
+  } catch (e) {
+    const msg = e.message || '';
+    const isQuota = msg.includes('429') || msg.includes('quota') || msg.includes('AI_QUOTA') || msg.includes('insufficient');
+    result.innerHTML = isQuota
+      ? `<div style="padding:12px;background:#FEF3C7;border:1px solid #D97706;border-radius:6px;font-size:13px;color:#92400E">
+           AI quota bereikt. Klik op Terug en kies Nieuw aanmaken om zonder AI een toets te maken.
+         </div>`
+      : `<span style="color:var(--red)">Fout: ${escHtml(msg)}</span>`;
+  }
+}
+
+// ============================================================
+// TOETS WIZARD — handmatig aanmaken (5 stappen)
+// ============================================================
+const _toetsWizard = {
+  stap: 1,
+  data: {
+    vak: '', niveauLabel: 'VMBO-GL en TL', jaar: new Date().getFullYear().toString(),
+    tijdvak: 'tijdvak 1', datum: '', tijd: '13.30 - 15.30 uur',
+    code: '', aantalPaginas: '',
+    secties: [{
+      titel: '',
+      bronnen: [{ nummer: 1, ondertitel: '', tekst: '' }],
+      vragen: [
+        { type: 'open', punten: 1, context: 'Lees bron 1.', vraag: '', antwoordRegels: 3 },
+        { type: 'meerkeuze', punten: 1, context: 'Bekijk bron 1.', vraag: '', opties: [
+          { letter: 'A', tekst: '' }, { letter: 'B', tekst: '' },
+          { letter: 'C', tekst: '' }, { letter: 'D', tekst: '' }
+        ]}
+      ]
+    }]
+  }
+};
+
+function openToetsWizard() {
+  _toetsWizard.stap = 1;
+  renderToetsWizardStap();
+}
+
+function renderToetsWizardStap() {
+  const s = _toetsWizard.stap;
+  const totaal = 4;
+  const stapTitels = ['Algemeen', 'Bronnen', 'Vragen', 'Controleren'];
+
+  let inhoud = '';
+
+  if (s === 1) {
+    inhoud = `
+      <div class="form-grid">
+        <div class="form-field">
+          <label>Vak *</label>
+          <input id="tw-vak" placeholder="bijv. Aardrijkskunde" value="${escHtml(_toetsWizard.data.vak)}">
+        </div>
+        <div class="form-field">
+          <label>Niveau</label>
+          <input id="tw-niveau" placeholder="bijv. VMBO-GL en TL" value="${escHtml(_toetsWizard.data.niveauLabel)}">
+        </div>
+        <div class="form-field">
+          <label>Jaar</label>
+          <input id="tw-jaar" placeholder="${new Date().getFullYear()}" value="${escHtml(_toetsWizard.data.jaar)}">
+        </div>
+        <div class="form-field">
+          <label>Datum (bijv. vrijdag 16 mei)</label>
+          <input id="tw-datum" placeholder="vrijdag 16 mei" value="${escHtml(_toetsWizard.data.datum)}">
+        </div>
+        <div class="form-field">
+          <label>Tijdvak</label>
+          <input id="tw-tijdvak" value="${escHtml(_toetsWizard.data.tijdvak)}">
+        </div>
+        <div class="form-field">
+          <label>Tijd (bijv. 13.30 - 15.30 uur)</label>
+          <input id="tw-tijd" value="${escHtml(_toetsWizard.data.tijd)}">
+        </div>
+        <div class="form-field">
+          <label>Code (optioneel)</label>
+          <input id="tw-code" placeholder="bijv. GT-0000-a-25-1" value="${escHtml(_toetsWizard.data.code)}">
+        </div>
+      </div>`;
+  }
+
+  else if (s === 2) {
+    inhoud = _toetsWizard.data.secties.map((sectie, si) => `
+      <div style="border:1px solid var(--border);border-radius:var(--radius-sm);padding:14px;margin-bottom:12px">
+        <div style="font-weight:600;font-size:13px;color:var(--accent);margin-bottom:10px">Sectie ${si + 1}</div>
+        <div class="form-field">
+          <label>Thema-titel (bijv. Weer en klimaat)</label>
+          <input id="tw-sec-titel-${si}" value="${escHtml(sectie.titel)}" placeholder="Bijv. Bevolking en ruimte">
+        </div>
+        ${sectie.bronnen.map((bron, bi) => `
+          <div style="background:var(--surface-2);border-radius:var(--radius-sm);padding:10px;margin-bottom:8px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+              <span style="font-weight:600;font-size:12px">bron ${bron.nummer}</span>
+              ${sectie.bronnen.length > 1 ? `<button onclick="twVerwijderBron(${si},${bi})" style="color:var(--red);border:none;background:none;cursor:pointer;font-size:12px">Verwijderen</button>` : ''}
+            </div>
+            <div class="form-field" style="margin-bottom:6px">
+              <label style="font-size:12px">Ondertitel</label>
+              <input id="tw-bron-ot-${si}-${bi}" value="${escHtml(bron.ondertitel)}" placeholder="bijv. Weerbericht voor Nederland">
+            </div>
+            <div class="form-field">
+              <label style="font-size:12px">Brontekst (gebruik Enter voor nieuwe regels)</label>
+              <textarea id="tw-bron-tekst-${si}-${bi}" rows="4" style="width:100%;padding:8px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:12px;resize:vertical">${escHtml(bron.tekst)}</textarea>
+            </div>
+          </div>
+        `).join('')}
+        <button class="btn btn-sm" onclick="twVoegBronToe(${si})">+ Bron toevoegen</button>
+      </div>
+    `).join('') + `
+      ${_toetsWizard.data.secties.length < 4 ? `<button class="btn btn-sm" onclick="twVoegSectieToe()">+ Sectie/thema toevoegen</button>` : ''}
+    `;
+  }
+
+  else if (s === 3) {
+    inhoud = _toetsWizard.data.secties.map((sectie, si) => `
+      <div style="margin-bottom:16px">
+        <div style="font-weight:600;font-size:13px;margin-bottom:8px;color:var(--accent)">
+          ${escHtml(sectie.titel || `Sectie ${si + 1}`)}
+        </div>
+        ${sectie.vragen.map((v, vi) => `
+          <div style="border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px;margin-bottom:8px">
+            <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap">
+              <select id="tw-v-type-${si}-${vi}" style="font-size:12px;padding:4px 8px" onchange="twWijzigVraagType(${si},${vi},this.value)">
+                <option value="open" ${v.type==='open'?'selected':''}>Open vraag</option>
+                <option value="meerkeuze" ${v.type==='meerkeuze'?'selected':''}>Meerkeuze</option>
+              </select>
+              <select id="tw-v-punten-${si}-${vi}" style="font-size:12px;padding:4px 8px">
+                <option value="1" ${(v.punten||1)===1?'selected':''}>1 punt</option>
+                <option value="2" ${(v.punten||1)===2?'selected':''}>2 punten</option>
+              </select>
+              <input id="tw-v-ctx-${si}-${vi}" value="${escHtml(v.context||'')}" placeholder="bijv. Lees bron 1." style="flex:1;min-width:120px;font-size:12px;padding:4px 8px;border:1px solid var(--border);border-radius:4px">
+              ${sectie.vragen.length > 1 ? `<button onclick="twVerwijderVraag(${si},${vi})" style="color:var(--red);border:none;background:none;cursor:pointer;font-size:14px">✕</button>` : ''}
+            </div>
+            <textarea id="tw-v-vraag-${si}-${vi}" rows="2" placeholder="${v.type==='meerkeuze'?'Vraagstelling (bijv. Welke uitspraak is juist?)':'Vraagstelling. Gebruik nieuwe regel voor Doe het zo: instructies.
+Doe het zo:
+− Kies eerst...'}" style="width:100%;padding:8px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:12px;resize:vertical;margin-bottom:6px">${escHtml(v.vraag||'')}</textarea>
+            ${v.type === 'meerkeuze' ? `
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+                ${(v.opties||[{letter:'A',tekst:''},{letter:'B',tekst:''},{letter:'C',tekst:''},{letter:'D',tekst:''}]).map((opt,oi) => `
+                  <div style="display:flex;gap:4px;align-items:center">
+                    <span style="font-weight:700;font-size:12px;min-width:16px">${opt.letter}</span>
+                    <input id="tw-v-opt-${si}-${vi}-${oi}" value="${escHtml(opt.tekst||'')}" placeholder="Optie ${opt.letter}" style="flex:1;font-size:12px;padding:4px 6px;border:1px solid var(--border);border-radius:4px">
+                  </div>
+                `).join('')}
+              </div>
+            ` : `
+              <div style="display:flex;align-items:center;gap:8px">
+                <label style="font-size:12px;color:var(--ink-muted)">Antwoordregels:</label>
+                <select id="tw-v-regels-${si}-${vi}" style="font-size:12px;padding:3px 6px">
+                  ${[2,3,4,5,6].map(n => `<option value="${n}" ${(v.antwoordRegels||3)===n?'selected':''}>${n}</option>`).join('')}
+                </select>
+              </div>
+            `}
+          </div>
+        `).join('')}
+        <button class="btn btn-sm" onclick="twVoegVraagToe(${si},'open')" style="margin-right:6px">+ Open vraag</button>
+        <button class="btn btn-sm" onclick="twVoegVraagToe(${si},'meerkeuze')">+ Meerkeuze</button>
+      </div>
+    `).join('');
+  }
+
+  else if (s === 4) {
+    const aantalVragen = _toetsWizard.data.secties.reduce((t,s) => t + (s.vragen||[]).length, 0);
+    const maxPunten = _toetsWizard.data.secties.reduce((t,s) => t + (s.vragen||[]).reduce((tt,v) => tt + (parseInt(v.punten)||1), 0), 0);
+    inhoud = `
+      <div style="background:var(--surface-2);border-radius:var(--radius-sm);padding:14px;margin-bottom:12px">
+        <div style="font-size:13px;font-weight:600;margin-bottom:8px">Overzicht</div>
+        <div style="font-size:13px;display:grid;grid-template-columns:1fr 1fr;gap:6px">
+          <div><span style="color:var(--ink-muted)">Vak:</span> ${escHtml(_toetsWizard.data.vak)}</div>
+          <div><span style="color:var(--ink-muted)">Niveau:</span> ${escHtml(_toetsWizard.data.niveauLabel)}</div>
+          <div><span style="color:var(--ink-muted)">Datum:</span> ${escHtml(_toetsWizard.data.datum||'—')}</div>
+          <div><span style="color:var(--ink-muted)">Secties:</span> ${_toetsWizard.data.secties.length}</div>
+          <div><span style="color:var(--ink-muted)">Vragen:</span> ${aantalVragen}</div>
+          <div><span style="color:var(--ink-muted)">Max punten:</span> ${maxPunten}</div>
+        </div>
+      </div>
+      <div style="font-size:13px;color:var(--ink-muted)">Klik op Toets aanmaken om de toets te genereren als .docx bestand in officiële examen-stijl.</div>
+    `;
+  }
+
+  openModal(`
+    <h2>✏️ Nieuwe toets — stap ${s} van ${totaal}: ${stapTitels[s-1]}</h2>
+    <div style="margin-bottom:16px">
+      <div style="display:flex;gap:4px;margin-bottom:6px">
+        ${stapTitels.map((_,i) => `<div style="flex:1;height:4px;border-radius:2px;background:${i<s?'var(--accent)':'var(--border)'}"></div>`).join('')}
+      </div>
+      <div style="font-size:12px;color:var(--ink-muted)">Stap ${s} van ${totaal}</div>
+    </div>
+    ${inhoud}
+    <div id="tw-result" style="margin-top:8px;font-size:13px"></div>
+    <div class="modal-actions">
+      ${s === 1 ? `<button class="btn" onclick="openToetsGenerator()">← Terug</button>`
+                : `<button class="btn" onclick="twVorigeStap()">← Vorige</button>`}
+      ${s < totaal
+        ? `<button class="btn btn-primary" onclick="twVolgendeStap()">Volgende →</button>`
+        : `<button class="btn btn-primary" onclick="twGenereer()">📝 Toets aanmaken</button>`}
+    </div>
+  `);
+}
+
+function twVorigeStap() { twSlaOp(); _toetsWizard.stap--; renderToetsWizardStap(); }
+function twVolgendeStap() {
+  twSlaOp();
+  const fout = twValideer();
+  if (fout) { document.getElementById('tw-result').innerHTML = `<span style="color:var(--red)">${escHtml(fout)}</span>`; return; }
+  _toetsWizard.stap++;
+  renderToetsWizardStap();
+}
+
+function twValideer() {
+  const s = _toetsWizard.stap;
+  if (s === 1 && !_toetsWizard.data.vak) return 'Vak is verplicht.';
+  return null;
+}
+
+function twSlaOp() {
+  const s = _toetsWizard.stap;
+  if (s === 1) {
+    _toetsWizard.data.vak = document.getElementById('tw-vak')?.value.trim() || '';
+    _toetsWizard.data.niveauLabel = document.getElementById('tw-niveau')?.value.trim() || '';
+    _toetsWizard.data.jaar = document.getElementById('tw-jaar')?.value.trim() || '';
+    _toetsWizard.data.datum = document.getElementById('tw-datum')?.value.trim() || '';
+    _toetsWizard.data.tijdvak = document.getElementById('tw-tijdvak')?.value.trim() || '';
+    _toetsWizard.data.tijd = document.getElementById('tw-tijd')?.value.trim() || '';
+    _toetsWizard.data.code = document.getElementById('tw-code')?.value.trim() || '';
+  } else if (s === 2) {
+    _toetsWizard.data.secties.forEach((sectie, si) => {
+      sectie.titel = document.getElementById(`tw-sec-titel-${si}`)?.value.trim() || '';
+      sectie.bronnen.forEach((bron, bi) => {
+        bron.ondertitel = document.getElementById(`tw-bron-ot-${si}-${bi}`)?.value.trim() || '';
+        bron.tekst = document.getElementById(`tw-bron-tekst-${si}-${bi}`)?.value.trim() || '';
+      });
+    });
+  } else if (s === 3) {
+    _toetsWizard.data.secties.forEach((sectie, si) => {
+      sectie.vragen.forEach((v, vi) => {
+        v.context = document.getElementById(`tw-v-ctx-${si}-${vi}`)?.value.trim() || '';
+        v.vraag = document.getElementById(`tw-v-vraag-${si}-${vi}`)?.value.trim() || '';
+        v.punten = parseInt(document.getElementById(`tw-v-punten-${si}-${vi}`)?.value) || 1;
+        if (v.type === 'meerkeuze') {
+          v.opties = (v.opties||[]).map((opt, oi) => ({
+            letter: opt.letter,
+            tekst: document.getElementById(`tw-v-opt-${si}-${vi}-${oi}`)?.value.trim() || ''
+          }));
+        } else {
+          v.antwoordRegels = parseInt(document.getElementById(`tw-v-regels-${si}-${vi}`)?.value) || 3;
+        }
+      });
+    });
+  }
+}
+
+function twWijzigVraagType(si, vi, type) {
+  twSlaOp();
+  const v = _toetsWizard.data.secties[si].vragen[vi];
+  v.type = type;
+  if (type === 'meerkeuze' && !v.opties) {
+    v.opties = [{letter:'A',tekst:''},{letter:'B',tekst:''},{letter:'C',tekst:''},{letter:'D',tekst:''}];
+  }
+  renderToetsWizardStap();
+}
+
+function twVoegBronToe(si) {
+  twSlaOp();
+  const sectie = _toetsWizard.data.secties[si];
+  sectie.bronnen.push({ nummer: sectie.bronnen.length + 1, ondertitel: '', tekst: '' });
+  renderToetsWizardStap();
+}
+function twVerwijderBron(si, bi) {
+  twSlaOp();
+  _toetsWizard.data.secties[si].bronnen.splice(bi, 1);
+  _toetsWizard.data.secties[si].bronnen.forEach((b, i) => { b.nummer = i + 1; });
+  renderToetsWizardStap();
+}
+function twVoegSectieToe() {
+  twSlaOp();
+  const n = _toetsWizard.data.secties.reduce((t, s) => t + s.bronnen.length, 0);
+  _toetsWizard.data.secties.push({
+    titel: '', bronnen: [{ nummer: n + 1, ondertitel: '', tekst: '' }],
+    vragen: [{ type: 'open', punten: 1, context: '', vraag: '', antwoordRegels: 3 }]
+  });
+  renderToetsWizardStap();
+}
+function twVoegVraagToe(si, type) {
+  twSlaOp();
+  const v = { type, punten: 1, context: '', vraag: '', antwoordRegels: 3 };
+  if (type === 'meerkeuze') v.opties = [{letter:'A',tekst:''},{letter:'B',tekst:''},{letter:'C',tekst:''},{letter:'D',tekst:''}];
+  _toetsWizard.data.secties[si].vragen.push(v);
+  renderToetsWizardStap();
+}
+function twVerwijderVraag(si, vi) {
+  twSlaOp();
+  _toetsWizard.data.secties[si].vragen.splice(vi, 1);
+  renderToetsWizardStap();
+}
+
+async function twGenereer() {
+  twSlaOp();
+  const result = document.getElementById('tw-result');
+  result.innerHTML = `<span style="color:var(--amber)">⏳ Toets aanmaken...</span>`;
+  try {
+    const res = await fetch('/api/genereer-toets-handmatig', {
+      method: 'POST', credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(_toetsWizard.data)
+    });
+    const data = await res.json();
+    if (!data.success) throw new Error(data.error || 'Onbekende fout');
+    result.innerHTML = `
+      <div class="alert alert-info" style="background:var(--accent-dim);border:1px solid rgba(45,90,61,0.2);color:var(--accent-text)">
+        Klaar: <strong>${escHtml(data.titel)}</strong><br>
+        <a href="/uploads/${escHtml(data.bestandsnaam)}" download="${escHtml(data.bestandsnaam)}"
+           style="color:var(--accent);font-weight:600;display:inline-block;margin-top:6px">
+          Toets downloaden (.docx)
         </a>
       </div>`;
   } catch (e) {
