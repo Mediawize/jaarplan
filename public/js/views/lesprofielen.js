@@ -388,6 +388,18 @@ function renderActiviteitenHTML(p, weekIdx) {
   const w = p.weken[weekIdx];
   if (!w?.activiteiten?.length) return '';
   const kleuren = { 'Theorie': 'badge-blue', 'Praktijk': 'badge-green', 'Toets': 'badge-amber', 'Presentatie': 'badge-gray', 'Overig': 'badge-gray' };
+  // Sla activiteitsinfo op in globale map voor veilig gebruik in onclick
+  if (!window._lpActInfo) window._lpActInfo = {};
+  (w.activiteiten || []).forEach((a, ai) => {
+    window._lpActInfo[`${p.id}_${weekIdx}_${ai}`] = {
+      type: a.type || '',
+      omschrijving: a.omschrijving || '',
+      uren: a.uren || 1,
+      syllabus: a.syllabus || '',
+      profielNaam: p.naam || '',
+      weekThema: (w.thema || ''),
+    };
+  });
   return `<table class="data-table">
     <thead><tr><th>Type</th><th>Uren</th><th>Omschrijving</th><th>Syllabus</th><th>Link / bestand</th><th style="width:140px"></th></tr></thead>
     <tbody>
@@ -404,7 +416,7 @@ function renderActiviteitenHTML(p, weekIdx) {
         <td>
           <div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap">
             <button class="btn btn-sm" style="font-size:11px;padding:3px 7px;white-space:nowrap"
-              onclick="openLesbrief('${p.id}',${weekIdx},${ai},{type:'${escHtml(a.type)}',omschrijving:${JSON.stringify(a.omschrijving||'')},uren:${a.uren||1},syllabus:${JSON.stringify(a.syllabus||'')},profielNaam:${JSON.stringify(p.naam||'')},weekThema:${JSON.stringify((w.thema||''))}})">
+              onclick="openLesbrief('${p.id}',${weekIdx},${ai},_lpActInfo['${p.id}_${weekIdx}_${ai}'])">
               📋 Lesbrief
             </button>
             <button class="icon-btn" onclick="bewerkActiviteit('${p.id}',${weekIdx},${ai})" title="Bewerken">

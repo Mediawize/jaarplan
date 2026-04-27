@@ -114,7 +114,12 @@ function renderLesbriefModal() {
 
       <div id="lb-opslaan-status" style="font-size:13px;margin-top:8px;text-align:right"></div>
     </div>
-  `, { breed: true });
+  `);
+  // Vergroot modal box voor tabs (werkt ook zonder opts parameter in app.js)
+  setTimeout(() => {
+    const box = document.querySelector('#modal-overlay .modal-box');
+    if (box) box.style.maxWidth = '860px';
+  }, 0);
 }
 
 // ============================================================
