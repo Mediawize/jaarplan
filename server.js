@@ -1284,6 +1284,36 @@ ${String(inhoud).slice(0, 20000)}`,
   }
 });
 
+// ============================================================
+// WERKBOEKJE GENERATOR — handmatig (wizard, geen AI nodig)
+// ============================================================
+app.post('/api/genereer-werkboekje-handmatig', requireCanEdit, async (req, res) => {
+  try {
+    const schoolnaam  = db.getInstelling('schoolnaam')  || '';
+    const logoBestand = db.getInstelling('logoBestand') || null;
+    const data = req.body;
+
+    if (!data || !data.titel) {
+      return res.status(400).json({ error: 'Titel is verplicht' });
+    }
+
+    // Zorg dat secties en stappen leeg-veilig zijn
+    data.secties = (data.secties || []).map(s => ({
+      ...s,
+      stappen: (s.stappen || []).filter(p => p.stap && p.stap.trim())
+    })).filter(s => s.titel || s.stappen.length);
+
+    const docxBuffer = await bouwWerkboekjeDocxVast({ schoolnaam, logoBestand, data });
+
+    const bestandsnaam = `werkboekje_${Date.now()}.docx`;
+    fs.writeFileSync(path.join(uploadDir, bestandsnaam), docxBuffer);
+    res.json({ success: true, bestandsnaam, titel: data.titel || 'Werkboekje' });
+  } catch (e) {
+    console.error('Werkboekje handmatig fout:', e);
+    res.status(500).json({ error: 'Fout bij aanmaken: ' + e.message });
+  }
+});
+
 // ---- HEALTH ----
 app.get('/health', (req, res) => res.json({ status: 'ok', db: 'sqlite' }));
 
