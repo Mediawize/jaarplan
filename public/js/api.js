@@ -120,6 +120,19 @@ const API = {
   },
   async genereerLesprofielUitSyllabus(data) { return this._fetch('/api/genereer-lesprofiel-uit-syllabus', { method: 'POST', body: data }); },
 
+  // LESBRIEVEN
+  async getLesbrieven(profielId, weekIdx, actIdx) {
+    let url = `/api/lesbrieven?profielId=${profielId}`;
+    if (weekIdx != null) url += `&weekIdx=${weekIdx}`;
+    if (actIdx != null) url += `&actIdx=${actIdx}`;
+    return this._fetch(url);
+  },
+  async getLesbrief(id) { return this._fetch(`/api/lesbrieven/${id}`); },
+  async addLesbrief(data) { return this._fetch('/api/lesbrieven', { method: 'POST', body: data }); },
+  async updateLesbrief(id, data) { return this._fetch(`/api/lesbrieven/${id}`, { method: 'PUT', body: data }); },
+  async deleteLesbrief(id) { return this._fetch(`/api/lesbrieven/${id}`, { method: 'DELETE' }); },
+  async genereerLesbrief(data) { return this._fetch('/api/lesbrieven/genereer', { method: 'POST', body: data }); },
+
   // TAKEN
   async getTaken() { return this._fetch('/api/taken'); },
   async addTaak(data) { return this._fetch('/api/taken', { method: 'POST', body: data }); },
