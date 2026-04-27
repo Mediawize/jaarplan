@@ -1161,7 +1161,7 @@ async function bouwWerkboekjeDocxVast({ schoolnaam, logoBestand, data }) {
 }
 
 // ============================================================
-// WERKBOEKJE GENERATOR
+// WERKBOEKJE GENERATOR — met AI-quota fallback
 // ============================================================
 app.post('/api/genereer-werkboekje', requireCanEdit, upload.single('bestand'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'Geen bestand geüpload' });
@@ -1170,10 +1170,15 @@ app.post('/api/genereer-werkboekje', requireCanEdit, upload.single('bestand'), a
     const logoBestand = db.getInstelling('logoBestand') || null;
     const { titel } = req.body;
     const inhoud = await extractTekstUitBestand(req.file.path, req.file.originalname);
+    if (req.file?.path && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
 
-    const data = await chatJson({
-      system: 'Je maakt praktijk werkboekjes voor Nederlandse leerlingen in het MBO/VMBO. Geef altijd alleen geldig JSON terug.',
-      user: `Vul onderstaand JSON-template in op basis van de tekst. Geef ALLEEN geldige JSON terug, geen uitleg.
+    let data;
+    let aiGebruikt = true;
+
+    try {
+      data = await chatJson({
+        system: 'Je maakt praktijk werkboekjes voor Nederlandse leerlingen in het MBO/VMBO. Geef altijd alleen geldig JSON terug.',
+        user: `Vul onderstaand JSON-template in op basis van de tekst. Geef ALLEEN geldige JSON terug, geen uitleg.
 
 Template:
 {
@@ -1208,30 +1213,68 @@ Template:
 Regels:
 - Maximaal 1 sectie per hoofdfase (bijv. voorbereiding, uitvoering, afwerking)
 - Elke sectie heeft 4-8 stappen
-- Stappen zijn kort, concreet en actiegericht (bijv. "Zaag de zijkanten op maat met de invalzaag.")
+- Stappen zijn kort, concreet en actiegericht
 - Maximaal 4 leerdoelen
-- materiaalstaat: maximaal 12 rijen, haal materialen uit de tekst; laat lengte/breedte leeg als onbekend
-- machines: haal gebruikte machines en gereedschappen uit de tekst
+- materiaalstaat: maximaal 12 rijen uit de tekst
+- machines: haal machines en gereedschappen uit de tekst
 - veiligheidsregels: maximaal 6 regels uit de tekst
-- heeftAfbeelding: true bij stappen waarbij een foto of tekening nuttig is
 
 Tekst:
 ${String(inhoud).slice(0, 20000)}`,
-      maxTokens: 2500,
-      temperature: 0.2
-    });
+        maxTokens: 2500,
+        temperature: 0.2
+      });
+    } catch (aiErr) {
+      const msg = aiErr.message || '';
+      const isQuota  = msg.includes('429') || msg.includes('insufficient_quota') || msg.includes('quota');
+      const isNoKey  = msg.includes('OPENAI_API_KEY');
+      const isServer = msg.includes('500') || msg.includes('503');
+
+      if (isQuota || isNoKey || isServer) {
+        // Fallback: maak een leeg werkboekje met basisstructuur uit de tekst
+        aiGebruikt = false;
+        const eersteRegel = String(inhoud).split('\n').find(r => r.trim().length > 4) || '';
+        data = {
+          titel: titel || ('Werkboekje: ' + eersteRegel.slice(0, 40).trim()),
+          vak: '',
+          profieldeel: '',
+          opdrachtnummer: '1',
+          duur: '',
+          leerdoelen: [],
+          introductie: '',
+          veiligheidsregels: [
+            'Je werkpak en werkschoenen aantrekken.',
+            'Loshangende kleding is verboden.',
+            'Losse haren in een staart of knot.',
+            'Gehoorbescherming is verplicht bij machines.'
+          ],
+          materiaalstaat: [],
+          machines: [],
+          secties: [{
+            titel: 'Stappenplan',
+            benodigdheden: [],
+            stappen: [{ stap: 'Stap 1 — vul hier de stappen in.', heeftAfbeelding: true }]
+          }]
+        };
+      } else {
+        throw aiErr;
+      }
+    }
 
     if (titel) data.titel = titel;
 
     const docxBuffer = await bouwWerkboekjeDocxVast({ schoolnaam, logoBestand, data });
-
-    if (req.file?.path && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
-
     const bestandsnaam = `werkboekje_${Date.now()}.docx`;
     fs.writeFileSync(path.join(uploadDir, bestandsnaam), docxBuffer);
-    res.json({ success: true, bestandsnaam, titel: data.titel || titel || 'Werkboekje' });
+
+    res.json({
+      success: true,
+      bestandsnaam,
+      titel: data.titel || titel || 'Werkboekje',
+      waarschuwing: aiGebruikt ? null : 'AI niet beschikbaar (quota bereikt). Er is een leeg werkboekje aangemaakt — vul de stappen zelf in.'
+    });
   } catch (e) {
-    if (req.file?.path && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
+    if (req.file?.path && fs.existsSync(req.file.path)) { try { fs.unlinkSync(req.file.path); } catch (_) {} }
     console.error('Werkboekje generator fout:', e);
     res.status(500).json({ error: 'Fout bij genereren: ' + e.message });
   }
