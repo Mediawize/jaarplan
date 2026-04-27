@@ -659,146 +659,22 @@ async function extractTekstUitBestand(filePath, originalname) {
 }
 
 // ============================================================
-// HELPER: bouw docx buffer (voor toetsen)
+// HELPER: bouw docx in examen-stijl (bronnen, pijltjes, meerkeuze)
+// Gebaseerd op VMBO CSE examenopmaak
 // ============================================================
-async function bouwDocxBuffer({ schoolnaam, logoBestand, titel, secties, documentType }) {
-  const {
-    Document, Packer, Paragraph, TextRun, ImageRun,
-    Header, Footer, AlignmentType, HeadingLevel, BorderStyle,
-    PageNumber, TabStopType, TabStopPosition
-  } = require('docx');
-
-  let logoImageRun = null;
-  if (logoBestand) {
-    const logoPad = path.join(uploadDir, logoBestand);
-    if (fs.existsSync(logoPad)) {
-      const logoBuffer = fs.readFileSync(logoPad);
-      const ext = path.extname(logoBestand).toLowerCase().replace('.', '');
-      const mimeMap = { png: 'png', jpg: 'jpg', jpeg: 'jpg', svg: 'svg' };
-      try {
-        logoImageRun = new ImageRun({
-          data: logoBuffer,
-          transformation: { width: 80, height: 40 },
-          type: mimeMap[ext] || 'png'
-        });
-      } catch (_) { logoImageRun = null; }
-    }
-  }
-
-  const headerKinderen = [];
-  if (logoImageRun) {
-    headerKinderen.push(new Paragraph({
-      tabStops: [{ type: TabStopType.RIGHT, position: TabStopPosition.MAX }],
-      border: { bottom: { style: BorderStyle.SINGLE, size: 4, color: '2D5A3D', space: 6 } },
-      children: [
-        logoImageRun,
-        new TextRun({ text: '\t' }),
-        new TextRun({ text: schoolnaam || 'School', font: 'Arial', size: 18, color: '6B6560' })
-      ]
-    }));
-  } else {
-    headerKinderen.push(new Paragraph({
-      tabStops: [{ type: TabStopType.RIGHT, position: TabStopPosition.MAX }],
-      border: { bottom: { style: BorderStyle.SINGLE, size: 4, color: '2D5A3D', space: 6 } },
-      children: [
-        new TextRun({ text: schoolnaam || 'School', font: 'Arial', size: 20, bold: true, color: '2D5A3D' }),
-        new TextRun({ text: '\t' }),
-        new TextRun({ text: documentType === 'werkboekje' ? 'Werkboekje' : 'Toets', font: 'Arial', size: 18, color: '6B6560' })
-      ]
-    }));
-  }
-
-  const footerKinderen = [
-    new Paragraph({
-      alignment: AlignmentType.CENTER,
-      border: { top: { style: BorderStyle.SINGLE, size: 4, color: 'E0DDD8', space: 6 } },
-      children: [
-        new TextRun({ text: 'Pagina ', font: 'Arial', size: 16, color: 'A09890' }),
-        new PageNumber(),
-        new TextRun({ text: '  |  ' + (schoolnaam || 'School'), font: 'Arial', size: 16, color: 'A09890' })
-      ]
-    })
-  ];
-
-  const documentKinderen = [
-    new Paragraph({
-      heading: HeadingLevel.HEADING_1,
-      spacing: { before: 480, after: 240 },
-      children: [new TextRun({ text: titel, font: 'Arial', size: 44, bold: true, color: '1A3A26' })]
-    })
-  ];
-
-  for (const sectie of secties) {
-    if (sectie.type === 'heading') {
-      documentKinderen.push(new Paragraph({
-        heading: HeadingLevel.HEADING_2,
-        spacing: { before: 360, after: 120 },
-        children: [new TextRun({ text: sectie.tekst, font: 'Arial', size: 28, bold: true, color: '2D5A3D' })]
-      }));
-    } else if (sectie.type === 'subheading') {
-      documentKinderen.push(new Paragraph({
-        heading: HeadingLevel.HEADING_3,
-        spacing: { before: 240, after: 80 },
-        children: [new TextRun({ text: sectie.tekst, font: 'Arial', size: 24, bold: true, color: '3A7A4E' })]
-      }));
-    } else if (sectie.type === 'antwoordruimte') {
-      for (let i = 0; i < (sectie.regels || 3); i++) {
-        documentKinderen.push(new Paragraph({
-          spacing: { before: 0, after: 0 },
-          border: { bottom: { style: BorderStyle.SINGLE, size: 2, color: 'C0BBB5', space: 2 } },
-          children: [new TextRun({ text: ' ', font: 'Arial', size: 24 })]
-        }));
-      }
-      documentKinderen.push(new Paragraph({ spacing: { before: 120, after: 0 }, children: [] }));
-    } else {
-      documentKinderen.push(new Paragraph({
-        spacing: { before: 80, after: 80 },
-        children: [new TextRun({ text: sectie.tekst, font: 'Arial', size: 22 })]
-      }));
-    }
-  }
-
-  const doc = new Document({
-    styles: { default: { document: { run: { font: 'Arial', size: 22 } } } },
-    sections: [{
-      properties: {
-        page: {
-          size: { width: 11906, height: 16838 },
-          margin: { top: 1134, right: 1134, bottom: 1134, left: 1134 }
-        }
-      },
-      headers: { default: new Header({ children: headerKinderen }) },
-      footers: { default: new Footer({ children: footerKinderen }) },
-      children: documentKinderen
-    }]
-  });
-
-  return Packer.toBuffer(doc);
-}
-
-// ============================================================
-// PRAKTIJK WERKBOEKJE — standaard layout gebaseerd op Wallmen-voorbeeld
-// Secties: titelpagina, materiaalstaat, veiligheid, machines, stappenplan, controlelijst
-// ============================================================
-async function bouwWerkboekjeDocxVast({ schoolnaam, logoBestand, data }) {
+async function bouwToetsExamenStijl({ schoolnaam, logoBestand, data }) {
   const {
     Document, Packer, Paragraph, TextRun, ImageRun,
     Header, Footer, AlignmentType, HeadingLevel, BorderStyle,
     Table, TableRow, TableCell, WidthType, ShadingType,
-    PageNumber, TabStopType, TabStopPosition
+    PageNumber, TabStopType, TabStopPosition, PageBreak
   } = require('docx');
 
-  // ── Kleuren
-  const GROEN     = '2D5A3D';
-  const GROEN_DIM = 'E8F3EC';
-  const GRIJS     = 'D1D5DB';
-  const TEKST     = '44403C';
-  const WIT       = 'FFFFFF';
-  const ROOD      = 'B91C1C';
-
-  const RAND      = { style: BorderStyle.SINGLE, size: 4, color: GROEN };
-  const RAND_DUN  = { style: BorderStyle.SINGLE, size: 1, color: GRIJS };
-  const RAND_GEEN = { style: BorderStyle.NONE, size: 0, color: 'auto' };
+  const ZWART  = '000000';
+  const GRIJS  = '6B6560';
+  const RAND   = '888888';
+  const WIT    = 'FFFFFF';
+  const LGRIJS = 'F2F2F2';
 
   // ── Logo laden
   let logoImageRun = null;
@@ -808,340 +684,309 @@ async function bouwWerkboekjeDocxVast({ schoolnaam, logoBestand, data }) {
       const logoBuffer = fs.readFileSync(logoPad);
       const ext = path.extname(logoBestand).toLowerCase().replace('.', '');
       try {
-        logoImageRun = new ImageRun({
-          data: logoBuffer,
-          transformation: { width: 80, height: 40 },
-          type: { png: 'png', jpg: 'jpg', jpeg: 'jpg', svg: 'svg' }[ext] || 'png'
-        });
+        logoImageRun = new ImageRun({ data: logoBuffer, transformation: { width: 70, height: 35 },
+          type: { png:'png', jpg:'jpg', jpeg:'jpg', svg:'svg' }[ext] || 'png' });
       } catch (_) {}
     }
   }
 
-  // ── Header
+  // ── Header: schoolnaam links, toetsinfo rechts
   const headerKinderen = [new Paragraph({
     tabStops: [{ type: TabStopType.RIGHT, position: TabStopPosition.MAX }],
-    border: { bottom: { style: BorderStyle.SINGLE, size: 6, color: GROEN, space: 6 } },
+    border: { bottom: { style: BorderStyle.SINGLE, size: 6, color: ZWART, space: 4 } },
     children: logoImageRun
       ? [logoImageRun,
-         new TextRun({ text: '\t' + (schoolnaam || ''), font: 'Arial', size: 18, color: TEKST })]
-      : [new TextRun({ text: schoolnaam || '', font: 'Arial', size: 20, bold: true, color: GROEN }),
-         new TextRun({ text: '\t' + (data.vak || 'Werkboekje'), font: 'Arial', size: 18, color: TEKST })]
+         new TextRun({ text: '\t' + (schoolnaam || ''), font: 'Arial', size: 18, color: GRIJS })]
+      : [new TextRun({ text: schoolnaam || '', font: 'Arial', size: 20, bold: true }),
+         new TextRun({ text: '\t' + (data.vak || ''), font: 'Arial', size: 18, color: GRIJS })]
   })];
 
-  // ── Footer
+  // ── Footer: codenummer links, paginanummer rechts
   const footerKinderen = [new Paragraph({
     tabStops: [{ type: TabStopType.RIGHT, position: TabStopPosition.MAX }],
-    border: { top: { style: BorderStyle.SINGLE, size: 4, color: GRIJS, space: 4 } },
+    border: { top: { style: BorderStyle.SINGLE, size: 4, color: RAND, space: 4 } },
     children: [
-      new TextRun({ text: data.titel || 'Werkboekje', font: 'Arial', size: 16, color: TEKST }),
+      new TextRun({ text: data.code || '', font: 'Arial', size: 16, color: GRIJS }),
       new TextRun({ text: '\t', font: 'Arial', size: 16 }),
-      new TextRun({ text: 'Pagina ', font: 'Arial', size: 16, color: TEKST }),
+      new TextRun({ text: '', font: 'Arial', size: 16, color: GRIJS }),
       new PageNumber(),
+      new TextRun({ text: ' / ' + (data.aantalPaginas || '?'), font: 'Arial', size: 16, color: GRIJS }),
     ]
   })];
-
-  // ── Hulpfunctie: gekleurde sectie-balkje via tabel
-  const balkTabel = (tekst) => new Table({
-    width: { size: 9580, type: WidthType.DXA },
-    columnWidths: [9580],
-    rows: [new TableRow({ children: [new TableCell({
-      borders: { top: RAND_GEEN, bottom: RAND_GEEN, left: RAND_GEEN, right: RAND_GEEN },
-      shading: { fill: GROEN, type: ShadingType.CLEAR },
-      margins: { top: 100, bottom: 100, left: 200, right: 200 },
-      width: { size: 9580, type: WidthType.DXA },
-      children: [new Paragraph({
-        children: [new TextRun({ text: tekst, font: 'Arial', size: 24, bold: true, color: WIT })]
-      })]
-    })]})],
-  });
 
   const k = []; // document-kinderen
 
-  // ══════════════════════════════════════════════════════════════
-  // 1. TITELPAGINA
-  // ══════════════════════════════════════════════════════════════
+  // ══════════════════════════════════════════════════════════
+  // TITELPAGINA (examen-stijl: rechts uitlijnen)
+  // ══════════════════════════════════════════════════════════
+  k.push(new Paragraph({
+    alignment: AlignmentType.RIGHT,
+    spacing: { before: 0, after: 60 },
+    children: [new TextRun({ text: data.niveauLabel || 'Toets', font: 'Arial', size: 28, bold: true })]
+  }));
+  k.push(new Paragraph({
+    alignment: AlignmentType.RIGHT,
+    spacing: { before: 0, after: 200 },
+    children: [new TextRun({ text: data.jaar || new Date().getFullYear().toString(), font: 'Arial', size: 72, bold: true })]
+  }));
 
-  if (data.vak) {
+  // Vak-balk (zwarte achtergrondkleur)
+  const randGeen = { style: BorderStyle.NONE, size: 0, color: 'auto' };
+  k.push(new Table({
+    width: { size: 9580, type: WidthType.DXA },
+    columnWidths: [9580],
+    rows: [new TableRow({ children: [new TableCell({
+      borders: { top: randGeen, bottom: randGeen, left: randGeen, right: randGeen },
+      shading: { fill: ZWART, type: ShadingType.CLEAR },
+      margins: { top: 120, bottom: 120, left: 200, right: 200 },
+      width: { size: 9580, type: WidthType.DXA },
+      children: [new Paragraph({ alignment: AlignmentType.CENTER,
+        children: [new TextRun({ text: (data.vak || 'Toets').toUpperCase(), font: 'Arial', size: 28, bold: true, color: WIT })]
+      })]
+    })]})],
+  }));
+
+  k.push(new Paragraph({ spacing: { before: 200, after: 60 }, children: [] }));
+
+  // Tijdvak / datum info
+  if (data.tijdvak) {
     k.push(new Paragraph({
       spacing: { before: 0, after: 40 },
-      children: [new TextRun({ text: data.vak, font: 'Arial', size: 32, bold: true, color: GROEN })]
+      children: [new TextRun({ text: data.tijdvak, font: 'Arial', size: 22 })]
     }));
   }
-  if (data.profieldeel) {
+  if (data.datum) {
     k.push(new Paragraph({
-      spacing: { before: 0, after: 60 },
-      children: [new TextRun({ text: 'Profieldeel:  ' + data.profieldeel, font: 'Arial', size: 24, color: TEKST })]
+      spacing: { before: 0, after: 40 },
+      children: [new TextRun({ text: data.datum, font: 'Arial', size: 22 })]
+    }));
+  }
+  if (data.tijd) {
+    k.push(new Paragraph({
+      spacing: { before: 0, after: 200 },
+      children: [new TextRun({ text: data.tijd, font: 'Arial', size: 22 })]
     }));
   }
 
-  // Opdrachtnummer + titel
+  // Toetsinfo
   k.push(new Paragraph({
-    spacing: { before: 100, after: 60 },
-    border: { bottom: { style: BorderStyle.SINGLE, size: 12, color: GROEN, space: 6 } },
+    spacing: { before: 0, after: 40 },
+    children: [new TextRun({ text: `Dit examen bestaat uit ${data.aantalVragen || '?'} vragen.`, font: 'Arial', size: 22 })]
+  }));
+  k.push(new Paragraph({
+    spacing: { before: 0, after: 40 },
+    children: [new TextRun({ text: `Voor dit examen zijn maximaal ${data.maxPunten || '?'} punten te behalen.`, font: 'Arial', size: 22 })]
+  }));
+  k.push(new Paragraph({
+    spacing: { before: 0, after: 400 },
+    children: [new TextRun({ text: 'Voor elk vraagnummer staat hoeveel punten met een goed antwoord behaald kunnen worden.', font: 'Arial', size: 22 })]
+  }));
+
+  // Naam / Klas / Datum invulvelden
+  k.push(new Paragraph({
+    spacing: { before: 0, after: 40 },
     children: [
-      new TextRun({ text: 'Opdracht ' + (data.opdrachtnummer || '1') + ':  ', font: 'Arial', size: 30, bold: true, color: GROEN }),
-      new TextRun({ text: (data.titel || '').replace('Werkboekje: ', ''), font: 'Arial', size: 30, bold: true, color: '1A3A26' })
+      new TextRun({ text: 'Naam: ', font: 'Arial', size: 22, bold: true }),
+      new TextRun({ text: '_________________________________     ', font: 'Arial', size: 22 }),
+      new TextRun({ text: 'Klas: ', font: 'Arial', size: 22, bold: true }),
+      new TextRun({ text: '_____________', font: 'Arial', size: 22 }),
     ]
   }));
 
-  if (data.duur) {
-    k.push(new Paragraph({
-      spacing: { before: 100, after: 200 },
-      children: [
-        new TextRun({ text: 'Duur van de opdracht:', font: 'Arial', size: 22, bold: true }),
-        new TextRun({ text: '   ' + data.duur, font: 'Arial', size: 22, color: TEKST })
-      ]
-    }));
-  }
+  // Instructie voor meerkeuze en open vragen
+  k.push(new Paragraph({ spacing: { before: 400, after: 0 }, children: [] }));
 
-  // Naam / Klas / Datum invulblok
   k.push(new Paragraph({
-    spacing: { before: 0, after: 60 },
-    border: { top: RAND_DUN, bottom: RAND_DUN, left: RAND_DUN, right: RAND_DUN },
-    children: [
-      new TextRun({ text: 'Naam:', bold: true, font: 'Arial', size: 22 }),
-      new TextRun({ text: '  ________________________________     ', font: 'Arial', size: 22 }),
-      new TextRun({ text: 'Klas:', bold: true, font: 'Arial', size: 22 }),
-      new TextRun({ text: '  ____________     ', font: 'Arial', size: 22 }),
-      new TextRun({ text: 'Datum:', bold: true, font: 'Arial', size: 22 }),
-      new TextRun({ text: '  ____________', font: 'Arial', size: 22 }),
-    ]
+    spacing: { before: 0, after: 80 },
+    children: [new TextRun({ text: 'Meerkeuzevragen', font: 'Arial', size: 22, bold: true })]
   }));
-  k.push(new Paragraph({ spacing: { before: 300, after: 0 }, children: [] }));
+  k.push(new Paragraph({
+    spacing: { before: 0, after: 200 },
+    children: [new TextRun({ text: 'Schrijf alleen de hoofdletter van het goede antwoord op.', font: 'Arial', size: 22 })]
+  }));
 
-  // ── Leerdoelen
-  if (data.leerdoelen?.length) {
-    k.push(balkTabel('Leerdoelen'));
-    for (const doel of data.leerdoelen) {
-      k.push(new Paragraph({
-        spacing: { before: 80, after: 60 },
-        children: [
-          new TextRun({ text: '\u2713  ', font: 'Arial', size: 22, bold: true, color: GROEN }),
-          new TextRun({ text: doel, font: 'Arial', size: 22 })
-        ]
-      }));
-    }
-    k.push(new Paragraph({ spacing: { before: 240, after: 0 }, children: [] }));
-  }
+  k.push(new Paragraph({
+    spacing: { before: 0, after: 80 },
+    children: [new TextRun({ text: 'Open vragen', font: 'Arial', size: 22, bold: true })]
+  }));
+  k.push(new Paragraph({
+    spacing: { before: 0, after: 400 },
+    children: [new TextRun({ text: 'Geef niet meer antwoorden (redenen, voorbeelden e.d.) dan er worden gevraagd.', font: 'Arial', size: 22 })]
+  }));
 
-  // ── Introductie
-  if (data.introductie) {
-    k.push(new Paragraph({
-      spacing: { before: 0, after: 360 },
-      children: [new TextRun({ text: data.introductie, font: 'Arial', size: 22, italics: true, color: TEKST })]
-    }));
-  }
+  // ══════════════════════════════════════════════════════════
+  // SECTIES (thema's met vragen)
+  // ══════════════════════════════════════════════════════════
+  let vraagTeller = 1;
 
-  // ══════════════════════════════════════════════════════════════
-  // 2. MATERIAALSTAAT
-  // ══════════════════════════════════════════════════════════════
-  if (data.materiaalstaat?.length) {
-    k.push(balkTabel('Materiaalstaat'));
-    k.push(new Paragraph({ spacing: { before: 100, after: 0 }, children: [] }));
+  for (const sectie of (data.secties || [])) {
 
-    // Kolombreedte in DXA (totaal 9580 = content binnen 1" marges A4)
-    const kolW = [540, 580, 2200, 1080, 1080, 900, 3200];
-    const kopTeksten = ['Nr.', 'Aantal', 'Benaming', 'Lengte', 'Breedte', 'Dikte', 'Soort hout'];
-
-    const kopRij = new TableRow({
-      tableHeader: true,
-      children: kopTeksten.map((t, i) => new TableCell({
-        borders: { top: RAND, bottom: RAND, left: RAND, right: RAND },
-        shading: { fill: GROEN_DIM, type: ShadingType.CLEAR },
-        margins: { top: 60, bottom: 60, left: 80, right: 80 },
-        width: { size: kolW[i], type: WidthType.DXA },
-        children: [new Paragraph({
-          children: [new TextRun({ text: t, font: 'Arial', size: 20, bold: true, color: GROEN })]
-        })]
-      }))
-    });
-
-    const dataRijen = data.materiaalstaat.map(r => new TableRow({
-      children: [
-        String(r.nummer || ''),
-        '',
-        String(r.benaming || ''),
-        String(r.lengte || ''),
-        String(r.breedte || ''),
-        String(r.dikte || ''),
-        String(r.soortHout || ''),
-      ].map((cel, i) => new TableCell({
-        borders: { top: RAND_DUN, bottom: RAND_DUN, left: RAND_DUN, right: RAND_DUN },
-        margins: { top: 60, bottom: 60, left: 80, right: 80 },
-        width: { size: kolW[i], type: WidthType.DXA },
-        children: [new Paragraph({
-          children: [new TextRun({ text: cel, font: 'Arial', size: 20, color: TEKST })]
-        })]
-      }))
-    }));
-
-    k.push(new Table({
-      width: { size: 9580, type: WidthType.DXA },
-      columnWidths: kolW,
-      rows: [kopRij, ...dataRijen]
-    }));
-    k.push(new Paragraph({ spacing: { before: 360, after: 0 }, children: [] }));
-  }
-
-  // ══════════════════════════════════════════════════════════════
-  // 3. VOORBEREIDING — veiligheidsregels
-  // ══════════════════════════════════════════════════════════════
-  if (data.veiligheidsregels?.length) {
-    k.push(balkTabel('Voorbereiding'));
-    k.push(new Paragraph({
-      spacing: { before: 120, after: 80 },
-      children: [new TextRun({ text: 'In de praktijk is het verplicht om:', font: 'Arial', size: 22, bold: true })]
-    }));
-    for (const regel of data.veiligheidsregels) {
-      k.push(new Paragraph({
-        spacing: { before: 60, after: 40 },
-        children: [
-          new TextRun({ text: '\u2022  ', font: 'Arial', size: 22, bold: true, color: GROEN }),
-          new TextRun({ text: regel, font: 'Arial', size: 22 })
-        ]
-      }));
-    }
-    k.push(new Paragraph({ spacing: { before: 300, after: 0 }, children: [] }));
-  }
-
-  // ══════════════════════════════════════════════════════════════
-  // 4. MACHINES / GEREEDSCHAPPEN
-  // ══════════════════════════════════════════════════════════════
-  if (data.machines?.length) {
-    k.push(balkTabel('Machines en gereedschappen'));
-    k.push(new Paragraph({ spacing: { before: 120, after: 80 }, children: [] }));
-
-    // 2-koloms tabel voor machines
-    const machKolW = [4790, 4790];
-    const machRijen = [];
-    for (let i = 0; i < data.machines.length; i += 2) {
-      machRijen.push(new TableRow({
-        children: [data.machines[i] || '', data.machines[i + 1] || ''].map((m, ci) => new TableCell({
-          borders: { top: RAND_DUN, bottom: RAND_DUN, left: RAND_DUN, right: RAND_DUN },
-          margins: { top: 80, bottom: 80, left: 120, right: 120 },
-          width: { size: machKolW[ci], type: WidthType.DXA },
-          children: [new Paragraph({
-            children: m ? [
-              new TextRun({ text: '\u2022  ', font: 'Arial', size: 22, bold: true, color: GROEN }),
-              new TextRun({ text: m, font: 'Arial', size: 22, italics: true })
-            ] : []
-          })]
-        }))
-      }));
-    }
-    k.push(new Table({ width: { size: 9580, type: WidthType.DXA }, columnWidths: machKolW, rows: machRijen }));
-    k.push(new Paragraph({ spacing: { before: 160, after: 0 }, children: [] }));
-
-    // Veiligheidswaarschuwing
-    k.push(new Paragraph({
-      spacing: { before: 60, after: 60 },
-      children: [new TextRun({
-        text: 'Let op: tijdens het gebruik van machines altijd losse kleding vaststeken! Losse haren in een staart of knot! Draag altijd gehoorbescherming.',
-        font: 'Arial', size: 20, bold: true, italics: true, color: ROOD
-      })]
-    }));
-    k.push(new Paragraph({ spacing: { before: 300, after: 0 }, children: [] }));
-  }
-
-  // ══════════════════════════════════════════════════════════════
-  // 5. STAPPENPLAN
-  // ══════════════════════════════════════════════════════════════
-  k.push(balkTabel('Stappenplan'));
-
-  for (const [i, sectie] of (data.secties || []).entries()) {
-
-    // Sectietitel
+    // Sectietitel (thema) — horizontale lijn + vette titel
     if (sectie.titel) {
       k.push(new Paragraph({
-        spacing: { before: 360, after: 140 },
-        border: { bottom: { style: BorderStyle.SINGLE, size: 4, color: GROEN, space: 4 } },
-        children: [new TextRun({
-          text: `Opdracht ${i + 1}  \u2014  ${sectie.titel}`,
-          font: 'Arial', size: 28, bold: true, color: GROEN
-        })]
+        heading: HeadingLevel.HEADING_2,
+        spacing: { before: 480, after: 200 },
+        border: { bottom: { style: BorderStyle.SINGLE, size: 4, color: RAND, space: 6 } },
+        children: [new TextRun({ text: sectie.titel, font: 'Arial', size: 26, bold: true })]
       }));
     }
 
-    // Benodigdheden
-    if (sectie.benodigdheden?.length) {
+    // Bronnen
+    for (const bron of (sectie.bronnen || [])) {
+
+      // Bronlabel
       k.push(new Paragraph({
-        spacing: { before: 60, after: 100 },
+        spacing: { before: 280, after: 60 },
         children: [
-          new TextRun({ text: 'Benodigdheden:  ', font: 'Arial', size: 22, bold: true }),
-          new TextRun({ text: sectie.benodigdheden.join('   \u00b7   '), font: 'Arial', size: 22, color: TEKST })
+          new TextRun({ text: `bron ${bron.nummer}`, font: 'Arial', size: 22, bold: true }),
         ]
       }));
-    }
-
-    // Stappen
-    for (const [j, s] of (sectie.stappen || []).entries()) {
-
-      // Stap-balk (licht groen achtergrond via tabel)
-      k.push(new Table({
-        width: { size: 9580, type: WidthType.DXA },
-        columnWidths: [9580],
-        rows: [new TableRow({ children: [new TableCell({
-          borders: { top: RAND_GEEN, bottom: RAND_GEEN, left: RAND_GEEN, right: RAND_GEEN },
-          shading: { fill: GROEN_DIM, type: ShadingType.CLEAR },
-          margins: { top: 80, bottom: 80, left: 180, right: 180 },
-          width: { size: 9580, type: WidthType.DXA },
-          children: [new Paragraph({
-            children: [
-              new TextRun({ text: `Stap ${j + 1}   `, font: 'Arial', size: 24, bold: true, color: GROEN }),
-              new TextRun({ text: s.stap || '', font: 'Arial', size: 22, color: '1A1A1A' })
-            ]
-          })]
-        })]})]
-      }));
-
-      // Afbeeldingskader
-      k.push(new Paragraph({
-        spacing: { before: 0, after: 0 },
-        border: {
-          top:   { style: BorderStyle.SINGLE, size: 4, color: GRIJS, space: 4 },
-          left:  { style: BorderStyle.SINGLE, size: 4, color: GRIJS, space: 4 },
-          right: { style: BorderStyle.SINGLE, size: 4, color: GRIJS, space: 4 },
-        },
-        alignment: AlignmentType.CENTER,
-        children: [new TextRun({ text: '[ Afbeelding invoegen ]', font: 'Arial', size: 18, color: 'B0ABA5', italics: true })]
-      }));
-      for (let r = 0; r < 6; r++) {
+      if (bron.ondertitel) {
         k.push(new Paragraph({
-          spacing: { before: 0, after: 0 },
-          border: {
-            left:  { style: BorderStyle.SINGLE, size: 4, color: GRIJS, space: 4 },
-            right: { style: BorderStyle.SINGLE, size: 4, color: GRIJS, space: 4 },
-            ...(r === 5 ? { bottom: { style: BorderStyle.SINGLE, size: 4, color: GRIJS, space: 4 } } : {})
-          },
-          children: [new TextRun({ text: ' ', font: 'Arial', size: 22 })]
+          spacing: { before: 0, after: 60 },
+          children: [new TextRun({ text: bron.ondertitel, font: 'Arial', size: 22 })]
         }));
       }
-      k.push(new Paragraph({ spacing: { before: 200, after: 0 }, children: [] }));
+
+      // Brontekst (ingekaderd)
+      if (bron.tekst) {
+        const regels = bron.tekst.split('\n').filter(r => r.trim());
+        const bronRand = { style: BorderStyle.SINGLE, size: 4, color: '888888' };
+        for (const [ri, regel] of regels.entries()) {
+          k.push(new Paragraph({
+            spacing: { before: ri === 0 ? 0 : 0, after: 0 },
+            border: {
+              top:    ri === 0 ? bronRand : { style: BorderStyle.NONE, size: 0, color: 'auto' },
+              bottom: ri === regels.length - 1 ? bronRand : { style: BorderStyle.NONE, size: 0, color: 'auto' },
+              left:   bronRand,
+              right:  bronRand,
+            },
+            children: [new TextRun({ text: (ri === 0 ? '' : '') + regel, font: 'Arial', size: 22 })]
+          }));
+        }
+        k.push(new Paragraph({ spacing: { before: 120, after: 0 }, children: [] }));
+      }
+    }
+
+    // Vragen
+    for (const vraag of (sectie.vragen || [])) {
+      const vnr = vraagTeller++;
+      const punten = vraag.punten || 1;
+
+      // Bronnummer-referentie en vraagnummer op één regel
+      // Formaat: "1p  5   Lees bron 2.\n   → Vraag..."
+      if (vraag.type === 'meerkeuze') {
+
+        // Vraag + bronreferentie
+        k.push(new Paragraph({
+          spacing: { before: 280, after: 80 },
+          children: [
+            new TextRun({ text: `${punten}p   `, font: 'Arial', size: 22, bold: true }),
+            new TextRun({ text: `${vnr}   `, font: 'Arial', size: 22, bold: true }),
+            new TextRun({ text: vraag.context || '', font: 'Arial', size: 22 }),
+          ]
+        }));
+
+        if (vraag.vraag) {
+          k.push(new Paragraph({
+            spacing: { before: 0, after: 100 },
+            indent: { left: 720 },
+            children: [new TextRun({ text: vraag.vraag, font: 'Arial', size: 22 })]
+          }));
+        }
+
+        // Meerkeuze-opties als tabel (A/B/C/D)
+        if (vraag.opties?.length) {
+          const kolW = [480, 4550, 480, 4070]; // totaal 9580
+          const rijItems = [];
+          for (let i = 0; i < vraag.opties.length; i += 2) {
+            const optA = vraag.opties[i];
+            const optB = vraag.opties[i + 1];
+            const randDun = { style: BorderStyle.SINGLE, size: 1, color: 'CCCCCC' };
+            const randNone = { style: BorderStyle.NONE, size: 0, color: 'auto' };
+            rijItems.push(new TableRow({
+              children: [
+                new TableCell({
+                  borders: { top: randNone, bottom: randNone, left: randNone, right: randNone },
+                  width: { size: 480, type: WidthType.DXA },
+                  margins: { top: 60, bottom: 60, left: 80, right: 40 },
+                  children: [new Paragraph({ children: [new TextRun({ text: optA?.letter || '', font: 'Arial', size: 22, bold: true })] })]
+                }),
+                new TableCell({
+                  borders: { top: randNone, bottom: randDun, left: randNone, right: randNone },
+                  width: { size: 4550, type: WidthType.DXA },
+                  margins: { top: 60, bottom: 60, left: 80, right: 80 },
+                  children: [new Paragraph({ children: [new TextRun({ text: optA?.tekst || '', font: 'Arial', size: 22 })] })]
+                }),
+                new TableCell({
+                  borders: { top: randNone, bottom: randNone, left: randNone, right: randNone },
+                  width: { size: 480, type: WidthType.DXA },
+                  margins: { top: 60, bottom: 60, left: 80, right: 40 },
+                  children: [new Paragraph({ children: [new TextRun({ text: optB?.letter || '', font: 'Arial', size: 22, bold: true })] })]
+                }),
+                new TableCell({
+                  borders: { top: randNone, bottom: randDun, left: randNone, right: randNone },
+                  width: { size: 4070, type: WidthType.DXA },
+                  margins: { top: 60, bottom: 60, left: 80, right: 80 },
+                  children: [new Paragraph({ children: [new TextRun({ text: optB?.tekst || '', font: 'Arial', size: 22 })] })]
+                }),
+              ]
+            }));
+          }
+          if (rijItems.length) {
+            k.push(new Table({ width: { size: 9580, type: WidthType.DXA }, columnWidths: kolW, rows: rijItems }));
+          }
+        }
+        k.push(new Paragraph({ spacing: { before: 160, after: 0 }, children: [] }));
+
+      } else {
+        // Open vraag met pijltje → en antwoordruimte
+
+        k.push(new Paragraph({
+          spacing: { before: 280, after: 80 },
+          children: [
+            new TextRun({ text: `${punten}p   `, font: 'Arial', size: 22, bold: true }),
+            new TextRun({ text: `${vnr}   `, font: 'Arial', size: 22, bold: true }),
+            new TextRun({ text: vraag.context || '', font: 'Arial', size: 22 }),
+          ]
+        }));
+
+        if (vraag.vraag) {
+          // Vraag met doe-het-zo instructies splitsen
+          const regels = vraag.vraag.split('\n').filter(r => r.trim());
+          for (const [ri, regel] of regels.entries()) {
+            const isDoeHetZo = regel.toLowerCase().startsWith('doe het zo') || regel.startsWith('−');
+            k.push(new Paragraph({
+              spacing: { before: ri === 0 ? 0 : 40, after: 40 },
+              indent: { left: 720 },
+              children: [
+                ri === 0
+                  ? new TextRun({ text: '\u2192  ', font: 'Arial', size: 22, bold: true })
+                  : new TextRun({ text: isDoeHetZo ? '\u2212  ' : '   ', font: 'Arial', size: 22 }),
+                new TextRun({ text: regel.replace(/^[−\-]\s*/, ''), font: 'Arial', size: 22 })
+              ]
+            }));
+          }
+        }
+
+        // Antwoordruimte (lijntjes)
+        const regels = vraag.antwoordRegels || 3;
+        k.push(new Paragraph({ spacing: { before: 80, after: 0 }, children: [] }));
+        for (let r = 0; r < regels; r++) {
+          k.push(new Paragraph({
+            spacing: { before: 0, after: 0 },
+            border: { bottom: { style: BorderStyle.SINGLE, size: 2, color: 'AAAAAA', space: 2 } },
+            children: [new TextRun({ text: ' ', font: 'Arial', size: 28 })]
+          }));
+        }
+        k.push(new Paragraph({ spacing: { before: 160, after: 0 }, children: [] }));
+      }
     }
   }
 
-  // ══════════════════════════════════════════════════════════════
-  // 6. CONTROLELIJST
-  // ══════════════════════════════════════════════════════════════
-  const alleStappen = (data.secties || []).flatMap(s => s.stappen || []);
-  if (alleStappen.length) {
-    k.push(balkTabel('Controlelijst'));
-    k.push(new Paragraph({ spacing: { before: 100, after: 80 }, children: [] }));
-    for (const [j, s] of alleStappen.entries()) {
-      k.push(new Paragraph({
-        spacing: { before: 60, after: 60 },
-        children: [
-          new TextRun({ text: '\u2610  ', font: 'Arial', size: 22 }),
-          new TextRun({ text: `Stap ${j + 1}: `, font: 'Arial', size: 22, bold: true }),
-          new TextRun({ text: s.stap || '', font: 'Arial', size: 22, color: TEKST })
-        ]
-      }));
-    }
-  }
-
-  // ══════════════════════════════════════════════════════════════
+  // ══════════════════════════════════════════════════════════
   // DOCUMENT OPBOUWEN
-  // ══════════════════════════════════════════════════════════════
+  // ══════════════════════════════════════════════════════════
   const doc = new Document({
     styles: { default: { document: { run: { font: 'Arial', size: 22 } } } },
     sections: [{
@@ -1160,199 +1005,130 @@ async function bouwWerkboekjeDocxVast({ schoolnaam, logoBestand, data }) {
   return Packer.toBuffer(doc);
 }
 
-// ============================================================
-// WERKBOEKJE GENERATOR — met AI-quota fallback
-// ============================================================
-app.post('/api/genereer-werkboekje', requireCanEdit, upload.single('bestand'), async (req, res) => {
-  if (!req.file) return res.status(400).json({ error: 'Geen bestand geüpload' });
-  try {
-    const schoolnaam  = db.getInstelling('schoolnaam')  || '';
-    const logoBestand = db.getInstelling('logoBestand') || null;
-    const { titel } = req.body;
-    const inhoud = await extractTekstUitBestand(req.file.path, req.file.originalname);
-    if (req.file?.path && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
 
-    let data;
-    let aiGebruikt = true;
-
-    try {
-      data = await chatJson({
-        system: 'Je maakt praktijk werkboekjes voor Nederlandse leerlingen in het MBO/VMBO. Geef altijd alleen geldig JSON terug.',
-        user: `Vul onderstaand JSON-template in op basis van de tekst. Geef ALLEEN geldige JSON terug, geen uitleg.
-
-Template:
-{
-  "titel": "Werkboekje: [onderwerp in 3-5 woorden]",
-  "vak": "BWI",
-  "profieldeel": "[profiel of richting, bijv. Wonen en interieur]",
-  "opdrachtnummer": "1",
-  "duur": "[bijv. 11 x 45 minuten]",
-  "leerdoelen": ["De leerling kan ...", "..."],
-  "introductie": "Korte inleiding van 1-2 zinnen over de praktijkopdracht.",
-  "veiligheidsregels": [
-    "Je werkpak en werkschoenen aantrekken.",
-    "Loshangende kleding is verboden.",
-    "Losse haren in een staart of knot.",
-    "Gehoorbescherming is verplicht bij machines."
-  ],
-  "materiaalstaat": [
-    { "nummer": 1, "benaming": "Naam onderdeel", "lengte": "", "breedte": "", "dikte": "18", "soortHout": "Multiplex" }
-  ],
-  "machines": ["Machine 1", "Machine 2"],
-  "secties": [
-    {
-      "titel": "Naam van de stap/opdracht",
-      "benodigdheden": ["gereedschap of materiaal"],
-      "stappen": [
-        { "stap": "Beschrijf wat de leerling concreet moet doen.", "heeftAfbeelding": true }
-      ]
-    }
-  ]
-}
-
-Regels:
-- Maximaal 1 sectie per hoofdfase (bijv. voorbereiding, uitvoering, afwerking)
-- Elke sectie heeft 4-8 stappen
-- Stappen zijn kort, concreet en actiegericht
-- Maximaal 4 leerdoelen
-- materiaalstaat: maximaal 12 rijen uit de tekst
-- machines: haal machines en gereedschappen uit de tekst
-- veiligheidsregels: maximaal 6 regels uit de tekst
-
-Tekst:
-${String(inhoud).slice(0, 20000)}`,
-        maxTokens: 2500,
-        temperature: 0.2
-      });
-    } catch (aiErr) {
-      const msg = aiErr.message || '';
-      const isQuota  = msg.includes('429') || msg.includes('insufficient_quota') || msg.includes('quota');
-      const isNoKey  = msg.includes('OPENAI_API_KEY');
-      const isServer = msg.includes('500') || msg.includes('503');
-
-      if (isQuota || isNoKey || isServer) {
-        // Fallback: maak een leeg werkboekje met basisstructuur uit de tekst
-        aiGebruikt = false;
-        const eersteRegel = String(inhoud).split('\n').find(r => r.trim().length > 4) || '';
-        data = {
-          titel: titel || ('Werkboekje: ' + eersteRegel.slice(0, 40).trim()),
-          vak: '',
-          profieldeel: '',
-          opdrachtnummer: '1',
-          duur: '',
-          leerdoelen: [],
-          introductie: '',
-          veiligheidsregels: [
-            'Je werkpak en werkschoenen aantrekken.',
-            'Loshangende kleding is verboden.',
-            'Losse haren in een staart of knot.',
-            'Gehoorbescherming is verplicht bij machines.'
-          ],
-          materiaalstaat: [],
-          machines: [],
-          secties: [{
-            titel: 'Stappenplan',
-            benodigdheden: [],
-            stappen: [{ stap: 'Stap 1 — vul hier de stappen in.', heeftAfbeelding: true }]
-          }]
-        };
-      } else {
-        throw aiErr;
-      }
-    }
-
-    if (titel) data.titel = titel;
-
-    const docxBuffer = await bouwWerkboekjeDocxVast({ schoolnaam, logoBestand, data });
-    const bestandsnaam = `werkboekje_${Date.now()}.docx`;
-    fs.writeFileSync(path.join(uploadDir, bestandsnaam), docxBuffer);
-
-    res.json({
-      success: true,
-      bestandsnaam,
-      titel: data.titel || titel || 'Werkboekje',
-      waarschuwing: aiGebruikt ? null : 'AI niet beschikbaar (quota bereikt). Er is een leeg werkboekje aangemaakt — vul de stappen zelf in.'
-    });
-  } catch (e) {
-    if (req.file?.path && fs.existsSync(req.file.path)) { try { fs.unlinkSync(req.file.path); } catch (_) {} }
-    console.error('Werkboekje generator fout:', e);
-    res.status(500).json({ error: 'Fout bij genereren: ' + e.message });
-  }
-});
 
 // ============================================================
-// TOETS GENERATOR
+// TOETS GENERATOR — examen-stijl (bronnen, pijltjes, meerkeuze)
 // ============================================================
 app.post('/api/genereer-toets', requireCanEdit, upload.single('bestand'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'Geen bestand geüpload' });
   try {
     const schoolnaam  = db.getInstelling('schoolnaam')  || '';
     const logoBestand = db.getInstelling('logoBestand') || null;
-    const { titel, aantalVragen } = req.body;
+    const { titel, aantalVragen, vak, niveau } = req.body;
     const nVragen = parseInt(aantalVragen) || 10;
     const inhoud = await extractTekstUitBestand(req.file.path, req.file.originalname);
+    if (req.file?.path && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
 
-    const promptTekst = `Maak een toets met exact ${nVragen} vragen op basis van de inhoud.
-Geef de output ALLEEN als JSON, in exact dit formaat:
-{"titel":"Toets: [onderwerp]","secties":[{"type":"tekst","tekst":"Naam: ___________________ Klas: _______ Datum: _______"},{"type":"tekst","tekst":"Totaal: ___ / ${nVragen * 2} punten   Cijfer: ___"},{"type":"heading","tekst":"Vragen"},{"type":"tekst","tekst":"1. [Vraag tekst] (2 punten)"},{"type":"antwoordruimte","regels":3}]}
-Regels: begin met naam, klas, datum en puntentelling. Elke vraag heeft antwoordruimte van 2 tot 4 regels en een puntenaantal. Mix open vragen en meerkeuzevragen. Nummer de vragen duidelijk.`;
+    const maxPunten = nVragen;
 
     const data = await chatJson({
-      system: 'Je maakt duidelijke toetsen voor Nederlandse leerlingen. Geef altijd alleen geldig JSON terug.',
-      user: `${promptTekst}
+      system: 'Je maakt toetsen in de stijl van officiële VMBO/HAVO examens voor Nederlandse leerlingen. Geef altijd alleen geldig JSON terug.',
+      user: `Maak een toets in examen-stijl op basis van de tekst. Geef ALLEEN geldige JSON terug.
 
-Inhoud document:
+JSON-formaat:
+{
+  "vak": "${vak || 'Aardrijkskunde'}",
+  "niveauLabel": "${niveau || 'VMBO-GL en TL'}",
+  "jaar": "${new Date().getFullYear()}",
+  "tijdvak": "tijdvak 1",
+  "datum": "vrijdag [dag] [maand]",
+  "tijd": "13.30 - 15.30 uur",
+  "aantalVragen": ${nVragen},
+  "maxPunten": ${maxPunten},
+  "code": "GT-0000-a-00-0",
+  "aantalPaginas": "10",
+  "secties": [
+    {
+      "titel": "Thema naam (bijv. Weer en klimaat)",
+      "bronnen": [
+        {
+          "nummer": 1,
+          "ondertitel": "Korte omschrijving van de bron",
+          "tekst": "Tekst van de bron (max 5 zinnen). Gebruik \n voor nieuwe regels."
+        }
+      ],
+      "vragen": [
+        {
+          "type": "open",
+          "punten": 1,
+          "context": "Lees bron 1.",
+          "vraag": "Leg uit waarom...\nDoe het zo:\n− Kies eerst A of B.\n− Geef daarna een argument voor je keuze.",
+          "antwoordRegels": 3
+        },
+        {
+          "type": "meerkeuze",
+          "punten": 1,
+          "context": "Bekijk bron 1 en lees bron 2.",
+          "vraag": "Welke uitspraak is juist?",
+          "opties": [
+            {"letter": "A", "tekst": "Antwoordoptie A"},
+            {"letter": "B", "tekst": "Antwoordoptie B"},
+            {"letter": "C", "tekst": "Antwoordoptie C"},
+            {"letter": "D", "tekst": "Antwoordoptie D"}
+          ]
+        }
+      ]
+    }
+  ]
+}
 
-${String(inhoud).slice(0, 20000)}`,
-      maxTokens: 2800,
+Regels:
+- Maak precies ${nVragen} vragen verspreid over 2-3 thema-secties
+- Mix meerkeuze- en open vragen (50/50 ongeveer)
+- Elke sectie heeft 1-3 bronnen met relevante tekst uit het document
+- Open vragen: gebruik pijltje-instructie ("Doe het zo: − ...") bij complexe vragen
+- Meerkeuze: altijd 4 opties (A t/m D), soms 6 (A t/m F) bij combinatievragen
+- Punten per vraag: 1p voor eenvoudig, 2p voor tweedelige vragen
+- Bronnen bevatten echte informatie uit de tekst (geen verzinsels)
+- Context verwijst naar de juiste bronnen ("Lees bron 1.", "Bekijk bron 2 en lees bron 3.")
+
+Tekst:
+${String(inhoud).slice(0, 18000)}`,
+      maxTokens: 3500,
       temperature: 0.2
     });
 
-    const docxBuffer = await bouwDocxBuffer({
-      schoolnaam, logoBestand,
-      titel: titel || data.titel || 'Toets',
-      secties: data.secties || [],
-      documentType: 'toets'
-    });
+    if (titel) data.vak = titel;
+    data.maxPunten = data.maxPunten || maxPunten;
 
-    if (req.file?.path && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
-
+    const docxBuffer = await bouwToetsExamenStijl({ schoolnaam, logoBestand, data });
     const bestandsnaam = `toets_${Date.now()}.docx`;
     fs.writeFileSync(path.join(uploadDir, bestandsnaam), docxBuffer);
-    res.json({ success: true, bestandsnaam, titel: data.titel || titel || 'Toets' });
+    res.json({ success: true, bestandsnaam, titel: data.vak || titel || 'Toets' });
   } catch (e) {
-    if (req.file?.path && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
+    if (req.file?.path && fs.existsSync(req.file.path)) { try { fs.unlinkSync(req.file.path); } catch (_) {} }
     console.error('Toets generator fout:', e);
-    res.status(500).json({ error: 'Fout bij genereren: ' + e.message });
+    const msg = e.message || '';
+    const isQuota = msg.includes('429') || msg.includes('quota') || msg.includes('insufficient');
+    res.status(500).json({ error: isQuota ? 'AI_QUOTA' : 'Fout bij genereren: ' + msg });
   }
 });
 
 // ============================================================
-// WERKBOEKJE GENERATOR — handmatig (wizard, geen AI nodig)
+// TOETS GENERATOR — handmatig (wizard, geen AI)
 // ============================================================
-app.post('/api/genereer-werkboekje-handmatig', requireCanEdit, async (req, res) => {
+app.post('/api/genereer-toets-handmatig', requireCanEdit, async (req, res) => {
   try {
     const schoolnaam  = db.getInstelling('schoolnaam')  || '';
     const logoBestand = db.getInstelling('logoBestand') || null;
     const data = req.body;
+    if (!data || !data.vak) return res.status(400).json({ error: 'Vak is verplicht' });
 
-    if (!data || !data.titel) {
-      return res.status(400).json({ error: 'Titel is verplicht' });
-    }
-
-    // Zorg dat secties en stappen leeg-veilig zijn
     data.secties = (data.secties || []).map(s => ({
       ...s,
-      stappen: (s.stappen || []).filter(p => p.stap && p.stap.trim())
-    })).filter(s => s.titel || s.stappen.length);
+      vragen: (s.vragen || []).filter(v => v.vraag && v.vraag.trim())
+    })).filter(s => s.vragen.length);
 
-    const docxBuffer = await bouwWerkboekjeDocxVast({ schoolnaam, logoBestand, data });
+    data.aantalVragen = (data.secties || []).reduce((t, s) => t + (s.vragen || []).length, 0);
+    data.maxPunten = (data.secties || []).reduce((t, s) => t + (s.vragen || []).reduce((tt, v) => tt + (parseInt(v.punten) || 1), 0), 0);
 
-    const bestandsnaam = `werkboekje_${Date.now()}.docx`;
+    const docxBuffer = await bouwToetsExamenStijl({ schoolnaam, logoBestand, data });
+    const bestandsnaam = `toets_${Date.now()}.docx`;
     fs.writeFileSync(path.join(uploadDir, bestandsnaam), docxBuffer);
-    res.json({ success: true, bestandsnaam, titel: data.titel || 'Werkboekje' });
+    res.json({ success: true, bestandsnaam, titel: data.vak || 'Toets' });
   } catch (e) {
-    console.error('Werkboekje handmatig fout:', e);
+    console.error('Toets handmatig fout:', e);
     res.status(500).json({ error: 'Fout bij aanmaken: ' + e.message });
   }
 });
