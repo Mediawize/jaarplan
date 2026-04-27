@@ -718,11 +718,22 @@ async function bouwToetsExamenStijl({ schoolnaam, logoBestand, data }) {
   // ══════════════════════════════════════════════════════════
   // TITELPAGINA (examen-stijl: rechts uitlijnen)
   // ══════════════════════════════════════════════════════════
-  k.push(new Paragraph({
-    alignment: AlignmentType.RIGHT,
-    spacing: { before: 0, after: 60 },
-    children: [new TextRun({ text: data.niveauLabel || 'Toets', font: 'Arial', size: 28, bold: true })]
-  }));
+  // Documentsoort (Toets / Tentamen / Examen) rechts boven
+  if (data.documentSoort || data.niveauLabel) {
+    k.push(new Paragraph({
+      alignment: AlignmentType.RIGHT,
+      spacing: { before: 0, after: 40 },
+      children: [new TextRun({ text: data.documentSoort || 'Toets', font: 'Arial', size: 28, bold: true })]
+    }));
+  }
+  // Niveau (bijv. VMBO-GL en TL) rechts, kleiner
+  if (data.niveauLabel) {
+    k.push(new Paragraph({
+      alignment: AlignmentType.RIGHT,
+      spacing: { before: 0, after: 20 },
+      children: [new TextRun({ text: data.niveauLabel, font: 'Arial', size: 22 })]
+    }));
+  }
   k.push(new Paragraph({
     alignment: AlignmentType.RIGHT,
     spacing: { before: 0, after: 200 },
@@ -894,46 +905,104 @@ async function bouwToetsExamenStijl({ schoolnaam, logoBestand, data }) {
           }));
         }
 
-        // Meerkeuze-opties als tabel (A/B/C/D)
+        // Meerkeuze-opties als tabel (A/B/C/D) — echt examen-stijl
+        // 2 kolommen naast elkaar: [letter | tekst] [letter | tekst]
+        // met zichtbare randen rondom elke cel
         if (vraag.opties?.length) {
-          const kolW = [480, 4550, 480, 4070]; // totaal 9580
-          const rijItems = [];
-          for (let i = 0; i < vraag.opties.length; i += 2) {
-            const optA = vraag.opties[i];
-            const optB = vraag.opties[i + 1];
-            const randDun = { style: BorderStyle.SINGLE, size: 1, color: 'CCCCCC' };
-            const randNone = { style: BorderStyle.NONE, size: 0, color: 'auto' };
-            rijItems.push(new TableRow({
-              children: [
+          const opties = vraag.opties;
+          // Bepaal kolombreedte: 2 opties per rij
+          const heeftVeel = opties.some(o => (o.tekst || '').length > 35);
+          // Als opties lang zijn: 1 kolom (onder elkaar), anders 2 kolommen
+          const tweeKolom = !heeftVeel && opties.length <= 4;
+          const buitenRand = { style: BorderStyle.SINGLE, size: 4, color: '888888' };
+          const binnenRand = { style: BorderStyle.SINGLE, size: 2, color: 'CCCCCC' };
+          const randNone = { style: BorderStyle.NONE, size: 0, color: 'auto' };
+
+          if (tweeKolom && opties.length === 4) {
+            // 2x2 tabel: A B bovenop, C D eronder
+            const kolW = [400, 4390, 400, 4390]; // totaal 9580
+            const rijen = [];
+            for (let i = 0; i < opties.length; i += 2) {
+              const oL = opties[i];
+              const oR = opties[i + 1];
+              const isEerste = i === 0;
+              const isLaatste = i + 2 >= opties.length;
+              rijen.push(new TableRow({ children: [
                 new TableCell({
-                  borders: { top: randNone, bottom: randNone, left: randNone, right: randNone },
-                  width: { size: 480, type: WidthType.DXA },
-                  margins: { top: 60, bottom: 60, left: 80, right: 40 },
-                  children: [new Paragraph({ children: [new TextRun({ text: optA?.letter || '', font: 'Arial', size: 22, bold: true })] })]
+                  borders: {
+                    top: isEerste ? buitenRand : binnenRand,
+                    bottom: isLaatste ? buitenRand : binnenRand,
+                    left: buitenRand,
+                    right: binnenRand,
+                  },
+                  margins: { top: 80, bottom: 80, left: 120, right: 80 },
+                  width: { size: 400, type: WidthType.DXA },
+                  children: [new Paragraph({ children: [new TextRun({ text: oL?.letter || '', font: 'Arial', size: 22, bold: true })] })]
                 }),
                 new TableCell({
-                  borders: { top: randNone, bottom: randDun, left: randNone, right: randNone },
-                  width: { size: 4550, type: WidthType.DXA },
-                  margins: { top: 60, bottom: 60, left: 80, right: 80 },
-                  children: [new Paragraph({ children: [new TextRun({ text: optA?.tekst || '', font: 'Arial', size: 22 })] })]
+                  borders: {
+                    top: isEerste ? buitenRand : binnenRand,
+                    bottom: isLaatste ? buitenRand : binnenRand,
+                    left: binnenRand,
+                    right: binnenRand,
+                  },
+                  margins: { top: 80, bottom: 80, left: 80, right: 80 },
+                  width: { size: 4390, type: WidthType.DXA },
+                  children: [new Paragraph({ children: [new TextRun({ text: oL?.tekst || '', font: 'Arial', size: 22 })] })]
                 }),
                 new TableCell({
-                  borders: { top: randNone, bottom: randNone, left: randNone, right: randNone },
-                  width: { size: 480, type: WidthType.DXA },
-                  margins: { top: 60, bottom: 60, left: 80, right: 40 },
-                  children: [new Paragraph({ children: [new TextRun({ text: optB?.letter || '', font: 'Arial', size: 22, bold: true })] })]
+                  borders: {
+                    top: isEerste ? buitenRand : binnenRand,
+                    bottom: isLaatste ? buitenRand : binnenRand,
+                    left: binnenRand,
+                    right: binnenRand,
+                  },
+                  margins: { top: 80, bottom: 80, left: 120, right: 80 },
+                  width: { size: 400, type: WidthType.DXA },
+                  children: [new Paragraph({ children: [new TextRun({ text: oR?.letter || '', font: 'Arial', size: 22, bold: true })] })]
                 }),
                 new TableCell({
-                  borders: { top: randNone, bottom: randDun, left: randNone, right: randNone },
-                  width: { size: 4070, type: WidthType.DXA },
-                  margins: { top: 60, bottom: 60, left: 80, right: 80 },
-                  children: [new Paragraph({ children: [new TextRun({ text: optB?.tekst || '', font: 'Arial', size: 22 })] })]
+                  borders: {
+                    top: isEerste ? buitenRand : binnenRand,
+                    bottom: isLaatste ? buitenRand : binnenRand,
+                    left: binnenRand,
+                    right: buitenRand,
+                  },
+                  margins: { top: 80, bottom: 80, left: 80, right: 80 },
+                  width: { size: 4390, type: WidthType.DXA },
+                  children: [new Paragraph({ children: [new TextRun({ text: oR?.tekst || '', font: 'Arial', size: 22 })] })]
                 }),
-              ]
-            }));
-          }
-          if (rijItems.length) {
-            k.push(new Table({ width: { size: 9580, type: WidthType.DXA }, columnWidths: kolW, rows: rijItems }));
+              ]}));
+            }
+            k.push(new Table({ width: { size: 9580, type: WidthType.DXA }, columnWidths: kolW, rows: rijen }));
+          } else {
+            // 1 kolom: elke optie op eigen rij [letter | tekst] - voor lange opties of A t/m F
+            const kolW = [400, 9180]; // totaal 9580
+            const rijen = opties.map((opt, oi) => new TableRow({ children: [
+              new TableCell({
+                borders: {
+                  top: oi === 0 ? buitenRand : binnenRand,
+                  bottom: oi === opties.length - 1 ? buitenRand : binnenRand,
+                  left: buitenRand,
+                  right: binnenRand,
+                },
+                margins: { top: 80, bottom: 80, left: 120, right: 80 },
+                width: { size: 400, type: WidthType.DXA },
+                children: [new Paragraph({ children: [new TextRun({ text: opt.letter || '', font: 'Arial', size: 22, bold: true })] })]
+              }),
+              new TableCell({
+                borders: {
+                  top: oi === 0 ? buitenRand : binnenRand,
+                  bottom: oi === opties.length - 1 ? buitenRand : binnenRand,
+                  left: binnenRand,
+                  right: buitenRand,
+                },
+                margins: { top: 80, bottom: 80, left: 80, right: 80 },
+                width: { size: 9180, type: WidthType.DXA },
+                children: [new Paragraph({ children: [new TextRun({ text: opt.tekst || '', font: 'Arial', size: 22 })] })]
+              }),
+            ]}));
+            k.push(new Table({ width: { size: 9580, type: WidthType.DXA }, columnWidths: kolW, rows: rijen }));
           }
         }
         k.push(new Paragraph({ spacing: { before: 160, after: 0 }, children: [] }));
@@ -1014,7 +1083,7 @@ app.post('/api/genereer-toets', requireCanEdit, upload.single('bestand'), async 
   try {
     const schoolnaam  = db.getInstelling('schoolnaam')  || '';
     const logoBestand = db.getInstelling('logoBestand') || null;
-    const { titel, aantalVragen, vak, niveau } = req.body;
+    const { titel, aantalVragen, vak, niveau, documentSoort } = req.body;
     const nVragen = parseInt(aantalVragen) || 10;
     const inhoud = await extractTekstUitBestand(req.file.path, req.file.originalname);
     if (req.file?.path && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
@@ -1089,6 +1158,7 @@ ${String(inhoud).slice(0, 18000)}`,
     });
 
     if (titel) data.vak = titel;
+    if (documentSoort) data.documentSoort = documentSoort;
     data.maxPunten = data.maxPunten || maxPunten;
 
     const docxBuffer = await bouwToetsExamenStijl({ schoolnaam, logoBestand, data });
