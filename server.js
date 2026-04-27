@@ -708,8 +708,7 @@ async function bouwToetsExamenStijl({ schoolnaam, logoBestand, data }) {
     children: [
       new TextRun({ text: data.code || '', font: 'Arial', size: 16, color: GRIJS }),
       new TextRun({ text: '\t', font: 'Arial', size: 16 }),
-      new TextRun({ text: '', font: 'Arial', size: 16, color: GRIJS }),
-      new PageNumber(),
+      new TextRun({ children: [PageNumber.CURRENT], font: 'Arial', size: 16, color: GRIJS }),
       new TextRun({ text: ' / ' + (data.aantalPaginas || '?'), font: 'Arial', size: 16, color: GRIJS }),
     ]
   })];
@@ -1170,7 +1169,7 @@ async function bouwWerkboekjeDocxVast({ schoolnaam, logoBestand, data }) {
   const footerKinderen = [new Paragraph({
     tabStops: [{ type: TabStopType.RIGHT, position: TabStopPosition.MAX }],
     border: { top: { style: BorderStyle.SINGLE, size: 4, color: GRIJS, space: 4 } },
-    children: [new TextRun({ text: data.titel || 'Werkboekje', font: 'Arial', size: 16, color: TEKST }), new TextRun({ text: '\t', font: 'Arial', size: 16 }), new TextRun({ text: 'Pagina ', font: 'Arial', size: 16, color: TEKST }), new PageNumber()]
+    children: [new TextRun({ text: data.titel || 'Werkboekje', font: 'Arial', size: 16, color: TEKST }), new TextRun({ text: '\t', font: 'Arial', size: 16 }), new TextRun({ text: 'Pagina ', font: 'Arial', size: 16, color: TEKST }), new TextRun({ children: [PageNumber.CURRENT], font: 'Arial', size: 16, color: TEKST })]
   })];
 
   const balkTabel = (tekst) => new Table({
