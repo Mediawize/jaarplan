@@ -414,7 +414,6 @@ module.exports = {
   updateVak(id, d) { const v = Q.getVak.get(id); if (!v) return; Q.updVak.run(d.naam ?? v.naam, d.volledig ?? v.volledig, id); },
   deleteVak(id) { Q.delVak.run(id); },
 
-  getKlassen() { return Q.getKlassen.all().map(k => ({ ...k, docenten: parseJSON(k.docenten), niveau: k.niveau || '' })); },
   getKlas(id) { const k = Q.getKlas.get(id); return k ? { ...k, docenten: parseJSON(k.docenten), niveau: k.niveau || '' } : null; },
   addKlas(d) {
     const id = genId();
@@ -429,6 +428,7 @@ module.exports = {
   deleteKlas(id) { Q.delKlas.run(id); },
 
   getSchooljaren() { return Q.getSchooljaren.all(); },
+  heeftSchooljaar(naam) { return !!Q.getSchooljaar.get(naam); },
   addSchooljaar(naam) { const id = genId(); Q.insSchooljaar.run(id, naam); return Q.getSchooljaar.get(naam); },
   deleteSchooljaar(naam) { Q.delSchooljaar.run(naam); },
 
@@ -560,5 +560,43 @@ module.exports = {
   },
   setInstelling(sleutel, waarde) {
     Q.setInstelling.run(sleutel, waarde);
+  },
+
+  // ============================================================
+  // ALIASSEN — server.js gebruikt deze namen
+  // ============================================================
+
+  // Login: controleer email + wachtwoord, geef user terug of null
+  verifyWachtwoord(email, wachtwoord) {
+    const u = this.getGebruikerByEmail(email);
+    if (!u) return null;
+    if (!bcrypt.compareSync(wachtwoord, u.wachtwoord)) return null;
+    return u;
+  },
+
+  // Wachtwoord wijzigen (alias voor updateWachtwoord)
+  wijzigWachtwoord(id, wachtwoord) {
+    this.updateWachtwoord(id, wachtwoord);
+  },
+
+  // Reset token opslaan met 1 uur expiry
+  slaResetTokenOp(id, token) {
+    const expiry = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+    this.setResetToken(id, token, expiry);
+  },
+
+  // Reset token verifiëren + expiry controleren
+  verifieerResetToken(token) {
+    const u = this.getGebruikerByResetToken(token);
+    if (!u) return null;
+    if (u.resetTokenExpiry && new Date(u.resetTokenExpiry) < new Date()) return null;
+    return u;
+  },
+
+  // getKlassen met optionele vakken-filter (voor docenten)
+  getKlassen(vakken = null) {
+    const alle = Q.getKlassen.all().map(k => ({ ...k, docenten: parseJSON(k.docenten), niveau: k.niveau || '' }));
+    if (!vakken || !vakken.length) return alle;
+    return alle.filter(k => vakken.includes(k.vakId));
   },
 };
