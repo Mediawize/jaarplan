@@ -1104,6 +1104,7 @@ JSON-formaat:
   "tijd": "13.30 - 15.30 uur",
   "aantalVragen": ${nVragen},
   "maxPunten": ${maxPunten},
+  "documentSoort": "${documentSoort || 'Toets'}",
   "code": "GT-0000-a-00-0",
   "aantalPaginas": "10",
   "secties": [
@@ -1377,7 +1378,58 @@ app.post('/api/genereer-werkboekje', requireCanEdit, upload.single('bestand'), a
     if (req.file?.path && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
     let data; let aiGebruikt = true;
     try {
-      data = await chatJson({ system: 'Je maakt praktijk werkboekjes voor Nederlandse leerlingen. Geef altijd alleen geldig JSON terug.', user: 'Vul dit JSON-template in op basis van de tekst. ALLEEN JSON, geen uitleg.\n\nTemplate:\n{\n  "titel": "Werkboekje: [onderwerp]",\n  "vak": "BWI",\n  "profieldeel": "",\n  "opdrachtnummer": "1",\n  "duur": "",\n  "leerdoelen": ["De leerling kan ..."],\n  "introductie": "",\n  "veiligheidsregels": ["Werkpak dragen.", "Geen losse kleding.", "Haren in staart."],\n  "materiaalstaat": [{"nummer":1,"benaming":"","lengte":"","breedte":"","dikte":"18","soortHout":"Multiplex"}],\n  "machines": [],\n  "secties": [{"titel":"","benodigdheden":[],"stappen":[{"stap":"","heeftAfbeelding":true}]}]\n}\n\nRegels: max 3 secties, 4-8 stappen, max 4 leerdoelen, max 12 materiaalrijen.\n\nTekst:\n' + String(inhoud).slice(0, 20000), maxTokens: 2500, temperature: 0.2 });
+      data = await chatJson({
+        system: 'Je maakt praktijk werkboekjes voor Nederlandse MBO/VMBO leerlingen in de techniek. Geef ALTIJD alleen geldig JSON terug, geen uitleg of tekst erbuiten.',
+        user: `Maak een volledig ingevuld werkboekje op basis van de onderstaande tekst.
+
+Geef ALLEEN dit JSON-formaat terug, volledig ingevuld:
+{
+  "titel": "Werkboekje: [kort en concreet onderwerp uit de tekst]",
+  "vak": "${titel || 'Techniek'}",
+  "profieldeel": "[profiel of richting uit de tekst, bijv. Bouw of Elektrotechniek]",
+  "opdrachtnummer": "1",
+  "duur": "[bijv. 8 x 45 minuten — extraheer uit tekst of schat]",
+  "leerdoelen": [
+    "De leerling kan [concrete vaardigheid 1].",
+    "De leerling kan [concrete vaardigheid 2].",
+    "De leerling kan [concrete vaardigheid 3]."
+  ],
+  "introductie": "[1-2 zinnen die de opdracht introduceren voor de leerling]",
+  "veiligheidsregels": [
+    "Werkpak en veiligheidsschoenen dragen.",
+    "Loshangende kleding is verboden.",
+    "Losse haren in een staart of knot.",
+    "Gehoorbescherming dragen bij gebruik van machines.",
+    "Nooit zonder toestemming een machine starten."
+  ],
+  "materiaalstaat": [
+    { "nummer": 1, "benaming": "[naam materiaal uit tekst]", "lengte": "", "breedte": "", "dikte": "", "soortHout": "[materiaalsoort]" }
+  ],
+  "machines": ["[Machine of gereedschap 1]", "[Machine of gereedschap 2]"],
+  "secties": [
+    {
+      "titel": "[Naam van deze fase, bijv. Voorbereiding of Assemblage]",
+      "benodigdheden": ["[gereedschap of materiaal]"],
+      "stappen": [
+        { "stap": "[Concrete actie die de leerling uitvoert. Max 2 zinnen.]", "heeftAfbeelding": true }
+      ]
+    }
+  ]
+}
+
+Regels:
+- Vul ALLE velden in op basis van de tekst — laat niets leeg tenzij de tekst echt geen info geeft
+- Max 3 secties, elk met 4-8 stappen
+- Max 4 leerdoelen
+- Max 12 materiaalrijen
+- Elke stap is een concrete handeling (werkwoord + object), max 2 zinnen
+- Schrijf in aanspreekvorm voor leerlingen ("Meet de lat op...", "Zaag het stuk...")
+
+Tekst:
+${String(inhoud).slice(0, 20000)}`,
+        maxTokens: 3500,
+        temperature: 0.2
+      });
     } catch (aiErr) {
       const msg = aiErr.message || '';
       if (msg.includes('429') || msg.includes('quota') || msg.includes('insufficient') || msg.includes('OPENAI_API_KEY')) {
@@ -1485,7 +1537,7 @@ Regels:
 - Max 6 stappen in stappenplan
 - Max 4 aandachtspunten
 - Schrijf in aanspreekvorm voor de docent (bijv. "Zorg ervoor dat...", "Controleer of...")`,
-      maxTokens: 1500,
+      maxTokens: 2500,
       temperature: 0.3
     });
     res.json({ success: true, data });
