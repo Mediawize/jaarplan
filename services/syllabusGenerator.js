@@ -1,5 +1,6 @@
 // ============================================================
-// services/syllabusGenerator.js — PIE Syllabus Parser v3
+// services/syllabusGenerator.js — VMBO Syllabus Parser v4
+// Ondersteunt PIE, BWI en andere VMBO profielvakken
 // AANPAK: Rij-niveau parsing
 //
 // Elke genummerde rij (1., 2., 3.) in een sub-taak wordt een
@@ -43,7 +44,7 @@ function xRowToLevel(line) {
 
 // ============================================================
 // WERKWOORD-GEBASEERDE CLASSIFICATIE
-// Het werkwoord staat in PIE-syllabi vrijwel altijd achteraan.
+// Het werkwoord staat in VMBO-syllabi vrijwel altijd achteraan.
 // ============================================================
 const PRAKTIJK_WERKWOORDEN = [
   'opbouwen', 'aansluiten', 'uitvoeren', 'maken', 'monteren', 'bedraden',
@@ -76,7 +77,7 @@ function classifyByText(text) {
   if (/in een practicum/i.test(lower)) return 'Praktijk';
   if (/in een montageopdracht/i.test(lower)) return 'Praktijk';
   if (/in een proefopstelling/i.test(lower)) return 'Praktijk';
-  if (/met behulp van.*machine/i.test(lower)) return 'Praktijk';
+  if (/met behulp van.{0,20}machine/i.test(lower)) return 'Praktijk';
   if (/met gangbaar gereedschap/i.test(lower)) return 'Praktijk';
   if (/onder toezicht in bedrijf/i.test(lower)) return 'Praktijk';
   if (/volgens gestelde kwaliteitseisen/i.test(lower)) return 'Praktijk';
@@ -108,8 +109,8 @@ function extractModuleSection(text) {
   const idx = normalized.search(/^PROFIELMODULEN\s*$/im);
   if (idx !== -1) return normalized.slice(idx);
 
-  // Fallback: zoek eerste echte P/PIE/ code
-  const fallbackIdx = normalized.search(/^P\/PIE\/\d+\.\d+/im);
+  // Fallback: zoek eerste echte P/[A-Z]+/ code
+  const fallbackIdx = normalized.search(/^P\/[A-Z]+\/\d+\.\d+/im);
   if (fallbackIdx === -1) return normalized;
   const before = normalized.slice(0, fallbackIdx);
   const lastModule = before.lastIndexOf('\n1 PROFIELMODULE');
@@ -120,28 +121,28 @@ function extractModuleSection(text) {
 // TAAKCODE NORMALISEREN — hernummerde codes
 // ============================================================
 function extractPrimaryTaskCode(line) {
-  // "P/PIE/3.2 1.3" → P/PIE/1.3
-  const twoCodesMatch = line.match(/P\/PIE\/\d+\.\d+\s+(\d+\.\d+)(?!\.\d)/i);
-  if (twoCodesMatch) return `P/PIE/${twoCodesMatch[1]}`;
+  // "P/[A-Z]+/3.2 1.3" → P/[A-Z]+/1.3
+  const twoCodesMatch = line.match(/P\/[A-Z]+\/\d+\.\d+\s+(\d+\.\d+)(?!\.\d)/i);
+  if (twoCodesMatch) return `P/[A-Z]+/${twoCodesMatch[1]}`;
 
-  // "P/PIE/1.31.2" → P/PIE/1.2
-  const stickyMatch = line.match(/P\/PIE\/\d+\.\d+(\d+\.\d+)/i);
-  if (stickyMatch) return `P/PIE/${stickyMatch[1]}`;
+  // "P/[A-Z]+/1.31.2" → P/[A-Z]+/1.2
+  const stickyMatch = line.match(/P\/[A-Z]+\/\d+\.\d+(\d+\.\d+)/i);
+  if (stickyMatch) return `P/[A-Z]+/${stickyMatch[1]}`;
 
   // Normaal
-  const normalMatch = line.match(/P\/PIE\/(\d+\.\d+)/i);
-  if (normalMatch) return `P/PIE/${normalMatch[1]}`;
+  const normalMatch = line.match(/P\/[A-Z]+\/(\d+\.\d+)/i);
+  if (normalMatch) return `P/[A-Z]+/${normalMatch[1]}`;
 
   return null;
 }
 
 function extractSubCode(line) {
   // Hernummerde sub-code: gebruik de tweede
-  const twoMatch = line.match(/P\/PIE\/\d+\.\d+\.\d+\s+(\d+\.\d+\.\d+)/i);
-  if (twoMatch) return `P/PIE/${twoMatch[1]}`;
+  const twoMatch = line.match(/P\/[A-Z]+\/\d+\.\d+\.\d+\s+(\d+\.\d+\.\d+)/i);
+  if (twoMatch) return `P/[A-Z]+/${twoMatch[1]}`;
 
-  const normalMatch = line.match(/P\/PIE\/(\d+\.\d+\.\d+)/i);
-  if (normalMatch) return `P/PIE/${normalMatch[1]}`;
+  const normalMatch = line.match(/P\/[A-Z]+\/(\d+\.\d+\.\d+)/i);
+  if (normalMatch) return `P/[A-Z]+/${normalMatch[1]}`;
 
   return extractPrimaryTaskCode(line);
 }
@@ -184,20 +185,20 @@ function parseTasks(lines) {
   const tasks = [];
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
-    if (!/P\/PIE\//i.test(line)) continue;
+    if (!/P\/[A-Z]+\//i.test(line)) continue;
     const code = extractPrimaryTaskCode(line);
     if (!code) continue;
-    // Alleen hoofd-taken (P/PIE/1.1, niet P/PIE/1.1.1)
-    if (/P\/PIE\/\d+\.\d+\.\d+/i.test(code)) continue;
+    // Alleen hoofd-taken (P/[A-Z]+/1.1, niet P/[A-Z]+/1.1.1)
+    if (/P\/[A-Z]+\/\d+\.\d+\.\d+/i.test(code)) continue;
     if (tasks.find(t => t.code === code)) continue;
 
-    let title = line.replace(/P\/PIE\/[\d\.\s]+/gi, '').replace(/\s+/g, ' ').trim();
+    let title = line.replace(/P\/[A-Z]+\/[\d\.\s]+/gi, '').replace(/\s+/g, ' ').trim();
     let j = i + 1;
     while (
       j < lines.length && lines[j] &&
       !/^De kandidaat kan/i.test(lines[j]) &&
       !/^UITWERKING/i.test(lines[j]) &&
-      !/P\/PIE\//i.test(lines[j]) &&
+      !/P\/[A-Z]+\//i.test(lines[j]) &&
       !/^\d+\s+PROFIELMODULE/i.test(lines[j]) &&
       !isXRow(lines[j])
     ) {
@@ -213,27 +214,13 @@ function parseTasks(lines) {
 
 // ============================================================
 // KERN: ROW-LEVEL ACTIVITEITEN EXTRAHEREN
-//
-// Structuur per sub-taak in de syllabus (na pdf-parse):
-//
-//   P/PIE/1.1.1 sub-taak omschrijving
-//   In dit verband kan de kandidaat:
-//   1. de stappen benoemen                 ← genummerde rij
-//   x x                                    ← niveau (BB + KB)
-//   2. een schakeling opbouwen             ← genummerde rij
-//   x x x                                  ← niveau (BB + KB + GL)
-//   • onderdelen van de schakeling         ← bullet (hoort bij rij 2)
-//   • de werking zichtbaar maken
-//
-// We pakken elke genummerde rij + bullets erna + de x-rij.
-// Als een rij geen x-rij heeft (fallback): inclusief voor alle niveaus.
 // ============================================================
 function extractRowActivities(moduleText, niveau) {
   const lines = splitLines(moduleText);
   const activities = [];
 
   let currentSubCode = null;
-  let pendingRow = null;    // { text, bullets }
+  let pendingRow = null;
   let inSubTask = false;
 
   function flushRow(levelStr) {
@@ -246,15 +233,13 @@ function extractRowActivities(moduleText, niveau) {
     if (/^BB|^KB|^GL/i.test(rowText)) return;
     if (/^het gaat hier om/i.test(rowText)) return;
 
-    // Niveau check
     let includeForNiveau = true;
     if (levelStr) {
       const level = xRowToLevel(levelStr);
-      includeForNiveau = !!level[niveau];
+      includeForNiveau = !level[niveau];
     }
     if (!includeForNiveau) return;
 
-    // Strip x-rijen en ruis uit tekst
     const cleanRowText = rowText
       .replace(/\s*x\s*x\s*x\s*$/i, '')
       .replace(/\s*x\s*x\s*$/i, '')
@@ -264,7 +249,6 @@ function extractRowActivities(moduleText, niveau) {
 
     if (!cleanRowText || cleanRowText.length < 5) return;
 
-    // Bouw omschrijving
     const parts = [cleanRowText, ...bullets.slice(0, 3)];
     const omschrijving = parts.join(' · ').replace(/\s+/g, ' ').trim().slice(0, 200);
     const type = classifyByText(cleanRowText + ' ' + bullets.join(' '));
@@ -282,30 +266,26 @@ function extractRowActivities(moduleText, niveau) {
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
 
-    // Sub-taak header (P/PIE/1.1.1)
-    if (/P\/PIE\/\d+\.\d+\.\d+/i.test(line) || /P\/PIE\/\d+\.\d+\s+\d+\.\d+\.\d+/i.test(line)) {
+    if (/P\/[A-Z]+\/\d+\.\d+\.\d+/i.test(line) || /P\/[A-Z]+\/\d+\.\d+\s+\d+\.\d+\.\d+/i.test(line)) {
       flushRow(null);
       currentSubCode = extractSubCode(line);
       inSubTask = true;
       continue;
     }
 
-    // Hoofd-taak reset
-    if (/^P\/PIE\/\d+\.\d+(?!\.\d)/i.test(line)) {
+    if (/^P\/[A-Z]+\/\d+\.\d+(?!\.\d)/i.test(line)) {
       flushRow(null);
       currentSubCode = extractPrimaryTaskCode(line);
       inSubTask = false;
       continue;
     }
 
-    // Module reset
     if (/^\d+\s+PROFIELMODULE/i.test(line)) {
       flushRow(null);
       inSubTask = false;
       continue;
     }
 
-    // Ruis overslaan
     if (/^In dit verband kan de kandidaat/i.test(line)) continue;
     if (/^De kandidaat kan/i.test(line)) continue;
     if (/^De volgende professionele/i.test(line)) continue;
@@ -313,23 +293,20 @@ function extractRowActivities(moduleText, niveau) {
     if (/^BB\s*KB\s*GL/i.test(line)) continue;
     if (/^Taak:/i.test(line)) continue;
     if (/^Voor het uitvoeren/i.test(line)) continue;
-    if (/^P\/PIE\/\d+\.\d+\s*$/i.test(line)) continue; // lege taakreferentie
+    if (/^P\/[A-Z]+\/\d+\.\d+\s*$/i.test(line)) continue;
 
-    // X-rij: koppel aan de openstaande rij
     if (isXRow(line)) {
       flushRow(line);
       continue;
     }
 
-    // Genummerde rij (1., 2., 3.)
     const numberedMatch = line.match(/^(\d{1,2})\.\s+(.+)$/);
     if (numberedMatch) {
-      flushRow(null); // vorige rij zonder x-rij
+      flushRow(null);
       pendingRow = { text: numberedMatch[2].trim(), bullets: [] };
       continue;
     }
 
-    // Bullet bij openstaande rij
     if (pendingRow) {
       if (/^[•\-\*]/.test(line) || (line.length < 120 && /^[a-z]/i.test(line) && !isXRow(line))) {
         const cleaned = line.replace(/^[•\-\*]\s*/, '').trim();
@@ -338,41 +315,31 @@ function extractRowActivities(moduleText, niveau) {
     }
   }
 
-  // Laatste openstaande rij
   flushRow(null);
-
   return activities;
 }
 
 // ============================================================
-// SAMENVOEGEN: meerdere activiteiten van hetzelfde type
-// worden per week gecombineerd tot één activiteit.
-// Resultaat: per week max 1 theorie + 1 praktijk.
+// SAMENVOEGEN: meerdere activiteiten per week → max 1 theorie + 1 praktijk
 // ============================================================
 function samenvoegen(items, type, uren) {
   if (!items.length) return null;
 
-  // Verzamel unieke omschrijvingen (kort, zonder bullets)
   const kernOmschrijvingen = items.map(item => {
-    // Pak alleen het eerste deel vóór de eerste '·'
     return item.omschrijving.split(' · ')[0].trim();
   });
 
-  // Verwijder duplicaten
   const uniek = [...new Set(kernOmschrijvingen)].filter(Boolean);
 
-  // Korte samenvatting: eerste zin + aantal onderwerpen
   let omschrijving;
   if (uniek.length === 1) {
     omschrijving = uniek[0];
   } else if (uniek.length <= 3) {
     omschrijving = uniek.join('; ');
   } else {
-    // Te veel om op te noemen: eerste twee + "en meer"
     omschrijving = uniek.slice(0, 2).join('; ') + ` (+${uniek.length - 2} onderwerpen)`;
   }
 
-  // Syllabuscodes samenvoegen
   const codes = [...new Set(items.map(i => i.syllabus).filter(Boolean))];
 
   return {
@@ -386,7 +353,7 @@ function samenvoegen(items, type, uren) {
 }
 
 // ============================================================
-// VERDELING OVER WEKEN — max 1 theorie + 1 praktijk per week
+// VERDELING OVER WEKEN
 // ============================================================
 function distributeActivities(activities, aantalWeken, urenTheorie, urenPraktijk) {
   const weken = Array.from({ length: aantalWeken }, (_, idx) => ({
@@ -398,19 +365,16 @@ function distributeActivities(activities, aantalWeken, urenTheorie, urenPraktijk
   const theorie = activities.filter(a => a.type === 'Theorie');
   const praktijk = activities.filter(a => a.type !== 'Theorie');
 
-  // Verdeel items evenredig over weken
   const theoriePerWeek = Math.ceil(theorie.length / aantalWeken);
   const praktijkPerWeek = Math.ceil(praktijk.length / aantalWeken);
 
   for (let w = 0; w < aantalWeken; w++) {
-    // Pak de items voor deze week
     const tStart = w * theoriePerWeek;
     const tItems = theorie.slice(tStart, tStart + theoriePerWeek);
 
     const pStart = w * praktijkPerWeek;
     const pItems = praktijk.slice(pStart, pStart + praktijkPerWeek);
 
-    // Samenvoegen tot één activiteit per type
     if (tItems.length > 0) {
       const samengevoegd = samenvoegen(tItems, 'Theorie', urenTheorie);
       if (samengevoegd) weken[w].activiteiten.push(samengevoegd);
@@ -421,7 +385,6 @@ function distributeActivities(activities, aantalWeken, urenTheorie, urenPraktijk
     }
   }
 
-  // Thema instellen op de praktijk-activiteit (meest concreet)
   weken.forEach(week => {
     const praktijkAct = week.activiteiten.find(a => a.type === 'Praktijk');
     const theorieAct = week.activiteiten.find(a => a.type === 'Theorie');
@@ -462,15 +425,11 @@ async function generateLesprofielFromPdf(filePath, options) {
 
   const niveau = String(options.niveau || 'BB').toUpperCase();
 
-  // Rij-niveau activiteiten extraheren
   const activities = extractRowActivities(module.text, niveau);
 
   if (!activities.length) {
     throw new Error('Er zijn geen activiteiten gevonden voor deze module en dit niveau');
   }
-
-  const theorieCount = activities.filter(a => a.type === 'Theorie').length;
-  const praktijkCount = activities.filter(a => a.type === 'Praktijk').length;
 
   const weken = distributeActivities(
     activities,
@@ -482,7 +441,6 @@ async function generateLesprofielFromPdf(filePath, options) {
   const naam = options.naam || `${module.naam} ${niveau}`;
   const urenPerWeek = (Number(options.urenTheorie) || 0) + (Number(options.urenPraktijk) || 0);
 
-  // AI verbetering van omschrijvingen en weekthema's
   const verbeterdeWeken = await verbeterMetAI(weken, module.naam, niveau);
 
   return {
@@ -498,9 +456,9 @@ async function generateLesprofielFromPdf(filePath, options) {
 }
 
 // ============================================================
-// AI VERBETERING — omschrijvingen en weekthema's via OpenAI
-// Stuurt de ruwe weken naar een gratis model dat nette, beknopte
-// Nederlandse docentteksten teruggeeft.
+// AI VERBETERING — omschrijvingen en weekthema's
+// Generiek voor alle VMBO profielvakken (PIE, BWI, etc.)
+// FIX: maxTokens omhoog voor grotere profielen
 // ============================================================
 async function verbeterMetAI(weken, moduleNaam, niveau) {
   if (!process.env.OPENAI_API_KEY) {
@@ -508,7 +466,6 @@ async function verbeterMetAI(weken, moduleNaam, niveau) {
     return weken;
   }
 
-  // Bouw een compact overzicht van alle weken voor de AI
   const wekenSamenvatting = weken.map((w, i) => {
     const activiteiten = w.activiteiten.map(a =>
       `  - [${a.type}] ${a.omschrijving} (syllabus: ${a.syllabus})`
@@ -516,12 +473,11 @@ async function verbeterMetAI(weken, moduleNaam, niveau) {
     return 'Week ' + (i + 1) + ':\n' + activiteiten;
   }).join('\n\n');
 
-  const prompt = `Je bent een ervaren docent PIE (Produceren, Installeren & Energie) die lesplannen schrijft.
+  const prompt = `Je bent een ervaren MBO/VMBO docent die lesplannen schrijft voor de module "${moduleNaam}", niveau ${niveau}.
 
-Ik geef je een ruwe lesplanning voor module "${moduleNaam}", niveau ${niveau}.
-Verbeter voor elke week:
-1. De OMSCHRIJVING van elke activiteit: kort, actiegericht, maximaal 1 zin, geschreven zoals een docent het zou opschrijven. Geen puntkomma's, geen haakjes met "onderwerpen", geen syllabusjargon.
-2. Het THEMA van de week: 3-5 woorden die de kern van de week vangen (bijv. "CAD-tekenen en ontwerpen" of "Elektrische schakelingen aansluiten").
+Ik geef je een ruwe lesplanning. Verbeter voor elke week:
+1. De OMSCHRIJVING van elke activiteit: kort, actiegericht, maximaal 1 zin, geschreven zoals een docent het zou opschrijven. Geen puntkomma's, geen haakjes met "onderwerpen", geen syllabusjargon. Begin met een werkwoord.
+2. Het THEMA van de week: 3-5 woorden die de kern van de week vangen (bijv. "Elektrische schakelingen aansluiten" of "Tekenen en meten").
 
 Geef je antwoord ALLEEN als JSON, exact dit formaat, geen uitleg eromheen:
 {
@@ -530,8 +486,8 @@ Geef je antwoord ALLEEN als JSON, exact dit formaat, geen uitleg eromheen:
       "weekIndex": 1,
       "thema": "kort weekthema hier",
       "activiteiten": [
-        { "type": "Theorie", "omschrijving": "verbeterde omschrijving" },
-        { "type": "Praktijk", "omschrijving": "verbeterde omschrijving" }
+        { "type": "Theorie", "omschrijving": "Verbeterde omschrijving hier." },
+        { "type": "Praktijk", "omschrijving": "Verbeterde omschrijving hier." }
       ]
     }
   ]
@@ -542,10 +498,10 @@ ${wekenSamenvatting}`;
 
   try {
     const verbeterd = await chatJson({
-      system: 'Je schrijft kort, helder en praktisch Nederlands voor een docent PIE. Geef altijd alleen geldig JSON terug.',
+      system: 'Je schrijft kort, helder en praktisch Nederlands voor MBO/VMBO docenten. Geef altijd alleen geldig JSON terug, geen uitleg erbuiten.',
       user: prompt,
       model: process.env.OPENAI_MODEL_SYLLABUS || process.env.OPENAI_MODEL || 'gpt-4o-mini',
-      maxTokens: 2500,
+      maxTokens: 3500,
       temperature: 0.2
     });
 
@@ -553,10 +509,8 @@ ${wekenSamenvatting}`;
       const verbWeek = (verbeterd.weken || []).find(v => v.weekIndex === week.weekIndex);
       if (!verbWeek) return week;
 
-      const verbeterdePActiviteiten = week.activiteiten.map(act => {
-        const verbAct = (verbWeek.activiteiten || []).find(v =>
-          v.type === act.type
-        );
+      const verbeterdeActiviteiten = week.activiteiten.map(act => {
+        const verbAct = (verbWeek.activiteiten || []).find(v => v.type === act.type);
         if (!verbAct) return act;
         return { ...act, omschrijving: verbAct.omschrijving || act.omschrijving };
       });
@@ -564,13 +518,13 @@ ${wekenSamenvatting}`;
       return {
         ...week,
         thema: verbWeek.thema || week.thema,
-        activiteiten: verbeterdePActiviteiten
+        activiteiten: verbeterdeActiviteiten
       };
     });
 
   } catch (e) {
     console.warn('AI verbetering fout:', e.message);
-    return weken; // fallback op origineel bij fout
+    return weken;
   }
 }
 
