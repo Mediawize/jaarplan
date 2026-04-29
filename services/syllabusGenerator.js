@@ -488,8 +488,8 @@ async function generateLesprofielFromPdf(filePath, options) {
 // FIX: maxTokens omhoog voor grotere profielen
 // ============================================================
 async function verbeterMetAI(weken, moduleNaam, niveau) {
-  if (!process.env.OPENAI_API_KEY) {
-    console.warn('OPENAI_API_KEY niet ingesteld — AI verbetering werkt niet');
+  if (!process.env.ANTHROPIC_API_KEY) {
+    console.warn('ANTHROPIC_API_KEY niet ingesteld — AI verbetering werkt niet');
     return weken;
   }
 
@@ -527,7 +527,7 @@ ${wekenSamenvatting}`;
     const verbeterd = await chatJson({
       system: 'Je schrijft kort, helder en praktisch Nederlands voor MBO/VMBO docenten. Geef altijd alleen geldig JSON terug, geen uitleg erbuiten.',
       user: prompt,
-      model: process.env.OPENAI_MODEL_SYLLABUS || process.env.OPENAI_MODEL || 'gpt-4o-mini',
+      model: process.env.ANTHROPIC_MODEL_SYLLABUS || process.env.ANTHROPIC_MODEL || 'claude-haiku-4-5-20251001',
       maxTokens: 3500,
       temperature: 0.2
     });

@@ -25,8 +25,8 @@ if (!process.env.SESSION_SECRET) {
 if (!process.env.RESEND_API_KEY) {
   console.warn('⚠️  WAARSCHUWING: RESEND_API_KEY niet ingesteld — wachtwoord reset e-mails werken niet.');
 }
-if (!process.env.OPENAI_API_KEY) {
-  console.warn('⚠️  WAARSCHUWING: OPENAI_API_KEY niet ingesteld — AI generatoren werken niet.');
+if (!process.env.ANTHROPIC_API_KEY) {
+  console.warn('⚠️  WAARSCHUWING: ANTHROPIC_API_KEY niet ingesteld — AI generatoren werken niet.');
 }
 
 // ---- RESEND e-mail helper ----
@@ -1434,7 +1434,7 @@ ${String(inhoud).slice(0, 20000)}`,
       });
     } catch (aiErr) {
       const msg = aiErr.message || '';
-      if (msg.includes('429') || msg.includes('quota') || msg.includes('insufficient') || msg.includes('OPENAI_API_KEY')) {
+      if (msg.includes('429') || msg.includes('quota') || msg.includes('insufficient') || msg.includes('ANTHROPIC_API_KEY')) {
         aiGebruikt = false;
         const eersteRegel = String(inhoud).split('\n').find(r => r.trim().length > 4) || '';
         data = { titel: titel || ('Werkboekje: ' + eersteRegel.slice(0, 40).trim()), vak: '', profieldeel: '', opdrachtnummer: '1', duur: '', leerdoelen: [], introductie: '', veiligheidsregels: ['Je werkpak en werkschoenen aantrekken.', 'Loshangende kleding is verboden.', 'Losse haren in een staart of knot.', 'Gehoorbescherming is verplicht bij machines.'], materiaalstaat: [], machines: [], secties: [{ titel: 'Stappenplan', benodigdheden: [], stappen: [{ stap: 'Stap 1 - vul hier de stappen in.', heeftAfbeelding: true }] }] };
