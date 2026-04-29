@@ -47,33 +47,38 @@ function xRowToLevel(line) {
 // Het werkwoord staat in VMBO-syllabi vrijwel altijd achteraan.
 // ============================================================
 const PRAKTIJK_WERKWOORDEN = [
-  'maken', 'bouwen', 'monteren', 'installeren', 'meten', 'testen',
-  'controleren', 'vervaardigen', 'assembleren', 'solderen', 'lassen',
-  'verbinden', 'aansluiten', 'plaatsen', 'bevestigen', 'instellen',
-  'afstellen', 'repareren', 'onderhouden', 'demonteren', 'uitvoeren',
-  'toepassen', 'construeren', 'bewerken', 'verwerken', 'opbouwen',
-  'aanleggen', 'tekenen', 'schetsen', 'opmeten', 'afmeten',
-  'zagen', 'boren', 'frezen', 'draaien', 'slijpen', 'schaven',
-  'stellen', 'afwerken', 'reinigen', 'coaten', 'schilderen'
+  'opbouwen', 'aansluiten', 'uitvoeren', 'maken', 'monteren', 'bedraden',
+  'testen', 'beproeven', 'aanleggen', 'instellen', 'bedienen', 'zagen',
+  'buigen', 'knippen', 'lassen', 'boren', 'draaien', 'aftekenen',
+  'afkorten', 'vijlen', 'tappen', 'knellen', 'persen', 'richten',
+  'samenstellen', 'afmonteren', 'aflassen', 'programmeren', 'invoeren',
+  'realiseren', 'produceren', 'printen', 'snijden', 'afbramen',
+  'kalibreren', 'bevestigen', 'inbedrijfstellen', 'doormeten', 'meten',
+  'verbinden', 'controleren', 'vervormen', 'scheiden', 'ruimen',
+  'inspannen', 'afstellen', 'gebruiken', 'inregelen', 'solderen',
+  'stellen', 'opzetten', 'aanpassen', 'afwerken', 'assembleren',
 ];
 
 const THEORIE_WERKWOORDEN = [
-  'beschrijven', 'uitleggen', 'benoemen', 'herkennen', 'noemen',
-  'omschrijven', 'verklaren', 'analyseren', 'beoordelen', 'vergelijken',
-  'onderscheiden', 'berekenenen', 'berekenen', 'schatten', 'voorspellen',
-  'plannen', 'ontwerpen', 'specificeren', 'selecteren', 'kiezen',
-  'adviseren', 'rapporteren', 'presenteren', 'documenteren', 'registreren',
-  'interpreteren', 'lezen', 'begrijpen', 'weten', 'kennen'
+  'omschrijven', 'beschrijven', 'benoemen', 'noemen', 'lezen',
+  'interpreteren', 'uitleggen', 'herkennen', 'bepalen', 'berekenen',
+  'afleiden', 'beoordelen', 'evalueren', 'presenteren', 'rapporteren',
+  'aangeven', 'opstellen', 'verklaren', 'analyseren', 'definiëren',
+  'toelichten', 'formuleren', 'vergelijken', 'onderscheiden',
+  'kiezen', 'motiveren', 'argumenteren', 'illustreren', 'weergeven',
+  'invullen', 'raadplegen', 'zoeken', 'aflezen', 'vastleggen',
+  'tekenen', 'schetsen', 'berekenen', 'calculeren',
 ];
 
 function classifyByText(text) {
   const lower = text.toLowerCase();
 
-  // Directe domein-hints
-  if (/veiligheidsregels|bhv|arbo|persoonlijke bescherming/i.test(lower)) return 'Theorie';
-  if (/schema|tekening|berekening|formule|wet van/i.test(lower)) return 'Theorie';
-  if (/proefopstelling|werkstuk|product|model|prototype/i.test(lower)) return 'Praktijk';
-  if (/met (?:de |het )?(?:juiste )?(?:hand)?gereedschap|met gangbaar gereedschap/i.test(lower)) return 'Praktijk';
+  // Sterke context-hints gaan voor werkwoord-analyse
+  if (/in een practicum/i.test(lower)) return 'Praktijk';
+  if (/in een montageopdracht/i.test(lower)) return 'Praktijk';
+  if (/in een proefopstelling/i.test(lower)) return 'Praktijk';
+  if (/met behulp van.{0,20}machine/i.test(lower)) return 'Praktijk';
+  if (/met gangbaar gereedschap/i.test(lower)) return 'Praktijk';
   if (/onder toezicht in bedrijf/i.test(lower)) return 'Praktijk';
   if (/volgens gestelde kwaliteitseisen/i.test(lower)) return 'Praktijk';
 
@@ -453,11 +458,11 @@ async function generateLesprofielFromPdf(filePath, options) {
 // ============================================================
 // AI VERBETERING — omschrijvingen en weekthema's
 // Generiek voor alle VMBO profielvakken (PIE, BWI, etc.)
+// FIX: maxTokens omhoog voor grotere profielen
 // ============================================================
 async function verbeterMetAI(weken, moduleNaam, niveau) {
-  // ← GEWIJZIGD: controleert nu op ANTHROPIC_API_KEY
   if (!process.env.ANTHROPIC_API_KEY) {
-    console.warn('ANTHROPIC_API_KEY niet ingesteld — AI verbetering werkt niet');
+    console.warn('ANTHROPIC_API_KEY niet ingesteld — AI verbetering overgeslagen');
     return weken;
   }
 
@@ -495,8 +500,7 @@ ${wekenSamenvatting}`;
     const verbeterd = await chatJson({
       system: 'Je schrijft kort, helder en praktisch Nederlands voor MBO/VMBO docenten. Geef altijd alleen geldig JSON terug, geen uitleg erbuiten.',
       user: prompt,
-      // ← GEWIJZIGD: gebruikt nu ANTHROPIC_MODEL env var
-      model: process.env.ANTHROPIC_MODEL || 'claude-haiku-4-5-20251001',
+      model: process.env.ANTHROPIC_MODEL_SYLLABUS || process.env.ANTHROPIC_MODEL || 'claude-haiku-4-5-20251001',
       maxTokens: 3500,
       temperature: 0.2
     });
