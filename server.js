@@ -25,8 +25,8 @@ if (!process.env.SESSION_SECRET) {
 if (!process.env.RESEND_API_KEY) {
   console.warn('⚠️  WAARSCHUWING: RESEND_API_KEY niet ingesteld — wachtwoord reset e-mails werken niet.');
 }
-if (!process.env.ANTHROPIC_API_KEY) {
-  console.warn('⚠️  WAARSCHUWING: ANTHROPIC_API_KEY niet ingesteld — AI generatoren werken niet.');
+if (!process.env.OPENAI_API_KEY) {
+  console.warn('⚠️  WAARSCHUWING: OPENAI_API_KEY niet ingesteld — AI generatoren werken niet.');
 }
 
 // ---- RESEND e-mail helper ----
@@ -582,7 +582,9 @@ app.post('/api/genereer-lesprofiel-uit-syllabus', requireCanEdit, async (req, re
       urenTheorie: Number(urenTheorie),
       urenPraktijk: Number(urenPraktijk),
       naam,
-      vakId
+      vakId,
+      vakCode: vak.naam,
+      vakNaam: vak.volledig || vak.naam
     });
     const profiel = db.addLesprofiel({
       naam: gegenereerd.naam,
