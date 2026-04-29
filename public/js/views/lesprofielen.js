@@ -259,13 +259,13 @@ async function renderLesprofielen() {
 
 async function openProfielModal(vakId = null, profielId = null) {
   const [vakken, profielen] = await Promise.all([API.getVakken(), API.getLesprofielen()]);
-  const p = profielId ? profielen.find(x => x.id === profielId) : null;
+  const p = profielId ? profielen.find(x => String(x.id) === String(profielId)) : null;
   openModal(`
     <h2>${profielId ? 'Lesprofiel bewerken' : 'Nieuw lesprofiel'}</h2>
     <div class="form-grid">
       <div class="form-field form-full"><label>Naam *</label><input id="profiel-naam" value="${escHtml(p?.naam || '')}" placeholder="bijv. Constructief Bouwkunde GL periode 1"></div>
       <div class="form-field"><label>Vak *</label><select id="profiel-vak">
-        ${vakken.map(v => `<option value="${v.id}" ${(vakId === v.id || p?.vakId === v.id) ? 'selected' : ''}>${escHtml(v.naam)}</option>`).join('')}
+        ${vakken.map(v => `<option value="${v.id}" ${(String(vakId) === String(v.id) || String(p?.vakId) === String(v.id)) ? 'selected' : ''}>${escHtml(v.naam)}</option>`).join('')}
       </select></div>
       <div class="form-field"><label>Niveau</label><select id="profiel-niveau">
         ${['', 'BB', 'KB', 'GL', 'TL', 'Havo', 'VWO'].map(n => `<option value="${n}" ${(p?.niveau || '') === n ? 'selected' : ''}>${n || 'Alle niveaus'}</option>`).join('')}
@@ -293,7 +293,7 @@ async function slaProfielOp(profielId) {
 
   let weken;
   if (profielId) {
-    const bestaand = (await API.getLesprofielen()).find(x => x.id === profielId);
+    const bestaand = (await API.getLesprofielen()).find(x => String(x.id) === String(profielId));
     weken = Array.from({ length: aantalWeken }, (_, i) => bestaand?.weken?.[i] || { weekIndex: i + 1, thema: '', activiteiten: [] });
   } else {
     weken = Array.from({ length: aantalWeken }, (_, i) => ({ weekIndex: i + 1, thema: '', activiteiten: [] }));
@@ -312,12 +312,12 @@ async function openProfielDetail(profielId) {
   const [profielen, vakken, klassen, alleOpd] = await Promise.all([
     API.getLesprofielen(), API.getVakken(), API.getKlassen(), API.getOpdrachten()
   ]);
-  const p = profielen.find(x => x.id === profielId);
+  const p = profielen.find(x => String(x.id) === String(profielId));
   if (!p) return;
-  const vak = vakken.find(v => v.id === p.vakId);
+  const vak = vakken.find(v => String(v.id) === String(p.vakId));
 
-  const gekoppeldeKlasIds = [...new Set(alleOpd.filter(o => o.profielId === profielId).map(o => o.klasId))];
-  const gekoppeldeKlassen = gekoppeldeKlasIds.map(id => klassen.find(k => k.id === id)).filter(Boolean);
+  const gekoppeldeKlasIds = [...new Set(alleOpd.filter(o => String(o.profielId) === String(profielId)).map(o => o.klasId))];
+  const gekoppeldeKlassen = gekoppeldeKlasIds.map(id => klassen.find(k => String(k.id) === String(id))).filter(Boolean);
 
   const overlay = document.createElement('div');
   overlay.id = 'profiel-detail-overlay';
@@ -331,8 +331,8 @@ async function openProfielDetail(profielId) {
        </div>`
     : `<div style="padding:8px 20px 16px">
          ${gekoppeldeKlassen.map(k => {
-           const aantalOpd = alleOpd.filter(o => o.profielId === profielId && o.klasId === k.id).length;
-           const afgevinkt = alleOpd.filter(o => o.profielId === profielId && o.klasId === k.id && o.afgevinkt).length;
+           const aantalOpd = alleOpd.filter(o => String(o.profielId) === String(profielId) && String(o.klasId) === String(k.id)).length;
+           const afgevinkt = alleOpd.filter(o => String(o.profielId) === String(profielId) && String(o.klasId) === String(k.id) && o.afgevinkt).length;
            const pct = aantalOpd ? Math.round(afgevinkt / aantalOpd * 100) : 0;
            return `<div style="display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid var(--border)">
              <div style="flex:1"><strong>${escHtml(k.naam)}</strong> <span style="font-size:12px;color:var(--ink-muted)">${k.schooljaar}</span></div>
@@ -389,7 +389,7 @@ async function ontkoppelKlasVanProfiel(profielId, klasId, klasNaam) {
   if (!confirm(`Lesprofiel ontkoppelen van "${klasNaam}"?\n\nAlle opdrachten die vanuit dit profiel zijn aangemaakt worden verwijderd.`)) return;
   try {
     const opdrachten = await API.getOpdrachten(klasId);
-    const teVerwijderen = opdrachten.filter(o => o.profielId === profielId);
+    const teVerwijderen = opdrachten.filter(o => String(o.profielId) === String(profielId));
     for (const o of teVerwijderen) { await API.deleteOpdracht(o.id); }
     Cache.invalidateAll();
     document.getElementById('profiel-detail-overlay')?.remove();
@@ -468,7 +468,7 @@ function renderActiviteitenHTML(p, weekIdx) {
 
 function bewerkActiviteit(profielId, weekIdx, actIdx) {
   API.getLesprofielen().then(profielen => {
-    const p = profielen.find(x => x.id === profielId);
+    const p = profielen.find(x => String(x.id) === String(profielId));
     if (!p) return;
     const a = p.weken[weekIdx].activiteiten[actIdx];
     openModal(`
@@ -501,19 +501,19 @@ async function slaActiviteitBewerkingOp(profielId, weekIdx, actIdx) {
   const syllabus = document.getElementById('act-syllabus').value.trim();
   const bestand = document.getElementById('act-bestand').value.trim();
   const profielen = await API.getLesprofielen();
-  const p = profielen.find(x => x.id === profielId);
+  const p = profielen.find(x => String(x.id) === String(profielId));
   if (!p) return;
   p.weken[weekIdx].activiteiten[actIdx] = { type, uren, omschrijving, link, syllabus, bestand: bestand || null };
   await API.updateLesprofiel(profielId, { weken: p.weken });
   closeModalDirect();
-  const bijgewerkt = (await API.getLesprofielen()).find(x => x.id === profielId);
+  const bijgewerkt = (await API.getLesprofielen()).find(x => String(x.id) === String(profielId));
   const container = document.getElementById(`activiteiten-week-${profielId}-${weekIdx}`);
   if (container && bijgewerkt) container.innerHTML = renderActiviteitenHTML(bijgewerkt, weekIdx);
 }
 
 async function updateProfielWeekThemaAsync(profielId, weekIdx, thema) {
   const profielen = await API.getLesprofielen();
-  const p = profielen.find(x => x.id === profielId);
+  const p = profielen.find(x => String(x.id) === String(profielId));
   if (!p) return;
   p.weken[weekIdx].thema = thema;
   await API.updateLesprofiel(profielId, { weken: p.weken });
@@ -549,14 +549,14 @@ async function slaActiviteitOp(profielId, weekIdx) {
   const syllabus = document.getElementById('act-syllabus').value.trim();
   const bestand = document.getElementById('act-bestand').value.trim();
   const profielen = await API.getLesprofielen();
-  const p = profielen.find(x => x.id === profielId);
+  const p = profielen.find(x => String(x.id) === String(profielId));
   if (!p) return;
   p.weken[weekIdx].activiteiten = p.weken[weekIdx].activiteiten || [];
   p.weken[weekIdx].activiteiten.push({ type, uren, omschrijving, link, syllabus, bestand: bestand || null });
   await API.updateLesprofiel(profielId, { weken: p.weken });
   closeModalDirect();
   const container = document.getElementById(`activiteiten-week-${profielId}-${weekIdx}`);
-  const bijgewerkt = (await API.getLesprofielen()).find(x => x.id === profielId);
+  const bijgewerkt = (await API.getLesprofielen()).find(x => String(x.id) === String(profielId));
   if (container && bijgewerkt) {
     container.innerHTML = renderActiviteitenHTML(bijgewerkt, weekIdx);
     const empty = container.nextElementSibling;
@@ -567,17 +567,17 @@ async function slaActiviteitOp(profielId, weekIdx) {
 async function verwijderActiviteit(profielId, weekIdx, actIdx) {
   if (!confirm('Activiteit verwijderen?')) return;
   const profielen = await API.getLesprofielen();
-  const p = profielen.find(x => x.id === profielId);
+  const p = profielen.find(x => String(x.id) === String(profielId));
   p.weken[weekIdx].activiteiten.splice(actIdx, 1);
   await API.updateLesprofiel(profielId, { weken: p.weken });
-  const bijgewerkt = (await API.getLesprofielen()).find(x => x.id === profielId);
+  const bijgewerkt = (await API.getLesprofielen()).find(x => String(x.id) === String(profielId));
   const container = document.getElementById(`activiteiten-week-${profielId}-${weekIdx}`);
   if (container && bijgewerkt) container.innerHTML = renderActiviteitenHTML(bijgewerkt, weekIdx);
 }
 
 async function verwijderProfiel(id) {
   const profielen = await API.getLesprofielen();
-  const p = profielen.find(x => x.id === id);
+  const p = profielen.find(x => String(x.id) === String(id));
   if (!confirm(`Lesprofiel "${p?.naam}" verwijderen?`)) return;
   try { await API.deleteLesprofiel(id); renderLesprofielen(); }
   catch(e) { showError(e.message); }
@@ -585,14 +585,16 @@ async function verwijderProfiel(id) {
 
 async function openKoppelModal(profielId) {
   const [profielen, klassen, vakken] = await Promise.all([API.getLesprofielen(), API.getKlassen(), API.getVakken()]);
-  const p = profielen.find(x => x.id === profielId);
+  const p = profielen.find(x => String(x.id) === String(profielId));
   if (!p) return;
-  const vak = vakken.find(v => v.id === p.vakId);
-  const relevante = klassen.filter(k => lpKlasPastBijProfiel(k, p));
+  const vak = vakken.find(v => String(v.id) === String(p.vakId));
+  const relevante = klassen
+    .filter(k => lpKlasPastBijProfiel(k, p))
+    .sort((a, b) => String(b.schooljaar || '').localeCompare(String(a.schooljaar || '')) || String(a.naam || '').localeCompare(String(b.naam || '')));
   const alleOpd = await API.getOpdrachten();
-  const alGekoppeld = alleOpd.filter(o => o.profielId === profielId);
+  const alGekoppeld = alleOpd.filter(o => String(o.profielId) === String(profielId));
   const gekoppeldeKlassen = [...new Set(alGekoppeld.map(o => o.klasId))];
-  const gekoppeldeKlasNamen = gekoppeldeKlassen.map(id => klassen.find(k => k.id === id)?.naam).filter(Boolean);
+  const gekoppeldeKlasNamen = gekoppeldeKlassen.map(id => klassen.find(k => String(k.id) === String(id))?.naam).filter(Boolean);
 
   openModal(`
     <h2>Profiel koppelen aan planning</h2>
@@ -623,13 +625,13 @@ async function laadKoppelWeken(profielId) {
   const klasId = document.getElementById('koppel-klas')?.value;
   if (!klasId) return;
   const klassen = await API.getKlassen();
-  const klas = klassen.find(k => k.id === klasId);
+  const klas = klassen.find(k => String(k.id) === String(klasId));
   if (!klas) return;
   const weken = (await API.getWeken(klas.schooljaar)).filter(w => !w.isVakantie);
   const sel = document.getElementById('koppel-startweek');
   if (!sel) return;
   const profielen = await API.getLesprofielen();
-  const p = profielen.find(x => x.id === profielId);
+  const p = profielen.find(x => String(x.id) === String(profielId));
   sel.innerHTML = `<option value="">— Selecteer startweek —</option>` + weken.map(w => `<option value="${w.weeknummer}">Wk ${w.weeknummer} · ${w.van} – ${w.tot}${w.thema ? ' · ' + w.thema : ''}</option>`).join('');
   sel.onchange = () => {
     const sw = parseInt(sel.value);
@@ -643,12 +645,19 @@ async function slaKoppelingOp(profielId) {
   const klasId = document.getElementById('koppel-klas').value;
   const startweek = parseInt(document.getElementById('koppel-startweek').value);
   if (!klasId || !startweek) { alert('Selecteer een klas en startweek.'); return; }
-  const [profielen, klassen] = await Promise.all([API.getLesprofielen(), API.getKlassen()]);
-  const p = profielen.find(x => x.id === profielId);
-  const klas = klassen.find(k => k.id === klasId);
+  const [profielen, klassen, vakken] = await Promise.all([API.getLesprofielen(), API.getKlassen(), API.getVakken()]);
+  const p = profielen.find(x => String(x.id) === String(profielId));
+  const klas = klassen.find(k => String(k.id) === String(klasId));
+
+  if (!p || !klas) {
+    alert('Profiel of klas niet gevonden. Vernieuw de pagina en probeer opnieuw.');
+    return;
+  }
+
+  const vak = vakken.find(v => String(v.id) === String(p.vakId));
 
   const bestaandeOpd = await API.getOpdrachten(klasId);
-  const teVerwijderen = bestaandeOpd.filter(o => o.profielId === profielId);
+  const teVerwijderen = bestaandeOpd.filter(o => String(o.profielId) === String(profielId));
   for (const o of teVerwijderen) { await API.deleteOpdracht(o.id); }
 
   const alleWeken = (await API.getWeken(klas.schooljaar)).filter(w => !w.isVakantie);
