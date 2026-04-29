@@ -643,9 +643,10 @@ async function slaKoppelingOp(profielId) {
   const klasId = document.getElementById('koppel-klas').value;
   const startweek = parseInt(document.getElementById('koppel-startweek').value);
   if (!klasId || !startweek) { alert('Selecteer een klas en startweek.'); return; }
-  const [profielen, klassen] = await Promise.all([API.getLesprofielen(), API.getKlassen()]);
+  const [profielen, klassen, vakken] = await Promise.all([API.getLesprofielen(), API.getKlassen(), API.getVakken()]);
   const p = profielen.find(x => x.id === profielId);
   const klas = klassen.find(k => k.id === klasId);
+  const vak = vakken.find(v => v.id === klas?.vakId) || null;
 
   const bestaandeOpd = await API.getOpdrachten(klasId);
   const teVerwijderen = bestaandeOpd.filter(o => o.profielId === profielId);
