@@ -14,7 +14,7 @@ let _jpGebruikers = [];
 let _jpVakken = [];
 
 function jpVakCodeVoorKlas(klas) {
-  const vak = _jpVakken.find(v => String(v.id) === String(klas?.vakId));
+  const vak = _jpVakken.find(v => v.id === klas?.vakId);
   const raw = String(vak?.naam || vak?.code || vak?.volledig || 'PIE').trim().toUpperCase();
   const match = raw.match(/[A-Z]{2,5}/);
   return match ? match[0] : 'PIE';
@@ -42,11 +42,7 @@ async function renderJaarplanning() {
       return;
     }
 
-    let geselecteerdeKlas = klassen.find(k => String(k.id) === String(window._selectedKlas));
-    if (!geselecteerdeKlas) {
-      geselecteerdeKlas = klassen[0];
-      window._selectedKlas = geselecteerdeKlas.id;
-    }
+    let geselecteerdeKlas = klassen.find(k => k.id === window._selectedKlas) || klassen[0];
     _jpKlas = geselecteerdeKlas;
 
     const schooljaar = geselecteerdeKlas.schooljaar || '2025-2026';
@@ -58,7 +54,7 @@ async function renderJaarplanning() {
     _jpOpdrachten = opdrachten;
 
     const cw = getCurrentWeek();
-    const vak = vakken.find(v => String(v.id) === String(geselecteerdeKlas.vakId));
+    const vak = vakken.find(v => v.id === geselecteerdeKlas.vakId);
     const readonly = !Auth.canEdit();
 
     const actieveWeken = weken.filter(w => !w.isVakantie && (!geselecteerdeKlas.roulatie || isRoulatieWeekActief(geselecteerdeKlas, w.weeknummer)));
@@ -74,7 +70,7 @@ async function renderJaarplanning() {
         </div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
           <select id="jp-klas-select" onchange="jpSwitchKlas(this.value)" style="padding:8px 12px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:13px;background:#fff">
-            ${klassen.map(k => `<option value="${k.id}" ${String(k.id) === String(geselecteerdeKlas.id) ? 'selected' : ''}>${escHtml(k.naam)}${k.roulatie ? ' ⟳' : ''}</option>`).join('')}
+            ${klassen.map(k => `<option value="${k.id}" ${k.id === geselecteerdeKlas.id ? 'selected' : ''}>${escHtml(k.naam)}${k.roulatie ? ' ⟳' : ''}</option>`).join('')}
           </select>
           ${!readonly ? `<button class="btn btn-primary" onclick="openOpdrachtModal()">+ Opdracht</button>` : ''}
         </div>
