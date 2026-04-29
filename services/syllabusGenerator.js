@@ -417,6 +417,31 @@ async function analyseSyllabusPdf(filePath) {
   return { modules, sourceText: text };
 }
 
+
+function normalizeVakCodeForSyllabus(value) {
+  const raw = String(value || '').trim().toUpperCase();
+  const match = raw.match(/[A-Z]{2,5}/);
+  return match ? match[0] : 'PIE';
+}
+
+function applyVakCodeToSyllabusValue(value, vakCode) {
+  if (value == null) return value;
+  const code = normalizeVakCodeForSyllabus(vakCode);
+  return String(value)
+    .replace(/P\/\[A-Z\]\+\//gi, `P/${code}/`)
+    .replace(/P\/[A-Z]{2,5}\//gi, `P/${code}/`);
+}
+
+function applyVakCodeToWeken(weken, vakCode) {
+  return (weken || []).map(week => ({
+    ...week,
+    activiteiten: (week.activiteiten || []).map(act => ({
+      ...act,
+      syllabus: applyVakCodeToSyllabusValue(act.syllabus, vakCode)
+    }))
+  }));
+}
+
 async function generateLesprofielFromPdf(filePath, options) {
   const text = await readPdf(filePath);
   const modules = parseModules(text);
@@ -442,16 +467,18 @@ async function generateLesprofielFromPdf(filePath, options) {
   const urenPerWeek = (Number(options.urenTheorie) || 0) + (Number(options.urenPraktijk) || 0);
 
   const verbeterdeWeken = await verbeterMetAI(weken, module.naam, niveau);
+  const vakCode = normalizeVakCodeForSyllabus(options.vakCode || options.vakNaam || options.vak || 'PIE');
+  const wekenMetVakCode = applyVakCodeToWeken(verbeterdeWeken, vakCode);
 
   return {
     naam,
     niveau,
     module: { code: module.code, naam: module.naam },
-    selectie: module.tasks.map(t => ({ code: t.code, title: t.title })),
-    aantalWeken: verbeterdeWeken.length,
+    selectie: module.tasks.map(t => ({ code: applyVakCodeToSyllabusValue(t.code, vakCode), title: t.title })),
+    aantalWeken: wekenMetVakCode.length,
     urenPerWeek,
     beschrijving: `Automatisch gegenereerd — module ${module.code} ${module.naam}, niveau ${niveau}.`,
-    weken: verbeterdeWeken
+    weken: wekenMetVakCode
   };
 }
 
@@ -461,8 +488,8 @@ async function generateLesprofielFromPdf(filePath, options) {
 // FIX: maxTokens omhoog voor grotere profielen
 // ============================================================
 async function verbeterMetAI(weken, moduleNaam, niveau) {
-  if (!process.env.ANTHROPIC_API_KEY) {
-    console.warn('ANTHROPIC_API_KEY niet ingesteld — AI verbetering overgeslagen');
+  if (!process.env.OPENAI_API_KEY) {
+    console.warn('OPENAI_API_KEY niet ingesteld — AI verbetering werkt niet');
     return weken;
   }
 
@@ -500,7 +527,7 @@ ${wekenSamenvatting}`;
     const verbeterd = await chatJson({
       system: 'Je schrijft kort, helder en praktisch Nederlands voor MBO/VMBO docenten. Geef altijd alleen geldig JSON terug, geen uitleg erbuiten.',
       user: prompt,
-      model: process.env.ANTHROPIC_MODEL_SYLLABUS || process.env.ANTHROPIC_MODEL || 'claude-haiku-4-5-20251001',
+      model: process.env.OPENAI_MODEL_SYLLABUS || process.env.OPENAI_MODEL || 'gpt-4o-mini',
       maxTokens: 3500,
       temperature: 0.2
     });
