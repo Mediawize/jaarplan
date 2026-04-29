@@ -263,6 +263,7 @@ async function jpSwitchKlas(klasId) {
 }
 
 async function jpAfvinken(opdrachtId) {
+  if (!_jpKlas) return;
   try {
     await API.afvinken(opdrachtId);
     Cache.invalidate('opdrachten');
@@ -319,6 +320,7 @@ async function openOpdrachtModal(id = null, weeknr = null) {
 }
 
 async function saveOpdracht(id) {
+  if (!_jpKlas) return;
   const naam = document.getElementById('opd-naam').value.trim();
   const weeknummer = parseInt(document.getElementById('opd-week').value);
   if (!naam) { alert('Naam is verplicht'); return; }

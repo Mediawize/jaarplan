@@ -233,7 +233,7 @@ function renderLesCard(o, klas, cw) {
             <svg viewBox="0 0 20 20" fill="none"><path d="M4 10l5 5 7-8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
             ${o.afgevinkt ? 'Afgerond ✓' : 'Les afronden'}
           </button>
-          <button class="db-opmerking-btn" onclick="openOpmerkingModal('${o.id}');event.stopPropagation()">
+          <button class="db-opmerking-btn" onclick="dbOpenOpmerkingModal('${o.id}');event.stopPropagation()">
             <svg viewBox="0 0 20 20" fill="none"><path d="M4 4h12v10H4z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M4 14l3 3v-3" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>
             Opmerking toevoegen
           </button>
@@ -349,7 +349,7 @@ function _herlaadDashboardLijst() {
 // ============================================================
 // OPMERKING MODAL
 // ============================================================
-function openOpmerkingModal(id) {
+function dbOpenOpmerkingModal(id) {
   const opd = (window._dbAlleOpd || []).find(o => o.id === id);
   openModal(`
     <h2>Opmerking toevoegen</h2>
