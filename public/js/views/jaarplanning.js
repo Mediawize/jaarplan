@@ -152,7 +152,7 @@ function renderJpGrid(weken, opdrachten, klas, cw, readonly) {
         <span class="jp-week-nr">${isHuidig ? '▶ ' : ''}Wk ${week.weeknummer}</span>
         <span class="jp-week-datum">${week.van||''}</span>
         <div style="display:flex;align-items:center;gap:4px;margin-left:auto">
-          ${week.thema ? `<span style="font-size:11px;color:var(--ink-3);font-style:italic;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(week.thema)}</span>` : ''}
+          ${week.thema && weekOpd.length > 0 ? `<span style="font-size:11px;color:var(--ink-3);font-style:italic;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(week.thema)}</span>` : ''}
           ${!readonly ? `<button class="icon-btn" onclick="openOpdrachtModal(null, ${week.weeknummer})" title="Opdracht toevoegen" style="width:20px;height:20px;opacity:0.5">
             <svg viewBox="0 0 20 20" fill="none"><path d="M10 4v12M4 10h12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
           </button>` : ''}
