@@ -8,6 +8,40 @@ const syllabusWizardState = {
   modules: []
 };
 
+function lpNormalizeNiveau(value) {
+  const raw = String(value || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+  if (!raw) return '';
+  if (['BB', 'B', 'VMBOB', 'VMBOb'.toUpperCase(), 'BASIS', 'BASISBEROEPS'].includes(raw)) return 'BB';
+  if (['KB', 'K', 'VMBOK', 'KADER', 'KADERBEROEPS'].includes(raw)) return 'KB';
+  if (['GL', 'GT', 'TL', 'VMBOGT', 'VMBOGL', 'VMBOTL', 'GEMENGD', 'THEORETISCH'].includes(raw)) return 'GL';
+  if (raw.includes('HAVO')) return 'HAVO';
+  if (raw.includes('VWO')) return 'VWO';
+  return raw;
+}
+
+function lpVakCode(vak) {
+  const raw = String(vak?.naam || vak?.code || vak?.volledig || 'PIE').trim().toUpperCase();
+  const match = raw.match(/[A-Z]{2,5}/);
+  return match ? match[0] : 'PIE';
+}
+
+function lpFormatSyllabusCode(value, vak) {
+  if (!value) return '';
+  const code = lpVakCode(vak);
+  return String(value)
+    .replace(/P\/\[A-Z\]\+\//gi, `P/${code}/`)
+    .replace(/P\/[A-Z]{2,5}\//gi, `P/${code}/`);
+}
+
+function lpKlasPastBijProfiel(klas, profiel) {
+  if (!klas || !profiel) return false;
+  if (String(klas.vakId || '') !== String(profiel.vakId || '')) return false;
+  const profielNiveau = lpNormalizeNiveau(profiel.niveau);
+  if (!profielNiveau) return true;
+  return lpNormalizeNiveau(klas.niveau) === profielNiveau;
+}
+
+
 function openSyllabusWizard() {
   syllabusWizardState.uploadToken = '';
   syllabusWizardState.modules = [];
@@ -554,7 +588,7 @@ async function openKoppelModal(profielId) {
   const p = profielen.find(x => x.id === profielId);
   if (!p) return;
   const vak = vakken.find(v => v.id === p.vakId);
-  const relevante = klassen.filter(k => k.vakId === p.vakId && (!p.niveau || (k.niveau || '') === p.niveau));
+  const relevante = klassen.filter(k => lpKlasPastBijProfiel(k, p));
   const alleOpd = await API.getOpdrachten();
   const alGekoppeld = alleOpd.filter(o => o.profielId === profielId);
   const gekoppeldeKlassen = [...new Set(alGekoppeld.map(o => o.klasId))];
@@ -571,7 +605,7 @@ async function openKoppelModal(profielId) {
     <div class="form-grid">
       <div class="form-field"><label>Klas *</label><select id="koppel-klas" onchange="laadKoppelWeken('${p.id}')">
         ${relevante.length === 0
-          ? `<option value="">Geen klassen met vak ${escHtml(vak?.naam)}</option>`
+          ? `<option value="">Geen klassen met vak ${escHtml(vak?.naam)}${p.niveau ? ' en niveau ' + escHtml(p.niveau) : ''}</option>`
           : relevante.map(k => `<option value="${k.id}">${escHtml(k.naam)} — ${escHtml(k.schooljaar)}</option>`).join('')}
       </select></div>
       <div class="form-field"><label>Startweek *</label><select id="koppel-startweek"><option value="">— Selecteer klas eerst —</option></select></div>
@@ -635,7 +669,7 @@ async function slaKoppelingOp(profielId) {
         schooljaar: klas.schooljaar,
         type: act.type,
         uren: act.uren,
-        syllabuscodes: act.syllabus || '',
+        syllabuscodes: lpFormatSyllabusCode(act.syllabus || '', vak),
         werkboekLink: '',
         beschrijving: pw.thema
           ? `${pw.thema} — Uit lesprofiel: ${p.naam} (week ${i + 1} van ${p.aantalWeken})`
