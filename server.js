@@ -1551,6 +1551,215 @@ Regels:
 });
 
 
+// ============================================================
+// LESBRIEF DOCX DOWNLOAD
+// ============================================================
+async function bouwLesbriefDocx(lb, schoolnaam) {
+  const {
+    Document, Packer, Paragraph, TextRun,
+    Header, AlignmentType, BorderStyle,
+    Table, TableRow, TableCell, WidthType,
+    TabStopType, TabStopPosition
+  } = require('docx');
+
+  const GROEN = '2D5A3D', GROEN_DIM = 'E8F3EC', GRIJS = 'D1D5DB', TEKST = '44403C', WIT = 'FFFFFF', AMBER = '92400E', AMBER_DIM = 'FEF3C7';
+  const RAND_GEEN = { style: BorderStyle.NONE, size: 0, color: 'auto' };
+
+  function sectieKop(tekst, kleur = GROEN) {
+    return new Paragraph({
+      spacing: { before: 240, after: 80 },
+      shading: { type: 'clear', fill: GROEN_DIM },
+      border: { left: { style: BorderStyle.SINGLE, size: 16, color: kleur, space: 6 } },
+      children: [new TextRun({ text: tekst, font: 'Arial', size: 24, bold: true, color: kleur })]
+    });
+  }
+
+  function rij(tekst, bold = false, inspring = 0) {
+    return new Paragraph({
+      spacing: { before: 40, after: 40 },
+      indent: inspring ? { left: inspring } : undefined,
+      children: [new TextRun({ text: tekst || '', font: 'Arial', size: 20, bold, color: TEKST })]
+    });
+  }
+
+  function bullet(tekst) {
+    return new Paragraph({
+      spacing: { before: 20, after: 20 },
+      indent: { left: 360, hanging: 200 },
+      children: [new TextRun({ text: '• ' + (tekst || ''), font: 'Arial', size: 20, color: TEKST })]
+    });
+  }
+
+  const info = lb.inhoud || lb;
+
+  const children = [];
+
+  // Titel
+  children.push(new Paragraph({
+    spacing: { before: 0, after: 120 },
+    border: { bottom: { style: BorderStyle.SINGLE, size: 6, color: GROEN, space: 6 } },
+    children: [new TextRun({ text: 'Lesbrief', font: 'Arial', size: 36, bold: true, color: GROEN })]
+  }));
+
+  // Meta info
+  if (lb.activiteitNaam || lb.activiteit_naam) {
+    const naam = lb.activiteitNaam || lb.activiteit_naam || '';
+    const type = lb.activiteitType || lb.activiteit_type || '';
+    const uren = lb.activiteitUren || lb.activiteit_uren || '';
+    children.push(new Paragraph({
+      spacing: { before: 60, after: 160 },
+      children: [
+        new TextRun({ text: type ? `${type} — ` : '', font: 'Arial', size: 20, color: '6B7280' }),
+        new TextRun({ text: naam, font: 'Arial', size: 20, bold: true, color: TEKST }),
+        uren ? new TextRun({ text: `  ·  ${uren} uur`, font: 'Arial', size: 20, color: '6B7280' }) : new TextRun({ text: '' })
+      ]
+    }));
+  }
+
+  // 1. Voorbereiding
+  if (info.voorbereiding) {
+    children.push(sectieKop('Voorbereiding'));
+    children.push(rij(info.voorbereiding));
+  }
+
+  // 2. Benodigdheden
+  if (info.benodigdheden && info.benodigdheden.length) {
+    children.push(sectieKop('Benodigdheden'));
+    info.benodigdheden.forEach(b => children.push(bullet(b)));
+  }
+
+  // 3. Lesverloop
+  if (info.lesverloop && info.lesverloop.length) {
+    children.push(sectieKop('Lesverloop'));
+    const totaal = info.lesverloop.reduce((t, f) => t + (parseInt(f.minuten) || 0), 0);
+    children.push(rij(`Totaal: ${totaal} minuten`, false));
+    children.push(new Paragraph({ spacing: { before: 60, after: 60 } }));
+
+    // Tabel voor lesverloop
+    const rows = [
+      new TableRow({
+        tableHeader: true,
+        children: ['Fase', 'Minuten', 'Beschrijving'].map(t =>
+          new TableCell({
+            shading: { type: 'clear', fill: GROEN },
+            borders: { top: RAND_GEEN, bottom: RAND_GEEN, left: RAND_GEEN, right: RAND_GEEN },
+            children: [new Paragraph({ children: [new TextRun({ text: t, font: 'Arial', size: 18, bold: true, color: WIT })] })]
+          })
+        )
+      }),
+      ...info.lesverloop.map((f, i) =>
+        new TableRow({
+          children: [
+            new TableCell({
+              width: { size: 20, type: WidthType.PERCENTAGE },
+              shading: { type: 'clear', fill: i % 2 === 0 ? 'F9FAFB' : WIT },
+              borders: { top: RAND_GEEN, bottom: { style: BorderStyle.SINGLE, size: 1, color: GRIJS }, left: RAND_GEEN, right: RAND_GEEN },
+              children: [new Paragraph({ children: [new TextRun({ text: f.fase || '', font: 'Arial', size: 18, bold: true, color: GROEN })] })]
+            }),
+            new TableCell({
+              width: { size: 12, type: WidthType.PERCENTAGE },
+              shading: { type: 'clear', fill: i % 2 === 0 ? 'F9FAFB' : WIT },
+              borders: { top: RAND_GEEN, bottom: { style: BorderStyle.SINGLE, size: 1, color: GRIJS }, left: RAND_GEEN, right: RAND_GEEN },
+              children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: String(f.minuten || 0) + ' min', font: 'Arial', size: 18, color: TEKST })] })]
+            }),
+            new TableCell({
+              width: { size: 68, type: WidthType.PERCENTAGE },
+              shading: { type: 'clear', fill: i % 2 === 0 ? 'F9FAFB' : WIT },
+              borders: { top: RAND_GEEN, bottom: { style: BorderStyle.SINGLE, size: 1, color: GRIJS }, left: RAND_GEEN, right: RAND_GEEN },
+              children: [new Paragraph({ children: [new TextRun({ text: f.beschrijving || '', font: 'Arial', size: 18, color: TEKST })] })]
+            }),
+          ]
+        })
+      )
+    ];
+    children.push(new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, rows }));
+  }
+
+  // 4. Stappenplan
+  if (info.stappenplan && info.stappenplan.length) {
+    children.push(sectieKop('Stappenplan'));
+    info.stappenplan.forEach((s, i) => {
+      children.push(new Paragraph({
+        spacing: { before: 60, after: 40 },
+        children: [
+          new TextRun({ text: `Stap ${i + 1}  `, font: 'Arial', size: 20, bold: true, color: GROEN }),
+          new TextRun({ text: s.instructie || '', font: 'Arial', size: 20, color: TEKST })
+        ]
+      }));
+    });
+  }
+
+  // 5. Aandachtspunten
+  if (info.aandachtspunten && info.aandachtspunten.length) {
+    children.push(sectieKop('Aandachtspunten'));
+    info.aandachtspunten.forEach(p => {
+      children.push(new Paragraph({
+        spacing: { before: 30, after: 30 },
+        indent: { left: 200 },
+        children: [new TextRun({ text: '⚠ ' + (p || ''), font: 'Arial', size: 20, color: AMBER })]
+      }));
+    });
+  }
+
+  // 6. Differentiatie
+  const diff = info.differentiatie;
+  if (diff && (diff.snel || diff.langzaam)) {
+    children.push(sectieKop('Differentiatie'));
+    if (diff.snel) {
+      children.push(rij('Snel klaar', true));
+      children.push(rij(diff.snel, false, 360));
+    }
+    if (diff.langzaam) {
+      children.push(rij('Extra tijd nodig', true));
+      children.push(rij(diff.langzaam, false, 360));
+    }
+  }
+
+  // 7. Opmerkingen
+  if (info.opmerkingen) {
+    children.push(sectieKop('Opmerkingen'));
+    children.push(rij(info.opmerkingen));
+  }
+
+  const doc = new Document({
+    sections: [{
+      headers: {
+        default: new Header({
+          children: [new Paragraph({
+            tabStops: [{ type: TabStopType.RIGHT, position: TabStopPosition.MAX }],
+            border: { bottom: { style: BorderStyle.SINGLE, size: 6, color: GROEN, space: 6 } },
+            children: [
+              new TextRun({ text: schoolnaam || 'JaarPlan', font: 'Arial', size: 20, bold: true, color: GROEN }),
+              new TextRun({ text: '\tLesbrief', font: 'Arial', size: 18, color: '6B7280' })
+            ]
+          })]
+        })
+      },
+      properties: { page: { margin: { top: 720, bottom: 720, left: 900, right: 900 } } },
+      children
+    }]
+  });
+
+  return Packer.toBuffer(doc);
+}
+
+app.get('/api/lesbrieven/:id/download', requireAuth, async (req, res) => {
+  const lb = db.getLesbrief(req.params.id);
+  if (!lb) return res.status(404).json({ error: 'Niet gevonden' });
+  try {
+    const instellingen = db.getInstellingen ? db.getInstellingen() : {};
+    const schoolnaam = instellingen.schoolnaam || '';
+    const docxBuffer = await bouwLesbriefDocx(lb, schoolnaam);
+    const naam = (lb.activiteit_naam || lb.activiteitNaam || 'lesbrief').replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 40);
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+    res.setHeader('Content-Disposition', `attachment; filename="lesbrief_${naam}.docx"`);
+    res.send(docxBuffer);
+  } catch (e) {
+    console.error('Lesbrief download fout:', e);
+    res.status(500).json({ error: 'Fout bij genereren: ' + e.message });
+  }
+});
+
 // ---- HEALTH ----
 app.get('/health', (req, res) => res.json({ status: 'ok', db: 'sqlite' }));
 
