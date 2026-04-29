@@ -230,26 +230,51 @@ async function renderLesprofielen() {
                 <div><h2>${escHtml(vak.naam)} — ${escHtml(vak.volledig)}</h2><div class="card-meta">${vp.length} profiel${vp.length !== 1 ? 'en' : ''}</div></div>
                 <button class="btn btn-sm btn-primary" onclick="openProfielModal('${vak.id}')">+ Profiel voor ${escHtml(vak.naam)}</button>
               </div>
-              <div style="padding:16px 20px;display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px">
-                ${vp.map(p => {
-                  const aantalActs = (p.weken || []).reduce((t, w) => t + (w.activiteiten?.length || 0), 0);
-                  return `<div style="border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px;cursor:pointer;transition:box-shadow .15s" onclick="openProfielDetail('${p.id}')" onmouseover="this.style.boxShadow='var(--shadow)'" onmouseout="this.style.boxShadow='none'">
-                    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
-                      <div style="font-weight:600;font-size:14px">${escHtml(p.naam)}</div>
-                      <div style="display:flex;gap:4px">
-                        <button class="icon-btn" onclick="event.stopPropagation();openProfielModal('${p.vakId}','${p.id}')" title="Bewerken"><svg viewBox="0 0 20 20" fill="none"><path d="M14.5 3.5l2 2L7 15l-3 1 1-3 9.5-9.5z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
-                        <button class="icon-btn" onclick="event.stopPropagation();verwijderProfiel('${p.id}')" style="color:var(--red)" title="Verwijderen"><svg viewBox="0 0 20 20" fill="none"><path d="M5 5l10 10M15 5L5 15" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button>
+              ${(() => {
+                const niveauVolgorde = ['BB', 'KB', 'GL', 'TL', 'Havo', 'VWO'];
+                const perNiveau = {};
+                vp.forEach(p => {
+                  const n = p.niveau || '__geen__';
+                  if (!perNiveau[n]) perNiveau[n] = [];
+                  perNiveau[n].push(p);
+                });
+                const niveaus = [
+                  ...niveauVolgorde.filter(n => perNiveau[n]),
+                  ...(perNiveau['__geen__'] ? ['__geen__'] : [])
+                ];
+                return niveaus.map(niveau => {
+                  const profielen = perNiveau[niveau];
+                  const niveauLabel = niveau === '__geen__' ? 'Overig' : niveau;
+                  const niveauKleur = { BB: 'var(--amber)', KB: 'var(--blue)', GL: 'var(--accent)', TL: '#9333EA', Havo: '#0891B2', VWO: '#DC2626' }[niveau] || 'var(--ink-3)';
+                  return `
+                    <div style="padding:12px 20px 0">
+                      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+                        <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:${niveauKleur};background:${niveauKleur}18;padding:3px 10px;border-radius:20px">${niveauLabel}</span>
+                        <span style="font-size:12px;color:var(--ink-3)">${profielen.length} profiel${profielen.length !== 1 ? 'en' : ''}</span>
                       </div>
-                    </div>
-                    <div style="font-size:12px;color:var(--ink-muted);margin-bottom:10px">${p.niveau ? `<span class="badge badge-blue" style="margin-right:4px">${p.niveau}</span>` : ''}${p.aantalWeken} weken · ${aantalActs} activiteiten · ${p.urenPerWeek} uur/week</div>
-                    <div style="display:flex;gap:6px;flex-wrap:wrap">
-                      ${(p.weken || []).slice(0, 4).map((w, i) => `<span style="font-size:10px;padding:2px 7px;border-radius:4px;background:var(--cream);border:1px solid var(--border);color:var(--ink-muted)">W${i+1}: ${(w.activiteiten || []).map(a => a.type[0]).join('+') || '—'}</span>`).join('')}
-                      ${p.aantalWeken > 4 ? `<span style="font-size:10px;color:var(--ink-muted)">+${p.aantalWeken - 4}</span>` : ''}
-                    </div>
-                    <button class="btn btn-sm btn-primary" style="width:100%;margin-top:12px" onclick="event.stopPropagation();openKoppelModal('${p.id}')">Koppelen aan planning →</button>
-                  </div>`;
-                }).join('')}
-              </div>
+                      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px;margin-bottom:16px">
+                        ${profielen.map(p => {
+                          const aantalActs = (p.weken || []).reduce((t, w) => t + (w.activiteiten?.length || 0), 0);
+                          return `<div style="border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px;cursor:pointer;transition:box-shadow .15s" onclick="openProfielDetail('${p.id}')" onmouseover="this.style.boxShadow='var(--shadow)'" onmouseout="this.style.boxShadow='none'">
+                            <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
+                              <div style="font-weight:600;font-size:14px">${escHtml(p.naam)}</div>
+                              <div style="display:flex;gap:4px">
+                                <button class="icon-btn" onclick="event.stopPropagation();openProfielModal('${p.vakId}','${p.id}')" title="Bewerken"><svg viewBox="0 0 20 20" fill="none"><path d="M14.5 3.5l2 2L7 15l-3 1 1-3 9.5-9.5z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+                                <button class="icon-btn" onclick="event.stopPropagation();verwijderProfiel('${p.id}')" style="color:var(--red)" title="Verwijderen"><svg viewBox="0 0 20 20" fill="none"><path d="M5 5l10 10M15 5L5 15" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button>
+                              </div>
+                            </div>
+                            <div style="font-size:12px;color:var(--ink-muted);margin-bottom:10px">${p.aantalWeken} weken · ${aantalActs} activiteiten · ${p.urenPerWeek} uur/week</div>
+                            <div style="display:flex;gap:6px;flex-wrap:wrap">
+                              ${(p.weken || []).slice(0, 4).map((w, i) => `<span style="font-size:10px;padding:2px 7px;border-radius:4px;background:var(--cream);border:1px solid var(--border);color:var(--ink-muted)">W${i+1}: ${(w.activiteiten || []).map(a => a.type[0]).join('+') || '—'}</span>`).join('')}
+                              ${p.aantalWeken > 4 ? `<span style="font-size:10px;color:var(--ink-muted)">+${p.aantalWeken - 4}</span>` : ''}
+                            </div>
+                            <button class="btn btn-sm btn-primary" style="width:100%;margin-top:12px" onclick="event.stopPropagation();openKoppelModal('${p.id}')">Koppelen aan planning →</button>
+                          </div>`;
+                        }).join('')}
+                      </div>
+                    </div>`;
+                }).join('<div style="border-top:1px solid var(--border);margin:0 20px"></div>');
+              })()}
             </div>`;
           }).join('')
       }
