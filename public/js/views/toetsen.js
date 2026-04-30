@@ -139,9 +139,10 @@ function matFilterNiveau(vakId) {
   if (!vakId) { niveauContainer.innerHTML = ''; return; }
 
   const profielen = (window._matProfielen || []).filter(p => p.vakId === vakId);
-  const opties = profielen.map(p =>
-    `<option value="${p.id}">${escHtml(p.niveau || p.naam)}</option>`
-  ).join('');
+  const opties = profielen.map(p => {
+    const label = p.naam + (p.niveau ? ` — ${p.niveau}` : '');
+    return `<option value="${p.id}">${escHtml(label)}</option>`;
+  }).join('');
 
   niveauContainer.innerHTML = `
     <div class="form-field" style="margin-top:10px">
