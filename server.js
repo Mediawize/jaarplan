@@ -860,23 +860,25 @@ async function bouwToetsExamenStijl({ schoolnaam, logoBestand, data }) {
         }));
       }
 
-      // Brontekst (ingekaderd)
+      // Brontekst (ingekaderd) — ruime padding en lucht
       if (bron.tekst) {
         const regels = bron.tekst.split('\n').filter(r => r.trim());
-        const bronRand = { style: BorderStyle.SINGLE, size: 4, color: '888888' };
+        const bronRand = { style: BorderStyle.SINGLE, size: 6, color: '999999' };
+        const randNone = { style: BorderStyle.NONE, size: 0, color: 'auto' };
         for (const [ri, regel] of regels.entries()) {
           k.push(new Paragraph({
-            spacing: { before: ri === 0 ? 0 : 0, after: 0 },
+            spacing: { before: ri === 0 ? 60 : 0, after: ri === regels.length - 1 ? 60 : 0 },
+            indent: { left: 200, right: 200 },
             border: {
-              top:    ri === 0 ? bronRand : { style: BorderStyle.NONE, size: 0, color: 'auto' },
-              bottom: ri === regels.length - 1 ? bronRand : { style: BorderStyle.NONE, size: 0, color: 'auto' },
+              top:    ri === 0 ? bronRand : randNone,
+              bottom: ri === regels.length - 1 ? bronRand : randNone,
               left:   bronRand,
               right:  bronRand,
             },
-            children: [new TextRun({ text: (ri === 0 ? '' : '') + regel, font: 'Arial', size: 22 })]
+            children: [new TextRun({ text: regel, font: 'Arial', size: 22 })]
           }));
         }
-        k.push(new Paragraph({ spacing: { before: 120, after: 0 }, children: [] }));
+        k.push(new Paragraph({ spacing: { before: 200, after: 0 }, children: [] }));
       }
     }
 
@@ -907,107 +909,21 @@ async function bouwToetsExamenStijl({ schoolnaam, logoBestand, data }) {
           }));
         }
 
-        // Meerkeuze-opties als tabel (A/B/C/D) — echt examen-stijl
-        // 2 kolommen naast elkaar: [letter | tekst] [letter | tekst]
-        // met zichtbare randen rondom elke cel
+        // Meerkeuze-opties: gewone alinea's, geen kaders — A  tekst / B  tekst etc.
         if (vraag.opties?.length) {
-          const opties = vraag.opties;
-          // Bepaal kolombreedte: 2 opties per rij
-          const heeftVeel = opties.some(o => (o.tekst || '').length > 35);
-          // Als opties lang zijn: 1 kolom (onder elkaar), anders 2 kolommen
-          const tweeKolom = !heeftVeel && opties.length <= 4;
-          const buitenRand = { style: BorderStyle.SINGLE, size: 4, color: '888888' };
-          const binnenRand = { style: BorderStyle.SINGLE, size: 2, color: 'CCCCCC' };
-          const randNone = { style: BorderStyle.NONE, size: 0, color: 'auto' };
-
-          if (tweeKolom && opties.length === 4) {
-            // 2x2 tabel: A B bovenop, C D eronder
-            const kolW = [400, 4390, 400, 4390]; // totaal 9580
-            const rijen = [];
-            for (let i = 0; i < opties.length; i += 2) {
-              const oL = opties[i];
-              const oR = opties[i + 1];
-              const isEerste = i === 0;
-              const isLaatste = i + 2 >= opties.length;
-              rijen.push(new TableRow({ children: [
-                new TableCell({
-                  borders: {
-                    top: isEerste ? buitenRand : binnenRand,
-                    bottom: isLaatste ? buitenRand : binnenRand,
-                    left: buitenRand,
-                    right: binnenRand,
-                  },
-                  margins: { top: 80, bottom: 80, left: 120, right: 80 },
-                  width: { size: 400, type: WidthType.DXA },
-                  children: [new Paragraph({ children: [new TextRun({ text: oL?.letter || '', font: 'Arial', size: 22, bold: true })] })]
-                }),
-                new TableCell({
-                  borders: {
-                    top: isEerste ? buitenRand : binnenRand,
-                    bottom: isLaatste ? buitenRand : binnenRand,
-                    left: binnenRand,
-                    right: binnenRand,
-                  },
-                  margins: { top: 80, bottom: 80, left: 80, right: 80 },
-                  width: { size: 4390, type: WidthType.DXA },
-                  children: [new Paragraph({ children: [new TextRun({ text: oL?.tekst || '', font: 'Arial', size: 22 })] })]
-                }),
-                new TableCell({
-                  borders: {
-                    top: isEerste ? buitenRand : binnenRand,
-                    bottom: isLaatste ? buitenRand : binnenRand,
-                    left: binnenRand,
-                    right: binnenRand,
-                  },
-                  margins: { top: 80, bottom: 80, left: 120, right: 80 },
-                  width: { size: 400, type: WidthType.DXA },
-                  children: [new Paragraph({ children: [new TextRun({ text: oR?.letter || '', font: 'Arial', size: 22, bold: true })] })]
-                }),
-                new TableCell({
-                  borders: {
-                    top: isEerste ? buitenRand : binnenRand,
-                    bottom: isLaatste ? buitenRand : binnenRand,
-                    left: binnenRand,
-                    right: buitenRand,
-                  },
-                  margins: { top: 80, bottom: 80, left: 80, right: 80 },
-                  width: { size: 4390, type: WidthType.DXA },
-                  children: [new Paragraph({ children: [new TextRun({ text: oR?.tekst || '', font: 'Arial', size: 22 })] })]
-                }),
-              ]}));
-            }
-            k.push(new Table({ width: { size: 9580, type: WidthType.DXA }, columnWidths: kolW, rows: rijen }));
-          } else {
-            // 1 kolom: elke optie op eigen rij [letter | tekst] - voor lange opties of A t/m F
-            const kolW = [400, 9180]; // totaal 9580
-            const rijen = opties.map((opt, oi) => new TableRow({ children: [
-              new TableCell({
-                borders: {
-                  top: oi === 0 ? buitenRand : binnenRand,
-                  bottom: oi === opties.length - 1 ? buitenRand : binnenRand,
-                  left: buitenRand,
-                  right: binnenRand,
-                },
-                margins: { top: 80, bottom: 80, left: 120, right: 80 },
-                width: { size: 400, type: WidthType.DXA },
-                children: [new Paragraph({ children: [new TextRun({ text: opt.letter || '', font: 'Arial', size: 22, bold: true })] })]
-              }),
-              new TableCell({
-                borders: {
-                  top: oi === 0 ? buitenRand : binnenRand,
-                  bottom: oi === opties.length - 1 ? buitenRand : binnenRand,
-                  left: binnenRand,
-                  right: buitenRand,
-                },
-                margins: { top: 80, bottom: 80, left: 80, right: 80 },
-                width: { size: 9180, type: WidthType.DXA },
-                children: [new Paragraph({ children: [new TextRun({ text: opt.tekst || '', font: 'Arial', size: 22 })] })]
-              }),
-            ]}));
-            k.push(new Table({ width: { size: 9580, type: WidthType.DXA }, columnWidths: kolW, rows: rijen }));
+          k.push(new Paragraph({ spacing: { before: 60, after: 0 }, children: [] }));
+          for (const opt of vraag.opties) {
+            k.push(new Paragraph({
+              spacing: { before: 60, after: 60 },
+              indent: { left: 720 },
+              children: [
+                new TextRun({ text: (opt.letter || '') + '   ', font: 'Arial', size: 22, bold: true }),
+                new TextRun({ text: opt.tekst || '', font: 'Arial', size: 22 }),
+              ]
+            }));
           }
         }
-        k.push(new Paragraph({ spacing: { before: 160, after: 0 }, children: [] }));
+        k.push(new Paragraph({ spacing: { before: 200, after: 0 }, children: [] }));
 
       } else {
         // Open vraag met pijltje → en antwoordruimte
@@ -1041,15 +957,15 @@ async function bouwToetsExamenStijl({ schoolnaam, logoBestand, data }) {
 
         // Antwoordruimte (lijntjes)
         const regels = vraag.antwoordRegels || 3;
-        k.push(new Paragraph({ spacing: { before: 80, after: 0 }, children: [] }));
+        k.push(new Paragraph({ spacing: { before: 120, after: 0 }, children: [] }));
         for (let r = 0; r < regels; r++) {
           k.push(new Paragraph({
-            spacing: { before: 0, after: 0 },
-            border: { bottom: { style: BorderStyle.SINGLE, size: 2, color: 'AAAAAA', space: 2 } },
-            children: [new TextRun({ text: ' ', font: 'Arial', size: 28 })]
+            spacing: { before: 40, after: 40 },
+            border: { bottom: { style: BorderStyle.SINGLE, size: 2, color: 'BBBBBB', space: 4 } },
+            children: [new TextRun({ text: ' ', font: 'Arial', size: 32 })]
           }));
         }
-        k.push(new Paragraph({ spacing: { before: 160, after: 0 }, children: [] }));
+        k.push(new Paragraph({ spacing: { before: 240, after: 0 }, children: [] }));
       }
     }
   }
