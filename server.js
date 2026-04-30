@@ -887,12 +887,9 @@ async function bouwToetsExamenStijl({ schoolnaam, logoBestand, data }) {
       const vnr = vraagTeller++;
       const punten = vraag.punten || 1;
 
-      // Bronnummer-referentie en vraagnummer op één regel
-      // Formaat: "1p  5   Lees bron 2.\n   → Vraag..."
       if (vraag.type === 'meerkeuze') {
-
-        // Vraag + bronreferentie
         k.push(new Paragraph({
+          keepNext: true,
           spacing: { before: 280, after: 80 },
           children: [
             new TextRun({ text: `${punten}p   `, font: 'Arial', size: 22, bold: true }),
@@ -900,20 +897,20 @@ async function bouwToetsExamenStijl({ schoolnaam, logoBestand, data }) {
             new TextRun({ text: vraag.context || '', font: 'Arial', size: 22 }),
           ]
         }));
-
         if (vraag.vraag) {
           k.push(new Paragraph({
+            keepNext: true,
             spacing: { before: 0, after: 100 },
             indent: { left: 720 },
             children: [new TextRun({ text: vraag.vraag, font: 'Arial', size: 22 })]
           }));
         }
-
-        // Meerkeuze-opties: gewone alinea's, geen kaders — A  tekst / B  tekst etc.
         if (vraag.opties?.length) {
-          k.push(new Paragraph({ spacing: { before: 60, after: 0 }, children: [] }));
-          for (const opt of vraag.opties) {
+          k.push(new Paragraph({ keepNext: true, spacing: { before: 60, after: 0 }, children: [] }));
+          for (const [oi, opt] of vraag.opties.entries()) {
+            const isLaatste = oi === vraag.opties.length - 1;
             k.push(new Paragraph({
+              keepNext: !isLaatste,
               spacing: { before: 60, after: 60 },
               indent: { left: 720 },
               children: [
@@ -926,9 +923,8 @@ async function bouwToetsExamenStijl({ schoolnaam, logoBestand, data }) {
         k.push(new Paragraph({ spacing: { before: 200, after: 0 }, children: [] }));
 
       } else {
-        // Open vraag met pijltje → en antwoordruimte
-
         k.push(new Paragraph({
+          keepNext: true,
           spacing: { before: 280, after: 80 },
           children: [
             new TextRun({ text: `${punten}p   `, font: 'Arial', size: 22, bold: true }),
@@ -936,13 +932,12 @@ async function bouwToetsExamenStijl({ schoolnaam, logoBestand, data }) {
             new TextRun({ text: vraag.context || '', font: 'Arial', size: 22 }),
           ]
         }));
-
         if (vraag.vraag) {
-          // Vraag met doe-het-zo instructies splitsen
-          const regels = vraag.vraag.split('\n').filter(r => r.trim());
-          for (const [ri, regel] of regels.entries()) {
+          const vraagRegels = vraag.vraag.split('\n').filter(r => r.trim());
+          for (const [ri, regel] of vraagRegels.entries()) {
             const isDoeHetZo = regel.toLowerCase().startsWith('doe het zo') || regel.startsWith('−');
             k.push(new Paragraph({
+              keepNext: true,
               spacing: { before: ri === 0 ? 0 : 40, after: 40 },
               indent: { left: 720 },
               children: [
@@ -954,12 +949,11 @@ async function bouwToetsExamenStijl({ schoolnaam, logoBestand, data }) {
             }));
           }
         }
-
-        // Antwoordruimte (lijntjes)
-        const regels = vraag.antwoordRegels || 3;
-        k.push(new Paragraph({ spacing: { before: 120, after: 0 }, children: [] }));
-        for (let r = 0; r < regels; r++) {
+        const antwoordRegels = vraag.antwoordRegels || 3;
+        k.push(new Paragraph({ keepNext: true, spacing: { before: 120, after: 0 }, children: [] }));
+        for (let r = 0; r < antwoordRegels; r++) {
           k.push(new Paragraph({
+            keepNext: r < antwoordRegels - 1,
             spacing: { before: 40, after: 40 },
             border: { bottom: { style: BorderStyle.SINGLE, size: 2, color: 'BBBBBB', space: 4 } },
             children: [new TextRun({ text: ' ', font: 'Arial', size: 32 })]
@@ -1063,12 +1057,12 @@ JSON-formaat:
 Regels:
 - Maak precies ${nVragen} vragen verspreid over 2-3 thema-secties
 - Mix meerkeuze- en open vragen (50/50 ongeveer)
-- Elke sectie heeft 1-3 bronnen met relevante tekst uit het document
+- Voeg ALLEEN bronnen toe als de tekst concrete leesteksten bevat die leerlingen echt kunnen lezen. Als er geen geschikte bronnen zijn, gebruik dan "bronnen": []
 - Open vragen: gebruik pijltje-instructie ("Doe het zo: − ...") bij complexe vragen
 - Meerkeuze: altijd 4 opties (A t/m D), soms 6 (A t/m F) bij combinatievragen
 - Punten per vraag: 1p voor eenvoudig, 2p voor tweedelige vragen
-- Bronnen bevatten echte informatie uit de tekst (geen verzinsels)
-- Context verwijst naar de juiste bronnen ("Lees bron 1.", "Bekijk bron 2 en lees bron 3.")
+- Bronnen bevatten alleen echte tekst die al in het document staat, nooit zelf verzinnen
+- Als er geen bronnen zijn, laat context leeg ("context": "") in plaats van bronverwijzing
 
 Tekst:
 ${String(inhoud).slice(0, 18000)}`,
