@@ -618,6 +618,13 @@ app.get('/api/instellingen', requireAuth, (req, res) => {
   res.json({ schoolnaam, logoBestand });
 });
 
+app.post('/api/admin/cleanup-profielen', requireAdmin, (req, res) => {
+  const raw = db.db;
+  const lbR = raw.prepare("DELETE FROM lesbrieven WHERE profielId NOT IN (SELECT id FROM lesprofielen)").run();
+  const opdR = raw.prepare("UPDATE opdrachten SET profielId=NULL WHERE profielId IS NOT NULL AND profielId NOT IN (SELECT id FROM lesprofielen)").run();
+  res.json({ success: true, message: `${lbR.changes} lesbrieven verwijderd, ${opdR.changes} opdracht-koppelingen gewist.` });
+});
+
 app.post('/api/instellingen/schoolnaam', requireAdmin, (req, res) => {
   const { schoolnaam } = req.body;
   if (!schoolnaam) return res.status(400).json({ error: 'Schoolnaam verplicht' });
