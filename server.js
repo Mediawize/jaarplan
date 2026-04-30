@@ -1083,7 +1083,9 @@ ${String(inhoud).slice(0, 18000)}`,
     const docxBuffer = await bouwToetsExamenStijl({ schoolnaam, logoBestand, data });
     const bestandsnaam = `toets_${Date.now()}.docx`;
     fs.writeFileSync(path.join(uploadDir, bestandsnaam), docxBuffer);
-    res.json({ success: true, bestandsnaam, titel: data.vak || titel || 'Toets' });
+    const naam = data.vak || titel || 'Toets';
+    const mat = db.addMateriaal({ type: 'toets', naam, bestandsnaam, vak: data.vak || '' });
+    res.json({ success: true, bestandsnaam, titel: naam, materiaalId: mat?.id });
   } catch (e) {
     if (req.file?.path && fs.existsSync(req.file.path)) { try { fs.unlinkSync(req.file.path); } catch (_) {} }
     console.error('Toets generator fout:', e);
@@ -1114,7 +1116,9 @@ app.post('/api/genereer-toets-handmatig', requireCanEdit, async (req, res) => {
     const docxBuffer = await bouwToetsExamenStijl({ schoolnaam, logoBestand, data });
     const bestandsnaam = `toets_${Date.now()}.docx`;
     fs.writeFileSync(path.join(uploadDir, bestandsnaam), docxBuffer);
-    res.json({ success: true, bestandsnaam, titel: data.vak || 'Toets' });
+    const naam = data.vak || 'Toets';
+    const mat = db.addMateriaal({ type: 'toets', naam, bestandsnaam, vak: data.vak || '' });
+    res.json({ success: true, bestandsnaam, titel: naam, materiaalId: mat?.id });
   } catch (e) {
     console.error('Toets handmatig fout:', e);
     res.status(500).json({ error: 'Fout bij aanmaken: ' + e.message });
@@ -1360,7 +1364,9 @@ ${String(inhoud).slice(0, 20000)}`,
     const docxBuffer = await bouwWerkboekjeDocxVast({ schoolnaam, logoBestand, data });
     const bestandsnaam = 'werkboekje_' + Date.now() + '.docx';
     fs.writeFileSync(path.join(uploadDir, bestandsnaam), docxBuffer);
-    res.json({ success: true, bestandsnaam, titel: data.titel || titel || 'Werkboekje', waarschuwing: aiGebruikt ? null : 'AI niet beschikbaar. Leeg werkboekje aangemaakt.' });
+    const naam = data.titel || titel || 'Werkboekje';
+    const mat = db.addMateriaal({ type: 'werkboekje', naam, bestandsnaam, vak: data.vak || '' });
+    res.json({ success: true, bestandsnaam, titel: naam, materiaalId: mat?.id, waarschuwing: aiGebruikt ? null : 'AI niet beschikbaar. Leeg werkboekje aangemaakt.' });
   } catch (e) {
     if (req.file?.path && fs.existsSync(req.file.path)) { try { fs.unlinkSync(req.file.path); } catch (_) {} }
     res.status(500).json({ error: 'Fout bij genereren: ' + e.message });
@@ -1380,7 +1386,9 @@ app.post('/api/genereer-werkboekje-handmatig', requireCanEdit, async (req, res) 
     const docxBuffer = await bouwWerkboekjeDocxVast({ schoolnaam, logoBestand, data });
     const bestandsnaam = 'werkboekje_' + Date.now() + '.docx';
     fs.writeFileSync(path.join(uploadDir, bestandsnaam), docxBuffer);
-    res.json({ success: true, bestandsnaam, titel: data.titel || 'Werkboekje' });
+    const naam = data.titel || 'Werkboekje';
+    const mat = db.addMateriaal({ type: 'werkboekje', naam, bestandsnaam, vak: data.vak || '' });
+    res.json({ success: true, bestandsnaam, titel: naam, materiaalId: mat?.id });
   } catch (e) {
     res.status(500).json({ error: 'Fout bij aanmaken: ' + e.message });
   }
@@ -1466,6 +1474,24 @@ Regels:
   }
 });
 
+
+// ============================================================
+// MATERIALEN BIBLIOTHEEK
+// ============================================================
+app.get('/api/materialen', requireAuth, (req, res) => {
+  const { type } = req.query;
+  res.json(db.getMaterialen(type || null));
+});
+
+app.delete('/api/materialen/:id', requireCanEdit, (req, res) => {
+  const mat = db.getMateriaal(req.params.id);
+  if (!mat) return res.status(404).json({ error: 'Niet gevonden' });
+  // Verwijder bestand van schijf
+  const pad = path.join(uploadDir, mat.bestandsnaam);
+  if (fs.existsSync(pad)) { try { fs.unlinkSync(pad); } catch (_) {} }
+  db.deleteMateriaal(req.params.id);
+  res.json({ success: true });
+});
 
 // ============================================================
 // LESBRIEF DOCX DOWNLOAD

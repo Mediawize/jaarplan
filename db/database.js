@@ -251,6 +251,20 @@ function migreer() {
     db.exec("ALTER TABLE lesbrieven ADD COLUMN activiteitUren REAL DEFAULT 1");
     console.log('Migratie: activiteitNaam/Type/Uren kolommen toegevoegd aan lesbrieven');
   }
+
+  // Materialen bibliotheek
+  const matTabel = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='materialen'").get();
+  if (!matTabel) {
+    db.exec(`CREATE TABLE materialen (
+      id TEXT PRIMARY KEY,
+      type TEXT NOT NULL,
+      naam TEXT NOT NULL,
+      bestandsnaam TEXT NOT NULL,
+      vak TEXT DEFAULT '',
+      aangemaakt TEXT DEFAULT (datetime('now'))
+    )`);
+    console.log('Migratie: materialen tabel aangemaakt');
+  }
 }
 
 migreer();
@@ -349,6 +363,12 @@ const Q = {
   insLesbrief: db.prepare('INSERT INTO lesbrieven (id,profielId,weekIdx,actIdx,activiteitNaam,activiteitType,activiteitUren,voorbereiding,benodigdheden,lesverloop,stappenplan,aandachtspunten,differentiatie,opmerkingen) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)'),
   updLesbrief: db.prepare("UPDATE lesbrieven SET activiteitNaam=?,activiteitType=?,activiteitUren=?,voorbereiding=?,benodigdheden=?,lesverloop=?,stappenplan=?,aandachtspunten=?,differentiatie=?,opmerkingen=?,bijgewerkt=datetime('now') WHERE id=?"),
   delLesbrief: db.prepare('DELETE FROM lesbrieven WHERE id=?'),
+
+  getMaterialen: db.prepare('SELECT * FROM materialen ORDER BY aangemaakt DESC'),
+  getMaterialenByType: db.prepare('SELECT * FROM materialen WHERE type=? ORDER BY aangemaakt DESC'),
+  getMateriaal: db.prepare('SELECT * FROM materialen WHERE id=?'),
+  insMateriaal: db.prepare('INSERT INTO materialen (id,type,naam,bestandsnaam,vak) VALUES (?,?,?,?,?)'),
+  delMateriaal: db.prepare('DELETE FROM materialen WHERE id=?'),
 
   getTaken: db.prepare('SELECT * FROM taken ORDER BY afgerond ASC, aangemaakt DESC'),
   getTaak: db.prepare('SELECT * FROM taken WHERE id=?'),
@@ -538,6 +558,20 @@ module.exports = {
     );
   },
   deleteLesbrief(id) { Q.delLesbrief.run(id); },
+
+  // ============================================================
+  // MATERIALEN
+  // ============================================================
+  getMaterialen(type) {
+    return type ? Q.getMaterialenByType.all(type) : Q.getMaterialen.all();
+  },
+  getMateriaal(id) { return Q.getMateriaal.get(id) || null; },
+  addMateriaal(d) {
+    const id = genId();
+    Q.insMateriaal.run(id, d.type, d.naam, d.bestandsnaam, d.vak || '');
+    return this.getMateriaal(id);
+  },
+  deleteMateriaal(id) { Q.delMateriaal.run(id); },
 
   getTaken() { return Q.getTaken.all().map(t => ({ ...t, opgepakt: parseJSON(t.opgepakt), afgerond: !!t.afgerond })); },
   getTaak(id) { const t = Q.getTaak.get(id); return t ? { ...t, opgepakt: parseJSON(t.opgepakt), afgerond: !!t.afgerond } : null; },

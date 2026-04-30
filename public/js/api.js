@@ -145,6 +145,10 @@ const API = {
   async getRooster(userId) { return this._fetch(`/api/rooster/${userId}`); },
   async saveRooster(userId, rooster) { return this._fetch(`/api/rooster/${userId}`, { method: 'PUT', body: rooster }); },
 
+  // MATERIALEN
+  async getMaterialen(type) { return this._fetch('/api/materialen' + (type ? `?type=${type}` : '')); },
+  async deleteMateriaal(id) { return this._fetch(`/api/materialen/${id}`, { method: 'DELETE' }); },
+
   // STATS
   async getStats() { return this._fetch('/api/stats'); },
 };
