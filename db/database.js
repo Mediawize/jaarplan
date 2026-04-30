@@ -265,6 +265,10 @@ function migreer() {
     )`);
     console.log('Migratie: materialen tabel aangemaakt');
   }
+
+  // Schoon verwijzingen op naar verwijderde lesprofielen
+  db.exec(`UPDATE opdrachten SET profielId=NULL WHERE profielId IS NOT NULL AND profielId NOT IN (SELECT id FROM lesprofielen)`);
+  db.exec(`DELETE FROM lesbrieven WHERE profielId IS NOT NULL AND profielId NOT IN (SELECT id FROM lesprofielen)`);
 }
 
 migreer();
