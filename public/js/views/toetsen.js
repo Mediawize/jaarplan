@@ -99,20 +99,30 @@ async function matVerwijder(id) {
 }
 
 async function matKoppelAanActiviteit(materiaalId, naam, bestandsnaam) {
-  // Laad lesprofielen en laat gebruiker kiezen
-  const profielen = await API.getLesprofielen();
+  const [profielen, vakken] = await Promise.all([API.getLesprofielen(), API.getVakken()]);
   if (!profielen.length) { alert('Geen lesprofielen gevonden.'); return; }
 
+  window._matProfielen = profielen;
+  window._matVakken = vakken;
+
+  // Unieke vakken die voorkomen in lesprofielen
+  const vakIds = [...new Set(profielen.map(p => p.vakId))];
+  const vakOpties = vakIds.map(id => {
+    const vak = vakken.find(v => v.id === id);
+    return `<option value="${id}">${escHtml(vak?.naam || id)}</option>`;
+  }).join('');
+
   openModal(`
-    <h2>Koppel aan lesprofiel</h2>
-    <p class="modal-sub">Kies het lesprofiel en activiteit waaraan je <strong>${escHtml(naam)}</strong> wil koppelen.</p>
+    <h2>Koppel aan activiteit</h2>
+    <p class="modal-sub">Kies stap voor stap waaraan je <strong>${escHtml(naam)}</strong> wil koppelen.</p>
     <div class="form-field">
-      <label>Lesprofiel</label>
-      <select id="mat-profiel" onchange="matLaadWeken(this.value)">
-        <option value="">— kies lesprofiel —</option>
-        ${profielen.map(p => `<option value="${p.id}">${escHtml(p.naam)}</option>`).join('')}
+      <label>Vak</label>
+      <select id="mat-vak" onchange="matFilterNiveau(this.value)">
+        <option value="">— kies vak —</option>
+        ${vakOpties}
       </select>
     </div>
+    <div id="mat-niveau-container"></div>
     <div id="mat-weken-container"></div>
     <div id="mat-koppel-status" style="font-size:13px;margin-top:8px"></div>
     <div class="modal-actions">
@@ -120,25 +130,46 @@ async function matKoppelAanActiviteit(materiaalId, naam, bestandsnaam) {
       <button class="btn btn-primary" onclick="matSlaKoppelingOp('${materiaalId}','${escHtml(bestandsnaam)}')">Koppelen</button>
     </div>
   `);
-  window._matProfielen = profielen;
 }
 
-async function matLaadWeken(profielId) {
+function matFilterNiveau(vakId) {
+  const niveauContainer = document.getElementById('mat-niveau-container');
+  const wekenContainer = document.getElementById('mat-weken-container');
+  wekenContainer.innerHTML = '';
+  if (!vakId) { niveauContainer.innerHTML = ''; return; }
+
+  const profielen = (window._matProfielen || []).filter(p => p.vakId === vakId);
+  const opties = profielen.map(p =>
+    `<option value="${p.id}">${escHtml(p.niveau || p.naam)}</option>`
+  ).join('');
+
+  niveauContainer.innerHTML = `
+    <div class="form-field" style="margin-top:10px">
+      <label>Niveau</label>
+      <select id="mat-profiel" onchange="matLaadWeken(this.value)">
+        <option value="">— kies niveau —</option>
+        ${opties}
+      </select>
+    </div>`;
+}
+
+function matLaadWeken(profielId) {
   const container = document.getElementById('mat-weken-container');
   if (!profielId) { container.innerHTML = ''; return; }
-  const profiel = window._matProfielen?.find(p => p.id === profielId);
+  const profiel = (window._matProfielen || []).find(p => p.id === profielId);
   if (!profiel) return;
-  const weken = profiel.weken || [];
-  const opties = weken.flatMap((w, wi) =>
+
+  const opties = (profiel.weken || []).flatMap((w, wi) =>
     (w.activiteiten || []).map((a, ai) =>
       `<option value="${wi}_${ai}">Week ${w.weekIndex || wi + 1} — ${escHtml(a.omschrijving || a.type || 'Activiteit')}</option>`
     )
   );
+
   container.innerHTML = `
     <div class="form-field" style="margin-top:10px">
-      <label>Activiteit</label>
+      <label>Les / week</label>
       <select id="mat-activiteit">
-        <option value="">— kies activiteit —</option>
+        <option value="">— kies les —</option>
         ${opties.join('')}
       </select>
     </div>`;
