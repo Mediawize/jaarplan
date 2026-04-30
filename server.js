@@ -887,10 +887,13 @@ async function bouwToetsExamenStijl({ schoolnaam, logoBestand, data }) {
       const vnr = vraagTeller++;
       const punten = vraag.punten || 1;
 
+      // Kleine spacer als eerste alinea zodat er bij paginabreuk ruimte boven de vraag is
+      k.push(new Paragraph({ keepNext: true, spacing: { before: 0, after: 200 }, children: [] }));
+
       if (vraag.type === 'meerkeuze') {
         k.push(new Paragraph({
           keepNext: true,
-          spacing: { before: 280, after: 80 },
+          spacing: { before: 0, after: 80 },
           children: [
             new TextRun({ text: `${punten}p   `, font: 'Arial', size: 22, bold: true }),
             new TextRun({ text: `${vnr}   `, font: 'Arial', size: 22, bold: true }),
@@ -925,7 +928,7 @@ async function bouwToetsExamenStijl({ schoolnaam, logoBestand, data }) {
       } else {
         k.push(new Paragraph({
           keepNext: true,
-          spacing: { before: 280, after: 80 },
+          spacing: { before: 0, after: 80 },
           children: [
             new TextRun({ text: `${punten}p   `, font: 'Arial', size: 22, bold: true }),
             new TextRun({ text: `${vnr}   `, font: 'Arial', size: 22, bold: true }),
@@ -1000,7 +1003,10 @@ app.post('/api/genereer-toets', requireCanEdit, upload.single('bestand'), async 
     const inhoud = await extractTekstUitBestand(req.file.path, req.file.originalname);
     if (req.file?.path && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
 
-    const maxPunten = nVragen;
+    // Verwijder horizontale lijnen uit de tekst (series van ─ - _ = ═ * etc.)
+    const inhoudSchoon = inhoud.split('\n')
+      .filter(r => !/^[\s\-_=─━═▬*~|•]{3,}$/.test(r.trim()))
+      .join('\n');
 
     const data = await chatJson({
       system: 'Je maakt toetsen in de stijl van officiële VMBO/HAVO examens voor Nederlandse leerlingen. Geef altijd alleen geldig JSON terug.',
@@ -1065,7 +1071,7 @@ Regels:
 - Als er geen bronnen zijn, laat context leeg ("context": "") in plaats van bronverwijzing
 
 Tekst:
-${String(inhoud).slice(0, 18000)}`,
+${String(inhoudSchoon).slice(0, 18000)}`,
       maxTokens: 3500,
       temperature: 0.2
     });
