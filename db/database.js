@@ -355,6 +355,8 @@ const Q = {
   insLesprofiel: db.prepare('INSERT INTO lesprofielen (id,naam,vakId,docentId,aantalWeken,urenPerWeek,niveau,beschrijving,weken) VALUES (?,?,?,?,?,?,?,?,?)'),
   updLesprofiel: db.prepare('UPDATE lesprofielen SET naam=?,vakId=?,docentId=?,aantalWeken=?,urenPerWeek=?,niveau=?,beschrijving=?,weken=? WHERE id=?'),
   delLesprofiel: db.prepare('DELETE FROM lesprofielen WHERE id=?'),
+  delLesbrieven: db.prepare('DELETE FROM lesbrieven WHERE profielId=?'),
+  clearProfielOpdrachten: db.prepare("UPDATE opdrachten SET profielId=NULL WHERE profielId=?"),
 
   // Lesbrieven
   getLesbrievenByProfiel: db.prepare('SELECT * FROM lesbrieven WHERE profielId=?'),
@@ -499,7 +501,11 @@ module.exports = {
     if (!p) return;
     Q.updLesprofiel.run(d.naam ?? p.naam, d.vakId ?? p.vakId, d.docentId ?? p.docentId, d.aantalWeken ?? p.aantalWeken, d.urenPerWeek ?? p.urenPerWeek, d.niveau ?? p.niveau ?? '', d.beschrijving ?? p.beschrijving, JSON.stringify(d.weken ?? p.weken), id);
   },
-  deleteLesprofiel(id) { Q.delLesprofiel.run(id); },
+  deleteLesprofiel(id) {
+    Q.delLesbrieven.run(id);
+    Q.clearProfielOpdrachten.run(id);
+    Q.delLesprofiel.run(id);
+  },
 
   // ============================================================
   // LESBRIEVEN
