@@ -10,46 +10,29 @@
 async function renderToetsen() {
   showLoading('toetsen');
   try {
-    const [klassen, alleOpd] = await Promise.all([API.getKlassen(), API.getOpdrachten()]);
+    const [klassen, alleOpd, materialen] = await Promise.all([
+      API.getKlassen(), API.getOpdrachten(), API.getMaterialen()
+    ]);
     const readonly = !Auth.canEdit();
     const metToets = alleOpd.filter(o => o.toetsBestand);
     const metTheorie = alleOpd.filter(o => o.theorieLink);
+    const toetsBib = materialen.filter(m => m.type === 'toets');
+    const werkBoekBib = materialen.filter(m => m.type === 'werkboekje');
 
-    const renderToetsRijen = (lijst) => lijst.map(o => {
-      const klas = klassen.find(k => k.id === o.klasId);
-      const naam = escHtml(o.naam || '');
-      const klasNaam = escHtml(klas?.naam || '—');
-      const week = o.weeknummer || '—';
-      const syllabus = escHtml(o.syllabuscodes || '—');
-      const bestand = escHtml(o.toetsBestand || '');
-      return `<div style="padding:10px 20px;border-bottom:1px solid var(--border);display:flex;flex-wrap:wrap;gap:6px;align-items:center">
-        <div style="flex:2;min-width:120px">
-          <a href="/uploads/${bestand}" target="_blank" style="color:var(--accent);font-weight:500;font-size:13px;word-break:break-all">${bestand}</a>
-          <div style="font-size:12px;color:var(--ink-muted);margin-top:2px">${naam}</div>
-        </div>
-        <div style="flex:1;min-width:80px;font-size:13px">${klasNaam}</div>
-        <div style="font-size:12px;color:var(--ink-muted);white-space:nowrap">Week ${week}</div>
-        ${syllabus !== '—' ? `<div style="font-size:11px;color:var(--ink-muted)">${syllabus}</div>` : ''}
-        ${!readonly ? `<button class="btn btn-sm" onclick="openOpdrachtModal('${o.id}','${o.klasId}')">Bewerken</button>` : ''}
-      </div>`;
-    }).join('');
-
-    const renderTheorieRijen = (lijst) => lijst.map(o => {
-      const klas = klassen.find(k => k.id === o.klasId);
-      const naam = escHtml(o.naam || '');
-      const klasNaam = escHtml(klas?.naam || '—');
-      const week = o.weeknummer || '—';
-      const link = escHtml(o.theorieLink || '');
-      const linkKort = o.theorieLink ? o.theorieLink.replace(/^https?:\/\//, '').slice(0, 50) + (o.theorieLink.length > 55 ? '…' : '') : '';
-      return `<div style="padding:10px 20px;border-bottom:1px solid var(--border);display:flex;flex-wrap:wrap;gap:6px;align-items:center">
-        <div style="flex:2;min-width:120px">
-          <a href="${link}" target="_blank" style="color:var(--accent);font-weight:500;font-size:13px;word-break:break-all">${escHtml(linkKort)}</a>
-          <div style="font-size:12px;color:var(--ink-muted);margin-top:2px">${naam}</div>
-        </div>
-        <div style="flex:1;min-width:80px;font-size:13px">${klasNaam}</div>
-        <div style="font-size:12px;color:var(--ink-muted);white-space:nowrap">Week ${week}</div>
-        ${!readonly ? `<button class="btn btn-sm" onclick="openOpdrachtModal('${o.id}','${o.klasId}')">Bewerken</button>` : ''}
-      </div>`;
+    const renderMateriaalRijen = (lijst) => lijst.map(m => {
+      const datum = m.aangemaakt ? m.aangemaakt.slice(0, 10) : '';
+      return `
+        <div style="padding:10px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+          <div style="flex:1;min-width:120px">
+            <div style="font-weight:500;font-size:13px">${escHtml(m.naam)}</div>
+            ${m.vak ? `<div style="font-size:11px;color:var(--ink-muted)">${escHtml(m.vak)}</div>` : ''}
+          </div>
+          <div style="font-size:12px;color:var(--ink-muted);white-space:nowrap">${datum}</div>
+          <a href="/uploads/${escHtml(m.bestandsnaam)}" download="${escHtml(m.bestandsnaam)}"
+             class="btn btn-sm">⬇ Download</a>
+          ${!readonly ? `<button class="btn btn-sm" onclick="matKoppelAanActiviteit('${m.id}','${escHtml(m.naam)}','${escHtml(m.bestandsnaam)}')">Koppelen</button>` : ''}
+          ${!readonly ? `<button class="btn btn-sm" style="color:var(--red)" onclick="matVerwijder('${m.id}')">Verwijderen</button>` : ''}
+        </div>`;
     }).join('');
 
     document.getElementById('view-toetsen').innerHTML = `
@@ -63,26 +46,128 @@ async function renderToetsen() {
             <button class="btn" onclick="openToetsGenerator()" style="display:inline-flex;align-items:center;gap:6px">
               <span style="font-size:15px">📝</span> Toets genereren
             </button>
-            <button class="btn btn-primary" onclick="openOpdrachtModal()">+ Materiaal koppelen</button>
           ` : ''}
         </div>
       </div>
 
       <div class="card" style="margin-bottom:20px">
-        <div class="card-header"><div><h2>Toetsen (${metToets.length})</h2><div class="card-meta">Alle gekoppelde toetsbestanden</div></div></div>
-        ${metToets.length === 0
-          ? `<div class="empty-state"><h3>Geen toetsen</h3><p>Koppel een toetsbestand bij een activiteit in de jaarplanning.</p></div>`
-          : renderToetsRijen(metToets)}
+        <div class="card-header">
+          <div><h2>📝 Toets bibliotheek (${toetsBib.length})</h2>
+          <div class="card-meta">Gegenereerde toetsen — koppel ze aan een activiteit in een lesprofiel</div></div>
+        </div>
+        ${toetsBib.length === 0
+          ? `<div class="empty-state"><h3>Nog geen toetsen</h3><p>Genereer een toets via "Toets genereren" hierboven.</p></div>`
+          : renderMateriaalRijen(toetsBib)}
       </div>
 
-      <div class="card">
-        <div class="card-header"><div><h2>Theorie materialen (${metTheorie.length})</h2><div class="card-meta">Alle gekoppelde theorie-links</div></div></div>
-        ${metTheorie.length === 0
-          ? `<div class="empty-state"><h3>Geen theorie-links</h3><p>Koppel een theorie-link bij een activiteit in de jaarplanning.</p></div>`
-          : renderTheorieRijen(metTheorie)}
+      <div class="card" style="margin-bottom:20px">
+        <div class="card-header">
+          <div><h2>📓 Werkboekje bibliotheek (${werkBoekBib.length})</h2>
+          <div class="card-meta">Gegenereerde werkboekjes — koppel ze aan een activiteit in een lesprofiel</div></div>
+        </div>
+        ${werkBoekBib.length === 0
+          ? `<div class="empty-state"><h3>Nog geen werkboekjes</h3><p>Genereer een werkboekje via "Werkboekje maken" hierboven.</p></div>`
+          : renderMateriaalRijen(werkBoekBib)}
+      </div>
+
+      <div class="card" style="margin-bottom:20px">
+        <div class="card-header"><div><h2>Toetsen (gekoppeld aan opdrachten) (${metToets.length})</h2></div></div>
+        ${metToets.length === 0
+          ? `<div class="empty-state"><p>Geen gekoppelde toetsbestanden in opdrachten.</p></div>`
+          : metToets.map(o => {
+              const klas = klassen.find(k => k.id === o.klasId);
+              return `<div style="padding:10px 16px;border-bottom:1px solid var(--border);display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+                <div style="flex:2;min-width:120px">
+                  <a href="/uploads/${escHtml(o.toetsBestand)}" target="_blank" style="color:var(--accent);font-size:13px">${escHtml(o.toetsBestand)}</a>
+                  <div style="font-size:12px;color:var(--ink-muted)">${escHtml(o.naam || '')}</div>
+                </div>
+                <div style="font-size:13px">${escHtml(klas?.naam || '—')}</div>
+                <div style="font-size:12px;color:var(--ink-muted)">Week ${o.weeknummer || '—'}</div>
+              </div>`;
+            }).join('')}
       </div>
     `;
   } catch (e) { showError('Fout bij laden: ' + e.message); }
+}
+
+async function matVerwijder(id) {
+  if (!confirm('Materiaal definitief verwijderen?')) return;
+  try {
+    await API.deleteMateriaal(id);
+    renderToetsen();
+  } catch (e) { alert('Fout: ' + e.message); }
+}
+
+async function matKoppelAanActiviteit(materiaalId, naam, bestandsnaam) {
+  // Laad lesprofielen en laat gebruiker kiezen
+  const profielen = await API.getLesprofielen();
+  if (!profielen.length) { alert('Geen lesprofielen gevonden.'); return; }
+
+  openModal(`
+    <h2>Koppel aan lesprofiel</h2>
+    <p class="modal-sub">Kies het lesprofiel en activiteit waaraan je <strong>${escHtml(naam)}</strong> wil koppelen.</p>
+    <div class="form-field">
+      <label>Lesprofiel</label>
+      <select id="mat-profiel" onchange="matLaadWeken(this.value)">
+        <option value="">— kies lesprofiel —</option>
+        ${profielen.map(p => `<option value="${p.id}">${escHtml(p.naam)}</option>`).join('')}
+      </select>
+    </div>
+    <div id="mat-weken-container"></div>
+    <div id="mat-koppel-status" style="font-size:13px;margin-top:8px"></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModalDirect()">Annuleren</button>
+      <button class="btn btn-primary" onclick="matSlaKoppelingOp('${materiaalId}','${escHtml(bestandsnaam)}')">Koppelen</button>
+    </div>
+  `);
+  window._matProfielen = profielen;
+}
+
+async function matLaadWeken(profielId) {
+  const container = document.getElementById('mat-weken-container');
+  if (!profielId) { container.innerHTML = ''; return; }
+  const profiel = window._matProfielen?.find(p => p.id === profielId);
+  if (!profiel) return;
+  const weken = profiel.weken || [];
+  const opties = weken.flatMap((w, wi) =>
+    (w.activiteiten || []).map((a, ai) =>
+      `<option value="${wi}_${ai}">Week ${w.weekIndex || wi + 1} — ${escHtml(a.omschrijving || a.type || 'Activiteit')}</option>`
+    )
+  );
+  container.innerHTML = `
+    <div class="form-field" style="margin-top:10px">
+      <label>Activiteit</label>
+      <select id="mat-activiteit">
+        <option value="">— kies activiteit —</option>
+        ${opties.join('')}
+      </select>
+    </div>`;
+}
+
+async function matSlaKoppelingOp(materiaalId, bestandsnaam) {
+  const profielId = document.getElementById('mat-profiel')?.value;
+  const actVal = document.getElementById('mat-activiteit')?.value;
+  const statusEl = document.getElementById('mat-koppel-status');
+  if (!profielId || !actVal) {
+    if (statusEl) statusEl.innerHTML = `<span style="color:var(--red)">Kies een lesprofiel en activiteit.</span>`;
+    return;
+  }
+  const [weekIdx, actIdx] = actVal.split('_').map(Number);
+  const profiel = window._matProfielen?.find(p => p.id === profielId);
+  if (!profiel) return;
+
+  // Sla bestandsnaam op in activiteit
+  const weken = profiel.weken ? JSON.parse(JSON.stringify(profiel.weken)) : [];
+  if (weken[weekIdx]?.activiteiten?.[actIdx]) {
+    weken[weekIdx].activiteiten[actIdx].bestand = bestandsnaam;
+  }
+  try {
+    await API.updateLesprofiel(profielId, { weken });
+    if (statusEl) statusEl.innerHTML = `<span style="color:var(--accent)">✓ Gekoppeld!</span>`;
+    setTimeout(() => closeModalDirect(), 1200);
+  } catch (e) {
+    if (statusEl) statusEl.innerHTML = `<span style="color:var(--red)">Fout: ${escHtml(e.message)}</span>`;
+  }
 }
 
 // ============================================================
