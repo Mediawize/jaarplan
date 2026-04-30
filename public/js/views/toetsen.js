@@ -817,12 +817,7 @@ async function openToetsUpload() {
       </div>
       <div class="form-field">
         <label>Aantal vragen</label>
-        <select id="ts-vragen">
-          <option value="5">5 vragen</option>
-          <option value="10" selected>10 vragen</option>
-          <option value="15">15 vragen</option>
-          <option value="20">20 vragen</option>
-        </select>
+        <input type="number" id="ts-vragen" value="10" min="1" max="50" placeholder="bijv. 10">
       </div>
     </div>
 
