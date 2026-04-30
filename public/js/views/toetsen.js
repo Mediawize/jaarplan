@@ -963,6 +963,7 @@ async function doGenererenToets() {
           Toets downloaden (.docx)
         </a>
       </div>`;
+    renderToetsen();
   } catch (e) {
     const msg = e.message || '';
     const isQuota = msg.includes('429') || msg.includes('quota') || msg.includes('AI_QUOTA') || msg.includes('insufficient');
@@ -1286,6 +1287,7 @@ async function twGenereer() {
           Toets downloaden (.docx)
         </a>
       </div>`;
+    renderToetsen();
   } catch (e) {
     result.innerHTML = `<span style="color:var(--red)">Fout: ${escHtml(e.message)}</span>`;
   }
