@@ -251,6 +251,13 @@ async function openInstellingenModal() {
       <button class="btn" onclick="closeModalDirect()">Annuleren</button>
       <button class="btn btn-primary" onclick="slaInstellingenOp()">Opslaan</button>
     </div>
+    ${Auth.isAdmin() ? `
+    <hr style="margin:20px 0;border:none;border-top:1px solid var(--border)">
+    <h3 style="font-size:14px;font-weight:600;margin-bottom:4px">Databeheer</h3>
+    <p style="font-size:12px;color:var(--ink-muted);margin-bottom:10px">Verwijder verweesde data van profielen die al zijn verwijderd.</p>
+    <div id="cleanup-result" style="font-size:13px;margin-bottom:8px"></div>
+    <button class="btn" onclick="cleanupProfielen()">🗑 Opschonen verwijderde profielen</button>
+    ` : ''}
   `);
 }
 
@@ -285,6 +292,21 @@ async function slaInstellingenOp() {
     }
     result.innerHTML = `<span style="color:var(--accent)">✓ Instellingen opgeslagen</span>`;
     setTimeout(() => closeModalDirect(), 1200);
+  } catch (e) {
+    result.innerHTML = `<span style="color:var(--red)">Fout: ${escHtml(e.message)}</span>`;
+  }
+}
+
+async function cleanupProfielen() {
+  const result = document.getElementById('cleanup-result');
+  if (!result) return;
+  if (!confirm('Verwijder alle data (lesbrieven, koppelingen) van profielen die al zijn verwijderd?')) return;
+  result.innerHTML = `<span style="color:var(--amber)">⏳ Bezig...</span>`;
+  try {
+    const res = await fetch('/api/admin/cleanup-profielen', { method: 'POST', credentials: 'same-origin' });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Fout');
+    result.innerHTML = `<span style="color:var(--accent)">✓ ${data.message}</span>`;
   } catch (e) {
     result.innerHTML = `<span style="color:var(--red)">Fout: ${escHtml(e.message)}</span>`;
   }
