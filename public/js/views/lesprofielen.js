@@ -238,8 +238,11 @@ async function renderLesprofielen() {
                   if (!perNiveau[n]) perNiveau[n] = [];
                   perNiveau[n].push(p);
                 });
+                // Alle bekende niveaus eerst, daarna onbekende, dan lege
+                const overige = Object.keys(perNiveau).filter(n => !niveauVolgorde.includes(n) && n !== '__geen__');
                 const niveaus = [
                   ...niveauVolgorde.filter(n => perNiveau[n]),
+                  ...overige,
                   ...(perNiveau['__geen__'] ? ['__geen__'] : [])
                 ];
                 return niveaus.map(niveau => {
