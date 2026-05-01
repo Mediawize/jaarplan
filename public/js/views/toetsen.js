@@ -986,41 +986,6 @@ async function openToetsUpload() {
   `);
 }
 
-function twResultaatKnoppen(data, context = 'wizard') {
-  const titel = escHtml(data.titel || 'Toets');
-  const bestandsnaam = escHtml(data.bestandsnaam || '');
-  const materiaalId = escHtml(data.materiaalId || '');
-  return `
-    <div class="alert alert-info" style="background:var(--accent-dim);border:1px solid rgba(45,90,61,0.2);color:var(--accent-text)">
-      ✓ Klaar: <strong>${titel}</strong><br>
-      <a href="/uploads/${bestandsnaam}" download="${bestandsnaam}"
-         style="color:var(--accent);font-weight:600;display:inline-block;margin-top:6px">
-        Toets downloaden (.docx)
-      </a>
-      <div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;margin-top:12px">
-        <button class="btn" onclick="twSluitZonderOpslaan('${materiaalId}')">Afsluiten zonder opslaan</button>
-        <button class="btn btn-primary" onclick="twOpslaanEnSluiten('${context}')">Opslaan</button>
-      </div>
-    </div>`;
-}
-
-async function twSluitZonderOpslaan(materiaalId) {
-  try {
-    if (materiaalId) await API.deleteMateriaal(materiaalId);
-  } catch (e) {
-    console.warn('Tijdelijke toets kon niet worden verwijderd:', e.message);
-  }
-  resetToetsWizard();
-  closeModalDirect();
-  renderToetsen();
-}
-
-function twOpslaanEnSluiten(context = 'wizard') {
-  resetToetsWizard();
-  closeModalDirect();
-  renderToetsen();
-}
-
 async function doGenererenToets() {
   const bestandInput = document.getElementById('ts-bestand');
   const vak = document.getElementById('ts-vak')?.value.trim() || '';
@@ -1049,7 +1014,8 @@ async function doGenererenToets() {
     const res = await fetch('/api/genereer-toets', { method: 'POST', body: fd });
     const data = await res.json();
     if (!data.success) throw new Error(data.error || 'Onbekende fout');
-    result.innerHTML = twResultaatKnoppen(data, 'upload');
+    result.innerHTML = renderToetsKlaarActies(data);
+    renderToetsen();
   } catch (e) {
     const msg = e.message || '';
     const isQuota = msg.includes('429') || msg.includes('quota') || msg.includes('AI_QUOTA') || msg.includes('insufficient');
@@ -1086,10 +1052,8 @@ async function doAnalyseToets() {
     const json = await res.json();
     if (!json.success) throw new Error(json.error || 'Onbekende fout');
 
-    // Laad analyse in een schone wizard, zodat oude upload-/wizardgegevens nooit blijven hangen.
-    resetToetsWizard();
-    _toetsWizard.data = Object.assign(maakLegeToetsWizardData(), json.data || {});
-    _toetsWizard.stap = 1;
+    // Laad resultaat in een schone wizard, zodat oude upload/data niet blijft hangen
+    resetToetsWizard(json.data || null);
     closeModalDirect();
     renderToetsWizardStap();
   } catch (e) {
@@ -1106,16 +1070,10 @@ async function doAnalyseToets() {
 // ============================================================
 function maakLegeToetsWizardData() {
   return {
-    documentSoort: 'Toets',
-    vak: '',
-    niveauLabel: 'VMBO-GL en TL',
-    jaar: new Date().getFullYear().toString(),
+    documentSoort: 'Toets', vak: '', niveauLabel: 'VMBO-GL en TL', jaar: new Date().getFullYear().toString(),
     hoofdstuk: '',
-    tijdvak: 'tijdvak 1',
-    datum: '',
-    tijd: '13.30 - 15.30 uur',
-    code: '',
-    aantalPaginas: '',
+    tijdvak: 'tijdvak 1', datum: '', tijd: '13.30 - 15.30 uur',
+    code: '', aantalPaginas: '',
     secties: [{
       titel: '',
       bronnen: [{ nummer: 1, ondertitel: '', tekst: '', figuurBase64: null, figuurType: null }],
@@ -1130,15 +1088,12 @@ function maakLegeToetsWizardData() {
   };
 }
 
-const _toetsWizard = {
-  stap: 1,
-  data: maakLegeToetsWizardData()
-};
+const _toetsWizard = { stap: 1, data: maakLegeToetsWizardData() };
 let _twAiAdvies = {};
 
-function resetToetsWizard() {
+function resetToetsWizard(data = null) {
   _toetsWizard.stap = 1;
-  _toetsWizard.data = maakLegeToetsWizardData();
+  _toetsWizard.data = data ? JSON.parse(JSON.stringify(data)) : maakLegeToetsWizardData();
   _twAiAdvies = {};
 }
 
@@ -1224,6 +1179,11 @@ function renderToetsWizardStap() {
               <label style="font-size:12px">Brontekst (gebruik Enter voor nieuwe regels)</label>
               <textarea id="tw-bron-tekst-${si}-${bi}" rows="4" style="width:100%;padding:8px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:12px;resize:vertical">${escHtml(bron.tekst)}</textarea>
             </div>
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+              <button onclick="twAiAdviseerBron(${si},${bi})" class="btn btn-sm" style="font-size:11px">AI bij bron</button>
+              <span id="tw-ai-bron-status-${si}-${bi}" style="font-size:11px;color:var(--ink-muted)"></span>
+            </div>
+            <div id="tw-ai-bron-advies-${si}-${bi}" style="display:none;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px;margin-bottom:8px;font-size:12px"></div>
             <div class="form-field" style="margin-bottom:0">
               <label style="font-size:12px">Figuur / afbeelding (optioneel)</label>
               ${bron.figuurBase64
@@ -1280,6 +1240,11 @@ function renderToetsWizardStap() {
                   </div>
                 `).join('')}
               </div>
+              <div style="display:flex;align-items:center;gap:8px;margin-top:8px">
+                <button onclick="twAiGenereerMeerkeuzeOpties(${si},${vi})" class="btn btn-sm" style="font-size:11px">AI bij antwoorden</button>
+                <span id="tw-ai-mc-status-${si}-${vi}" style="font-size:11px;color:var(--ink-muted)"></span>
+              </div>
+              <div id="tw-ai-mc-advies-${si}-${vi}" style="display:none;background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px;margin-top:8px;font-size:12px"></div>
             ` : `
               <div style="display:flex;align-items:center;gap:8px">
                 <label style="font-size:12px;color:var(--ink-muted)">Antwoordregels:</label>
@@ -1453,6 +1418,89 @@ function twVerwijderFiguur(si, bi) {
   renderToetsWizardStap();
 }
 
+async function twAiAdviseerBron(si, bi) {
+  twSlaOp();
+  const statusEl = document.getElementById(`tw-ai-bron-status-${si}-${bi}`);
+  const adviesEl = document.getElementById(`tw-ai-bron-advies-${si}-${bi}`);
+  const sectie = _toetsWizard.data.secties[si];
+  const bron = sectie?.bronnen?.[bi];
+  if (!statusEl || !adviesEl || !bron) return;
+  statusEl.textContent = '⏳ AI advies laden...';
+  adviesEl.style.display = 'none';
+  const ctx = { vak: _toetsWizard.data.vak, niveau: _toetsWizard.data.niveauLabel, hoofdstuk: _toetsWizard.data.hoofdstuk, sectieTitel: sectie.titel, bronNummer: bron.nummer, ondertitel: bron.ondertitel, tekst: bron.tekst };
+  try {
+    const res = await fetch('/api/ai/wizard-stap', {
+      method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'toets-bron', stapId: `bron-${si}-${bi}`, systeemPrompt: `Je helpt een docent met bronnen voor een toets. Maak de bron duidelijker, korter en passend voor ${_toetsWizard.data.niveauLabel || 'VMBO'}-niveau. Geef JSON terug met: advies, ondertitel, tekst. Verzin geen nieuwe feiten; verbeter alleen wat er staat.`, userPrompt: `Verbeter deze toetsbron. Geef alleen JSON terug.\n\n${JSON.stringify(ctx, null, 2)}`, context: ctx })
+    });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    const sug = data.suggestie || {};
+    _twAiAdvies[`bron-${si}-${bi}`] = sug;
+    adviesEl.innerHTML = `
+      <div style="font-weight:600;margin-bottom:4px;color:var(--accent)">AI-advies bron:</div>
+      <div style="margin-bottom:8px">${escHtml(sug.advies || sug.feedback || 'Brontekst kan worden aangescherpt.')}</div>
+      ${sug.ondertitel || sug.tekst ? `<div style="background:var(--surface-2);border:1px solid var(--border-2);border-radius:4px;padding:8px;margin-bottom:8px">${sug.ondertitel ? `<strong>${escHtml(sug.ondertitel)}</strong><br>` : ''}${sug.tekst ? escHtml(sug.tekst).replace(/\n/g, '<br>') : ''}</div><button onclick="twNeemBronAdviesOver(${si},${bi})" class="btn btn-sm btn-primary" style="font-size:11px">Bron overnemen</button>` : ''}
+    `;
+    adviesEl.style.display = 'block';
+    statusEl.textContent = '✓ AI-advies klaar';
+  } catch (e) {
+    statusEl.textContent = 'AI kon geen bronadvies genereren.';
+    console.warn('AI bron advies fout:', e.message);
+  }
+}
+
+function twNeemBronAdviesOver(si, bi) {
+  const sug = _twAiAdvies[`bron-${si}-${bi}`];
+  const bron = _toetsWizard.data.secties[si]?.bronnen?.[bi];
+  if (!sug || !bron) return;
+  if (sug.ondertitel) bron.ondertitel = sug.ondertitel;
+  if (sug.tekst) bron.tekst = sug.tekst;
+  renderToetsWizardStap();
+}
+
+async function twAiGenereerMeerkeuzeOpties(si, vi) {
+  twSlaOp();
+  const statusEl = document.getElementById(`tw-ai-mc-status-${si}-${vi}`);
+  const adviesEl = document.getElementById(`tw-ai-mc-advies-${si}-${vi}`);
+  const sectie = _toetsWizard.data.secties[si];
+  const v = sectie?.vragen?.[vi];
+  if (!statusEl || !adviesEl || !v) return;
+  if (!v.vraag.trim()) { statusEl.textContent = 'Vul eerst de vraagstelling in.'; return; }
+  statusEl.textContent = '⏳ AI antwoorden maken...';
+  adviesEl.style.display = 'none';
+  const ctx = { vak: _toetsWizard.data.vak, niveau: _toetsWizard.data.niveauLabel, hoofdstuk: _toetsWizard.data.hoofdstuk, sectieTitel: sectie.titel, bronnen: sectie.bronnen, context: v.context, vraag: v.vraag, opties: v.opties || [] };
+  try {
+    const res = await fetch('/api/ai/wizard-stap', {
+      method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'toets-meerkeuze-antwoorden', stapId: `meerkeuze-${si}-${vi}`, systeemPrompt: `Je helpt een docent met meerkeuze-antwoorden voor een toets. Maak vier duidelijke antwoordopties A t/m D op ${_toetsWizard.data.niveauLabel || 'VMBO'}-niveau. Geef JSON terug met: advies en opties [{letter, tekst}]. Zorg dat er één beste antwoord is en drie geloofwaardige afleiders.`, userPrompt: `Maak of verbeter de antwoordopties bij deze meerkeuzevraag. Geef alleen JSON terug.\n\n${JSON.stringify(ctx, null, 2)}`, context: ctx })
+    });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    const sug = data.suggestie || {};
+    _twAiAdvies[`mc-${si}-${vi}`] = sug;
+    const opties = Array.isArray(sug.opties) ? sug.opties : [];
+    adviesEl.innerHTML = `
+      <div style="font-weight:600;margin-bottom:4px;color:var(--accent)">AI-advies antwoorden:</div>
+      <div style="margin-bottom:8px">${escHtml(sug.advies || sug.feedback || 'Antwoordopties aangemaakt.')}</div>
+      ${opties.length ? `<div style="display:grid;gap:4px;margin-bottom:8px">${opties.map(o => `<div><strong>${escHtml(o.letter || '')}</strong> ${escHtml(o.tekst || '')}</div>`).join('')}</div><button onclick="twNeemMeerkeuzeAdviesOver(${si},${vi})" class="btn btn-sm btn-primary" style="font-size:11px">Antwoorden overnemen</button>` : ''}
+    `;
+    adviesEl.style.display = 'block';
+    statusEl.textContent = '✓ AI-antwoorden klaar';
+  } catch (e) {
+    statusEl.textContent = 'AI kon geen antwoorden maken.';
+    console.warn('AI meerkeuze advies fout:', e.message);
+  }
+}
+
+function twNeemMeerkeuzeAdviesOver(si, vi) {
+  const sug = _twAiAdvies[`mc-${si}-${vi}`];
+  const v = _toetsWizard.data.secties[si]?.vragen?.[vi];
+  if (!sug || !v || !Array.isArray(sug.opties)) return;
+  v.opties = sug.opties.slice(0, 6).map((o, i) => ({ letter: o.letter || String.fromCharCode(65 + i), tekst: o.tekst || '' }));
+  renderToetsWizardStap();
+}
+
 async function twAiAdviseerVraag(si, vi) {
   twSlaOp();
   const statusEl = document.getElementById(`tw-ai-status-${si}-${vi}`);
@@ -1531,6 +1579,38 @@ function twNeemAdviesOver(si, vi) {
   if (statusEl) statusEl.textContent = '✓ Overgenomen';
 }
 
+function renderToetsKlaarActies(data) {
+  const materiaalId = data.materiaalId || '';
+  return `
+    <div class="alert alert-info" style="background:var(--accent-dim);border:1px solid rgba(45,90,61,0.2);color:var(--accent-text)">
+      Klaar: <strong>${escHtml(data.titel || 'Toets')}</strong><br>
+      <a href="/uploads/${escHtml(data.bestandsnaam)}" download="${escHtml(data.bestandsnaam)}"
+         style="color:var(--accent);font-weight:600;display:inline-block;margin-top:6px">Toets downloaden (.docx)</a>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
+        <button class="btn btn-primary" onclick="twBevestigOpslaanToets()">Opslaan en afsluiten</button>
+        <button class="btn" style="color:var(--red)" onclick="twSluitZonderOpslaan('${escHtml(materiaalId)}')">Afsluiten zonder opslaan</button>
+      </div>
+    </div>`;
+}
+
+function twBevestigOpslaanToets() {
+  resetToetsWizard();
+  closeModalDirect();
+  renderToetsen();
+}
+
+async function twSluitZonderOpslaan(materiaalId) {
+  try {
+    if (materiaalId) await API.deleteMateriaal(materiaalId);
+  } catch (e) {
+    alert('Verwijderen van de concept-toets is mislukt: ' + e.message);
+    return;
+  }
+  resetToetsWizard();
+  closeModalDirect();
+  renderToetsen();
+}
+
 async function twGenereer() {
   twSlaOp();
   const result = document.getElementById('tw-result');
@@ -1543,7 +1623,8 @@ async function twGenereer() {
     });
     const data = await res.json();
     if (!data.success) throw new Error(data.error || 'Onbekende fout');
-    result.innerHTML = twResultaatKnoppen(data, 'wizard');
+    result.innerHTML = renderToetsKlaarActies(data);
+    renderToetsen();
   } catch (e) {
     result.innerHTML = `<span style="color:var(--red)">Fout: ${escHtml(e.message)}</span>`;
   }
