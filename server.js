@@ -1193,7 +1193,7 @@ JSON-formaat:
   "datum": "vrijdag [dag] [maand]",
   "tijd": "13.30 - 15.30 uur",
   "aantalVragen": ${nVragen},
-  "maxPunten": ${maxPunten},
+  "maxPunten": ${nVragen},
   "documentSoort": "${documentSoort || 'Toets'}",
   "code": "GT-0000-a-00-0",
   "aantalPaginas": "10",
@@ -1250,7 +1250,7 @@ ${String(inhoudSchoon).slice(0, 18000)}`,
 
     if (titel) data.vak = titel;
     if (documentSoort) data.documentSoort = documentSoort;
-    data.maxPunten = data.maxPunten || maxPunten;
+    data.maxPunten = data.maxPunten || nVragen;
 
     const docxBuffer = await bouwToetsExamenStijl({ schoolnaam, logoBestand, data });
     const bestandsnaam = `toets_${Date.now()}.docx`;

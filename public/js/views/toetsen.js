@@ -1180,6 +1180,13 @@ function renderToetsWizardStap() {
             <div class="form-field">
               <label style="font-size:12px">Brontekst (gebruik Enter voor nieuwe regels)</label>
               <textarea id="tw-bron-tekst-${si}-${bi}" rows="4" style="width:100%;padding:8px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:12px;resize:vertical">${escHtml(bron.tekst)}</textarea>
+              <div style="display:flex;align-items:center;gap:8px;margin-top:5px">
+                <button onclick="twAiAdviseerBron(${si},${bi})" class="btn btn-sm" style="font-size:11px">
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2a10 10 0 1 0 10 10"/><path d="M12 8v4l3 3"/></svg>
+                  AI-brontekst
+                </button>
+                <span id="tw-bron-status-${si}-${bi}" style="font-size:11px;color:var(--ink-muted)"></span>
+              </div>
             </div>
             <div class="form-field" style="margin-bottom:0">
               <label style="font-size:12px">Figuur / afbeelding (optioneel)</label>
@@ -1236,6 +1243,13 @@ function renderToetsWizardStap() {
                     <input id="tw-v-opt-${si}-${vi}-${oi}" value="${escHtml(opt.tekst||'')}" placeholder="Optie ${opt.letter}" style="flex:1;font-size:12px;padding:4px 6px;border:1px solid var(--border);border-radius:4px">
                   </div>
                 `).join('')}
+              </div>
+              <div style="display:flex;align-items:center;gap:8px;margin-top:6px">
+                <button onclick="twAiAdviseerOpties(${si},${vi})" class="btn btn-sm" style="font-size:11px">
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2a10 10 0 1 0 10 10"/><path d="M12 8v4l3 3"/></svg>
+                  AI-antwoordopties
+                </button>
+                <span id="tw-opt-status-${si}-${vi}" style="font-size:11px;color:var(--ink-muted)"></span>
               </div>
             ` : `
               <div style="display:flex;align-items:center;gap:8px">
@@ -1388,6 +1402,103 @@ function twVerwijderVraag(si, vi) {
   twSlaOp();
   _toetsWizard.data.secties[si].vragen.splice(vi, 1);
   renderToetsWizardStap();
+}
+
+async function twAiAdviseerBron(si, bi) {
+  twSlaOp();
+  const statusEl = document.getElementById(`tw-bron-status-${si}-${bi}`);
+  const tekstEl = document.getElementById(`tw-bron-tekst-${si}-${bi}`);
+  const otEl = document.getElementById(`tw-bron-ot-${si}-${bi}`);
+  if (!statusEl || !tekstEl) return;
+
+  statusEl.textContent = '⏳ AI genereert brontekst...';
+
+  const ctx = {
+    vak: _toetsWizard.data.vak,
+    niveau: _toetsWizard.data.niveauLabel,
+    hoofdstuk: _toetsWizard.data.hoofdstuk,
+    sectieTitel: _toetsWizard.data.secties[si]?.titel || '',
+    ondertitel: otEl?.value.trim() || '',
+    huidigeTekst: tekstEl.value.trim(),
+  };
+
+  try {
+    const res = await fetch('/api/ai/wizard-stap', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({
+        type: 'toets-bron',
+        stapId: `bron-${si}-${bi}`,
+        systeemPrompt: `Je schrijft authentieke bronteksten voor toetsen voor ${ctx.vak || 'het vak'} op ${ctx.niveau || 'VMBO'}-niveau, passend bij het thema. De tekst is max 8 zinnen, leesbaar voor leerlingen, feitelijk correct. Geef JSON terug met velden: ondertitel (string), tekst (string, gebruik \\n voor alinea-scheiding).`,
+        userPrompt: `Thema sectie: ${ctx.sectieTitel}\nOndertitel bron: ${ctx.ondertitel}\nHoofdstuk/onderwerp: ${ctx.hoofdstuk}\n${ctx.huidigeTekst ? 'Huidige tekst (verbeter of gebruik als basis): ' + ctx.huidigeTekst : 'Schrijf een passende brontekst.'}`,
+        context: ctx,
+      }),
+    });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+
+    const sug = data.suggestie;
+    if (sug.tekst) { tekstEl.value = sug.tekst; _toetsWizard.data.secties[si].bronnen[bi].tekst = sug.tekst; }
+    if (sug.ondertitel && otEl) { otEl.value = sug.ondertitel; _toetsWizard.data.secties[si].bronnen[bi].ondertitel = sug.ondertitel; }
+    statusEl.textContent = '✓ Brontekst gegenereerd';
+  } catch (e) {
+    statusEl.textContent = 'AI kon geen brontekst genereren.';
+    console.warn('AI bron fout:', e.message);
+  }
+}
+
+async function twAiAdviseerOpties(si, vi) {
+  twSlaOp();
+  const statusEl = document.getElementById(`tw-opt-status-${si}-${vi}`);
+  if (!statusEl) return;
+
+  const v = _toetsWizard.data.secties[si]?.vragen[vi];
+  if (!v || !v.vraag.trim()) {
+    statusEl.textContent = 'Vul eerst een vraagstelling in.';
+    return;
+  }
+
+  statusEl.textContent = '⏳ AI genereert antwoordopties...';
+
+  const ctx = {
+    vak: _toetsWizard.data.vak,
+    niveau: _toetsWizard.data.niveauLabel,
+    vraag: v.vraag,
+    context: v.context,
+    huidigOpties: v.opties || [],
+  };
+
+  try {
+    const res = await fetch('/api/ai/wizard-stap', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({
+        type: 'toets-opties',
+        stapId: `opties-${si}-${vi}`,
+        systeemPrompt: `Je schrijft meerkeuze-antwoordopties voor toetsvragen voor ${ctx.vak || 'het vak'} op ${ctx.niveau || 'VMBO'}-niveau. Maak 4 opties (A t/m D): 1 juist antwoord en 3 plausibele afleidingen. Geef JSON terug met veld: opties (array van { letter, tekst }).`,
+        userPrompt: `Vraag: ${ctx.vraag}\nContext: ${ctx.context || '—'}`,
+        context: ctx,
+      }),
+    });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+
+    const opties = data.suggestie?.opties;
+    if (Array.isArray(opties) && opties.length >= 4) {
+      opties.slice(0, 4).forEach((opt, oi) => {
+        const el = document.getElementById(`tw-v-opt-${si}-${vi}-${oi}`);
+        if (el && opt.tekst) { el.value = opt.tekst; if (v.opties[oi]) v.opties[oi].tekst = opt.tekst; }
+      });
+      statusEl.textContent = '✓ Antwoordopties gegenereerd';
+    } else {
+      statusEl.textContent = 'AI gaf geen bruikbare opties.';
+    }
+  } catch (e) {
+    statusEl.textContent = 'AI kon geen opties genereren.';
+    console.warn('AI opties fout:', e.message);
+  }
 }
 
 function twLaadFiguur(si, bi, input) {
