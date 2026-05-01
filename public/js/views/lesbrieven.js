@@ -130,8 +130,6 @@ function renderLb() {
   `);
 
   setTimeout(() => {
-    const box = document.querySelector('#modal-overlay .modal-box');
-    if (box) box.style.maxWidth = '860px';
     lbInjectStijlen();
     if (huidigId === 'lesverloop') {
       document.querySelectorAll('[id^="lb-lv-beschr-"]').forEach(el => {
@@ -290,12 +288,12 @@ function lbRenderTab(tabId, ro) {
     const diff = d.differentiatie || { snel: '', langzaam: '' };
     return `
       <p style="font-size:12px;color:var(--ink-muted);margin-bottom:14px">Tips voor leerlingen die snel of juist langzamer werken.</p>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+      <div style="display:flex;flex-direction:column;gap:14px">
         <div>
           <label style="font-weight:600;font-size:13px;display:flex;align-items:center;gap:6px;margin-bottom:6px">
             <span style="background:#DEF7EC;color:#065F46;border-radius:4px;padding:2px 8px;font-size:12px">Snel klaar</span>
           </label>
-          <textarea id="lb-diff-snel" rows="6" ${ro ? 'readonly' : ''}
+          <textarea id="lb-diff-snel" rows="4" ${ro ? 'readonly' : ''}
             placeholder="bijv. Verdiepingsopdracht maken, andere leerling helpen..."
             class="lb-textarea">${escHtml(diff.snel || '')}</textarea>
         </div>
@@ -303,7 +301,7 @@ function lbRenderTab(tabId, ro) {
           <label style="font-weight:600;font-size:13px;display:flex;align-items:center;gap:6px;margin-bottom:6px">
             <span style="background:#FEF3C7;color:#92400E;border-radius:4px;padding:2px 8px;font-size:12px">Extra tijd</span>
           </label>
-          <textarea id="lb-diff-langzaam" rows="6" ${ro ? 'readonly' : ''}
+          <textarea id="lb-diff-langzaam" rows="4" ${ro ? 'readonly' : ''}
             placeholder="bijv. Minder opdrachten, extra uitleg geven..."
             class="lb-textarea">${escHtml(diff.langzaam || '')}</textarea>
         </div>
