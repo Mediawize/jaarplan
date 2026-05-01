@@ -1460,6 +1460,79 @@ async function bouwWerkboekjeDocxVast({ schoolnaam, logoBestand, data }) {
 }
 
 // ============================================================
+// WERKBOEKJE — analyseer upload voor wizard (geen blind opslaan)
+// ============================================================
+app.post('/api/analyse-werkboekje', requireCanEdit, upload.single('bestand'), async (req, res) => {
+  if (!req.file) return res.status(400).json({ error: 'Geen bestand geüpload' });
+  try {
+    const inhoud = await extractTekstUitBestand(req.file.path, req.file.originalname);
+    if (req.file?.path && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
+
+    const tekst = String(inhoud || '').replace(/\r/g, '').slice(0, 22000);
+    if (!tekst.trim()) return res.status(400).json({ error: 'Geen leesbare tekst gevonden in dit bestand' });
+
+    const data = await chatJson({
+      system: 'Je analyseert lesmateriaal voor een Nederlands techniek-werkboekje. Geef uitsluitend geldig JSON terug. Geen uitleg buiten JSON.',
+      user: `Haal uit onderstaande tekst zoveel mogelijk gegevens voor een werkboekje. Laat velden leeg als je het niet betrouwbaar uit de tekst kunt halen.
+
+JSON-formaat:
+{
+  "titel": "",
+  "vak": "",
+  "niveau": "",
+  "profieldeel": "",
+  "opdrachtnummer": "1",
+  "duur": "",
+  "introductie": "",
+  "leerdoelen": [""],
+  "veiligheidsregels": [""],
+  "materiaalstaat": [
+    { "benaming": "", "aantal": "", "lengte": "", "breedte": "", "dikte": "", "soortHout": "" }
+  ],
+  "machines": [
+    { "naam": "", "omschrijving": "" }
+  ],
+  "secties": [
+    {
+      "titel": "",
+      "benodigdheden": [""],
+      "stappen": [
+        { "stap": "", "tip": "", "bijschrift": "" }
+      ]
+    }
+  ]
+}
+
+Regels:
+- Maak geen kant-en-klaar einddocument, maar een voorstel voor de wizard.
+- Haal materiaal, gereedschap, machines, leerdoelen en stappen zoveel mogelijk uit de tekst.
+- Schrijf stappen kort, concreet en praktisch voor leerlingen.
+- Maximaal 4 leerdoelen, 12 materiaalregels, 12 machines/gereedschappen en 25 stappen totaal.
+- Verzin geen exacte maten als die niet in de tekst staan.
+
+Tekst:
+${tekst}`,
+      maxTokens: 4000,
+      temperature: 0.2,
+    });
+
+    data.leerdoelen = Array.isArray(data.leerdoelen) ? data.leerdoelen.slice(0, 4) : [];
+    data.veiligheidsregels = Array.isArray(data.veiligheidsregels) ? data.veiligheidsregels.slice(0, 8) : [];
+    data.materiaalstaat = Array.isArray(data.materiaalstaat) ? data.materiaalstaat.slice(0, 12) : [];
+    data.machines = Array.isArray(data.machines) ? data.machines.slice(0, 12) : [];
+    data.secties = Array.isArray(data.secties) ? data.secties.slice(0, 4) : [];
+    data.secties.forEach(s => { s.stappen = Array.isArray(s.stappen) ? s.stappen.slice(0, 8) : []; });
+
+    res.json({ success: true, data });
+  } catch (e) {
+    if (req.file?.path && fs.existsSync(req.file.path)) { try { fs.unlinkSync(req.file.path); } catch (_) {} }
+    const msg = e.message || '';
+    const isQuota = msg.includes('429') || msg.includes('quota') || msg.includes('insufficient');
+    res.status(500).json({ error: isQuota ? 'AI_QUOTA' : 'Fout bij analyseren: ' + msg });
+  }
+});
+
+// ============================================================
 // WERKBOEKJE GENERATOR — upload met AI (quota fallback)
 // ============================================================
 app.post('/api/genereer-werkboekje', requireCanEdit, upload.single('bestand'), async (req, res) => {
@@ -1939,208 +2012,6 @@ app.get('/api/lesbrieven/:id/download', requireAuth, async (req, res) => {
 });
 
 // ---- HEALTH ----
-
-// ============================================================
-// WERKBOEKJE WIZARD — slimme uploadanalyse, AI per stap en HTML preview
-// ============================================================
-function wbEsc(v) {
-  return String(v == null ? '' : v)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
-
-function wbArray(v) { return Array.isArray(v) ? v : []; }
-
-function wbExtractImagesFromDocx(filePath) {
-  const ext = path.extname(filePath).toLowerCase();
-  if (ext !== '.docx') return [];
-  try {
-    const { execFileSync } = require('child_process');
-    const lijst = execFileSync('unzip', ['-Z1', filePath], { encoding: 'utf8' })
-      .split('\n')
-      .filter(x => /^word\/media\//.test(x) && /\.(png|jpe?g|gif|webp)$/i.test(x))
-      .slice(0, 20);
-    return lijst.map((naam, i) => {
-      const buffer = execFileSync('unzip', ['-p', filePath, naam]);
-      const ext = path.extname(naam).toLowerCase().replace('.', '') || 'png';
-      const mime = ext === 'jpg' || ext === 'jpeg' ? 'image/jpeg' : `image/${ext}`;
-      return { naam: path.basename(naam) || `Afbeelding ${i + 1}`, dataUrl: `data:${mime};base64,${buffer.toString('base64')}` };
-    });
-  } catch (_) {
-    return [];
-  }
-}
-
-function wbFallbackAnalyse(tekst) {
-  const regels = String(tekst || '').split(/\r?\n/).map(r => r.trim()).filter(Boolean);
-  const titel = regels.find(r => r.length > 5 && r.length < 80) || 'Werkboekje';
-  const materiaal = regels
-    .filter(r => /(mm|multiplex|hout|lat|plaat|schroef|bout|moer|kabel|led|weerstand|sensor)/i.test(r))
-    .slice(0, 8)
-    .map((r, i) => ({ nummer: i + 1, benaming: r.slice(0, 70), aantal: '', lengte: '', breedte: '', dikte: '', soortHout: '' }));
-  const stappen = regels
-    .filter(r => /^(meet|zaag|boor|vijl|schuur|monteer|sluit|teken|controleer|plaats|knip|strip|soldeer|maak|zet)\b/i.test(r))
-    .slice(0, 10)
-    .map(r => ({ stap: r.slice(0, 220), tip: '', letop: '', afbeeldingBase64: null }));
-  return {
-    titel,
-    vak: '',
-    profieldeel: '',
-    opdrachtnummer: '1',
-    duur: '',
-    introductie: regels.slice(0, 2).join(' ').slice(0, 220),
-    leerdoelen: [
-      'De leerling kan de opdracht voorbereiden met behulp van het werkboekje.',
-      'De leerling kan de juiste materialen en gereedschappen kiezen.',
-      'De leerling kan de stappen veilig en netjes uitvoeren.'
-    ],
-    veiligheidsregels: [
-      'Werkpak en veiligheidsschoenen dragen.',
-      'Loshangende kleding vastmaken of niet dragen.',
-      'Losse haren in een staart of knot.',
-      'Gehoorbescherming dragen bij gebruik van machines.'
-    ],
-    materiaalstaat: materiaal.length ? materiaal : [{ nummer: 1, benaming: '', aantal: '', lengte: '', breedte: '', dikte: '', soortHout: '' }],
-    machines: [],
-    secties: [{ titel: 'Stappenplan', benodigdheden: [], stappen: stappen.length ? stappen : [{ stap: '', tip: '', letop: '', afbeeldingBase64: null }] }]
-  };
-}
-
-app.post('/api/analyse-werkboekje-upload', requireCanEdit, upload.single('bestand'), async (req, res) => {
-  if (!req.file) return res.status(400).json({ error: 'Geen bestand ontvangen' });
-  try {
-    const tekst = await extractTekstUitBestand(req.file.path, req.file.originalname);
-    const afbeeldingen = wbExtractImagesFromDocx(req.file.path);
-    let data;
-    try {
-      data = await chatJson({
-        system: 'Je analyseert lesmateriaal voor een Nederlands praktijk-werkboekje. Geef alleen geldig JSON terug.',
-        user: `Haal uit onderstaande tekst zoveel mogelijk gegevens voor een werkboekje. Geef exact JSON terug met velden: titel, vak, profieldeel, opdrachtnummer, duur, introductie, leerdoelen[], veiligheidsregels[], materiaalstaat[{nummer,benaming,aantal,lengte,breedte,dikte,soortHout}], machines[{naam,omschrijving}], secties[{titel,benodigdheden[],stappen[{stap,tip,letop}]}]. Maak concrete stappen voor leerlingen.\n\nTekst:\n${String(tekst).slice(0, 18000)}`,
-        maxTokens: 3500,
-        temperature: 0.2
-      });
-    } catch (_) {
-      data = wbFallbackAnalyse(tekst);
-    }
-    if (req.file?.path && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
-    res.json({ success: true, tekst: String(tekst).slice(0, 25000), afbeeldingen, data });
-  } catch (e) {
-    if (req.file?.path && fs.existsSync(req.file.path)) { try { fs.unlinkSync(req.file.path); } catch (_) {} }
-    res.status(500).json({ error: 'Upload analyseren mislukt: ' + e.message });
-  }
-});
-
-app.post('/api/ai-werkboekje-stap', requireCanEdit, async (req, res) => {
-  try {
-    const { type, data = {}, uploadTekst = '', sectieIndex = null, stapIndex = null } = req.body || {};
-    let result;
-    try {
-      result = await chatJson({
-        system: 'Je vult onderdelen aan voor een Nederlands praktijk-werkboekje voor vmbo/havo techniek. Geef alleen geldig JSON terug.',
-        user: `Vul onderdeel "${type}" aan. Behoud bestaande gegevens waar mogelijk en verbeter alleen wat nodig is. Geef JSON terug in hetzelfde werkboekje-formaat met minimaal de aangepaste velden.\n\nSectieIndex: ${sectieIndex}\nStapIndex: ${stapIndex}\n\nHuidige data:\n${JSON.stringify(data).slice(0, 12000)}\n\nUpload/context:\n${String(uploadTekst).slice(0, 10000)}`,
-        maxTokens: 2500,
-        temperature: 0.25
-      });
-    } catch (_) {
-      result = wbFallbackAnalyse(uploadTekst || JSON.stringify(data));
-    }
-    res.json({ success: true, data: result });
-  } catch (e) {
-    res.status(500).json({ error: 'AI-aanvulling mislukt: ' + e.message });
-  }
-});
-
-function wbMaakHtmlPreview(data) {
-  const d = data || {};
-  const tools = wbArray(d.machines).map(m => typeof m === 'string' ? { naam: m, omschrijving: '' } : m);
-  const materiaalRows = wbArray(d.materiaalstaat).slice(0, 16).map((r, i) => `
-    <tr>
-      <td><span class="nr-cirkel">${i + 1}</span></td>
-      <td>${wbEsc(r.benaming)}</td>
-      <td>${wbEsc(r.aantal || '')}</td>
-      <td>${wbEsc(r.lengte || '')}</td>
-      <td>${wbEsc(r.breedte || '')}</td>
-      <td><span class="dikte-tag">${wbEsc(r.dikte || '__')} mm</span></td>
-      <td class="hout-type">${wbEsc(r.soortHout || r.soortMateriaal || '')}</td>
-    </tr>`).join('') || '<tr><td colspan="7">Geen materiaal ingevuld.</td></tr>';
-
-  const veiligheidsHtml = wbArray(d.veiligheidsregels).map(v => `
-    <div class="veilig-kaart"><div class="veilig-vink"><svg viewBox="0 0 12 12"><polyline points="1,6 4,10 11,2"/></svg></div><p>${wbEsc(v)}</p></div>`).join('');
-
-  const toolsHtml = tools.map(t => `
-    <div class="tool-kaart">
-      ${t.afbeeldingBase64 ? `<img src="${t.afbeeldingBase64}" style="width:100%;height:100px;object-fit:cover;border-radius:6px;margin-bottom:10px">` : `<div class="tool-foto"><span>Foto hier</span></div>`}
-      <strong>${wbEsc(t.naam)}</strong>
-      <small>${wbEsc(t.omschrijving || '')}</small>
-    </div>`).join('');
-
-  let stapNr = 0;
-  const stappenHtml = wbArray(d.secties).flatMap(sec => wbArray(sec.stappen).map(st => {
-    stapNr += 1;
-    return `<div class="stap">
-      <div class="stap-nummering"><div class="stap-cirkel">${stapNr}</div></div>
-      <div class="stap-kaart">
-        <h3>${wbEsc(sec.titel || ('Stap ' + stapNr))}</h3>
-        <p>${wbEsc(st.stap || '')}</p>
-        ${st.afbeeldingBase64 ? `<div class="foto-rij een"><div class="foto-vak groot" style="height:auto;padding:0"><img src="${st.afbeeldingBase64}" style="width:100%;max-height:260px;object-fit:cover"><div class="foto-label">${wbEsc(st.afbeeldingLabel || 'Afbeelding bij stap')}</div></div></div>` : `<div class="foto-rij een"><div class="foto-vak groot"><span>Foto hier plaatsen</span><div class="foto-label">Afbeelding bij stap</div></div></div>`}
-        ${st.tip ? `<div class="blok tip"><div class="blok-titel">💡 Tip</div>${wbEsc(st.tip)}</div>` : ''}
-        ${st.letop ? `<div class="blok letop"><div class="blok-titel">⚠️ Let op!</div>${wbEsc(st.letop)}</div>` : ''}
-      </div>
-    </div>`;
-  })).join('');
-
-  return `
-<div class="cover">
-  <div class="cover-inner">
-    <div class="cover-label">${wbEsc(d.vak || 'Techniek')} ${d.profieldeel ? '· ' + wbEsc(d.profieldeel) : ''}</div>
-    <h1>Opdracht<br><span class="accent">${wbEsc(d.titel || 'Werkboekje')}</span></h1>
-    <p class="cover-vak">${wbEsc(d.introductie || '')}</p>
-    <div class="cover-fields">
-      <div class="cover-field"><label>Naam</label><div class="invul-lijn"></div></div>
-      <div class="cover-field"><label>Klas</label><div class="invul-lijn"></div></div>
-      <div class="cover-field"><label>Datum</label><div class="invul-lijn"></div></div>
-      <div class="cover-field"><label>Docent</label><div class="invul-lijn"></div></div>
-      <div class="cover-field span2"><label>Duur van de opdracht</label><div class="duur-pill"><span>⏱</span><strong>${wbEsc(d.duur || '__ × 45 minuten')}</strong></div></div>
-    </div>
-  </div>
-</div>
-<div class="pagina">
-  <div class="sectie-header"><div class="sectie-icon">🎯</div><h2>Leerdoelen</h2></div>
-  <ul class="checklist">${wbArray(d.leerdoelen).map(x => `<li><span class="check-vakje"></span>${wbEsc(x)}</li>`).join('')}</ul>
-  <hr class="scheidingslijn">
-  <div class="sectie-header"><div class="sectie-icon">📋</div><h2>Materiaalstaat</h2></div>
-  <table class="mat-tabel"><thead><tr><th>Nr.</th><th>Benaming</th><th>Aantal</th><th>Lengte</th><th>Breedte</th><th>Dikte</th><th>Soort materiaal</th></tr></thead><tbody>${materiaalRows}</tbody></table>
-  <hr class="scheidingslijn">
-  <div class="sectie-header"><div class="sectie-icon">🦺</div><h2>Voorbereiding & veiligheid</h2></div>
-  <div class="veilig-raster">${veiligheidsHtml}</div>
-  <div class="sectie-header" style="margin-top:32px;border-bottom-color:var(--rand);"><div class="sectie-icon" style="background:var(--middenblauw);">🔧</div><h2 style="font-size:17px;">Gereedschappen</h2></div>
-  <div class="tool-raster">${toolsHtml}</div>
-  <hr class="scheidingslijn">
-  <div class="sectie-header"><div class="sectie-icon">🪵</div><h2>Stappenplan</h2></div>
-  <div class="stappen">${stappenHtml}</div>
-  <hr class="scheidingslijn">
-  <div class="succes-banner"><h2>Goed gedaan! 🎉</h2><p>Controleer je eigen werk nog één keer op netheid en kwaliteit voor je inlevert.</p></div>
-</div>`;
-}
-
-app.post('/api/werkboekje-preview-html', requireCanEdit, (req, res) => {
-  try {
-    const cssPath = path.join(__dirname, 'public', 'templates', 'werkboekje_template.html');
-    let css = '';
-    if (fs.existsSync(cssPath)) {
-      const tpl = fs.readFileSync(cssPath, 'utf8');
-      const m = tpl.match(/<style[^>]*>([\s\S]*?)<\/style>/i);
-      css = m ? m[1] : '';
-    }
-    res.json({ success: true, html: `<style>${css}</style>${wbMaakHtmlPreview(req.body || {})}` });
-  } catch (e) {
-    res.status(500).json({ error: 'Preview maken mislukt: ' + e.message });
-  }
-});
-
 app.get('/health', (req, res) => res.json({ status: 'ok', db: 'sqlite' }));
 
 // ---- START ----
