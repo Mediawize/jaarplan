@@ -486,10 +486,8 @@ function openWerkboekjeWizard() {
 
 function renderWizardStap() {
   const s = _wbWizard.stap;
-  const totaal = 5;
-  const progressPct = Math.round((s / totaal) * 100);
-
-  const stapTitels = ['Algemeen', 'Leerdoelen & intro', 'Materialen', 'Veiligheid & machines', 'Stappenplan'];
+  const totaal = 6;
+  const stapTitels = ['Algemeen', 'Leerdoelen & intro', 'Materialen', 'Veiligheid & machines', 'Stappenplan', 'Controleren'];
 
   let inhoud = '';
 
@@ -665,6 +663,30 @@ function renderWizardStap() {
       </div>
     `).join('') + `
       ${_wbWizard.data.secties.length < 4 ? `<button class="btn btn-sm" onclick="wizardVoegSectieToe()">+ Opdracht toevoegen</button>` : ''}
+    `;
+  }
+
+  else if (s === 6) {
+    const aantalStappen = _wbWizard.data.secties.reduce((t, sec) => t + (sec.stappen || []).length, 0);
+    const aantalMat = (_wbWizard.data.materiaalstaat || []).filter(r => r.benaming).length;
+    inhoud = `
+      <div style="background:var(--surface-2);border-radius:var(--radius-sm);padding:14px;margin-bottom:12px">
+        <div style="font-size:13px;font-weight:600;margin-bottom:10px">Overzicht</div>
+        <div style="font-size:13px;display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <div><span style="color:var(--ink-muted)">Vak:</span> <strong>${escHtml(_wbWizard.data.vak || '—')}</strong></div>
+          <div><span style="color:var(--ink-muted)">Opdracht:</span> <strong>${escHtml(_wbWizard.data.opdrachtnummer || '1')}</strong></div>
+          <div style="grid-column:1/-1"><span style="color:var(--ink-muted)">Titel:</span> <strong>${escHtml(_wbWizard.data.titel || '—')}</strong></div>
+          ${_wbWizard.data.profieldeel ? `<div style="grid-column:1/-1"><span style="color:var(--ink-muted)">Profieldeel:</span> ${escHtml(_wbWizard.data.profieldeel)}</div>` : ''}
+          ${_wbWizard.data.duur ? `<div><span style="color:var(--ink-muted)">Duur:</span> ${escHtml(_wbWizard.data.duur)}</div>` : ''}
+          <div><span style="color:var(--ink-muted)">Leerdoelen:</span> ${_wbWizard.data.leerdoelen.filter(d => d).length}</div>
+          <div><span style="color:var(--ink-muted)">Materialen:</span> ${aantalMat}</div>
+          <div><span style="color:var(--ink-muted)">Veiligheidsregels:</span> ${(_wbWizard.data.veiligheidsregels || []).filter(r => r).length}</div>
+          <div><span style="color:var(--ink-muted)">Machines:</span> ${(_wbWizard.data.machines || []).filter(m => m).length}</div>
+          <div><span style="color:var(--ink-muted)">Opdrachten:</span> ${_wbWizard.data.secties.length}</div>
+          <div><span style="color:var(--ink-muted)">Stappen totaal:</span> ${aantalStappen}</div>
+        </div>
+      </div>
+      <div style="font-size:13px;color:var(--ink-muted)">Controleer het overzicht en klik op <strong>Werkboekje aanmaken</strong> om het .docx bestand te genereren.</div>
     `;
   }
 
