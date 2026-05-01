@@ -1636,7 +1636,7 @@ app.post('/api/genereer-lesprofiel-wizard', requireCanEdit, async (req, res) => 
       return { naam, vakId, niveau, aantalWeken, urenPerWeek, beschrijving, weken };
     };
 
-    const wilAI = data.aiWeekthemas || data.aiActiviteiten || data.aiBronnen || data.aiDifferentiatie;
+    const wilAI = data.aiWeekthemas || data.aiActiviteiten || data.aiBronnen || data.aiDifferentiatie || data.aiOpmerkingen;
     if (!wilAI) return res.json({ success: true, profiel: maakFallback() });
 
     try {
@@ -1680,12 +1680,14 @@ Weekthema's maken: ${!!data.aiWeekthemas}
 Activiteiten maken: ${!!data.aiActiviteiten}
 Bronnen/materialen noemen in omschrijving: ${!!data.aiBronnen}
 Differentiatie noemen in omschrijving: ${!!data.aiDifferentiatie}
+Opmerkingen/aandachtspunten noemen in omschrijving: ${!!data.aiOpmerkingen}
 
 Regels:
 - Maak exact ${aantalWeken} weken.
 - Gebruik maximaal 3 activiteiten per week.
 - Het totaal aantal uren per week moet ongeveer ${urenPerWeek} zijn.
 - Houd de omschrijvingen kort, concreet en bruikbaar voor een docent.
+- Als opmerkingen/aandachtspunten aan staat: verwerk korte docentopmerkingen in de omschrijving, bijvoorbeeld voorbereiding, veiligheid, benodigdheden, extra aandachtspunt of klassikale tip.
 - Gebruik link altijd als lege string.
 - Gebruik bestand altijd null.
 - Als syllabuscontext is meegegeven: gebruik concrete syllabuscodes of modulecodes in het veld syllabus.
