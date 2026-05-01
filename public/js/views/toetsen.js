@@ -313,576 +313,8 @@ async function cleanupProfielen() {
 }
 
 // ============================================================
-// WERKBOEKJE GENERATOR — keuze: upload of nieuw via wizard
+// WERKBOEKJE GENERATOR is verplaatst naar public/js/views/werkboekjes.js
 // ============================================================
-async function openWerkboekjeGenerator() {
-  const inst = await getSchoolInstellingen();
-
-  openModal(`
-    <h2>📓 Werkboekje maken</h2>
-    <p class="modal-sub">Kies hoe je het werkboekje wilt aanmaken.</p>
-
-    ${inst.schoolnaam
-      ? `<div style="font-size:13px;color:var(--ink-muted);margin-bottom:16px">
-           🏫 <strong>${escHtml(inst.schoolnaam)}</strong>${inst.logoBestand ? ' · Logo ✓' : ''}
-         </div>`
-      : Auth.isAdmin() ? `<div class="alert alert-info" style="margin-bottom:14px">
-           <strong>Tip:</strong> Stel eerst de schoolnaam in via
-           <a href="#" onclick="closeModalDirect();openInstellingenModal()" style="color:var(--accent)">⚙️ Instellingen</a>.
-         </div>` : ''
-    }
-
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:8px">
-
-      <div onclick="openWerkboekjeUpload()"
-           style="border:1.5px solid var(--border-2);border-radius:var(--radius);padding:20px 16px;cursor:pointer;text-align:center;transition:border-color .15s"
-           onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border-2)'">
-        <div style="font-size:28px;margin-bottom:8px">📤</div>
-        <div style="font-weight:600;font-size:14px;margin-bottom:4px">Bestand uploaden</div>
-        <div style="font-size:12px;color:var(--ink-muted)">AI zet een Word/PDF om naar de standaard layout</div>
-      </div>
-
-      <div onclick="openWerkboekjeWizard()"
-           style="border:1.5px solid var(--border-2);border-radius:var(--radius);padding:20px 16px;cursor:pointer;text-align:center;transition:border-color .15s"
-           onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border-2)'">
-        <div style="font-size:28px;margin-bottom:8px">✏️</div>
-        <div style="font-weight:600;font-size:14px;margin-bottom:4px">Nieuw aanmaken</div>
-        <div style="font-size:12px;color:var(--ink-muted)">Stap voor stap invullen via een formulier</div>
-      </div>
-    </div>
-
-    <div class="modal-actions">
-      <button class="btn" onclick="closeModalDirect()">Annuleren</button>
-    </div>
-  `);
-}
-
-// ============================================================
-// UPLOAD → AI
-// ============================================================
-async function openWerkboekjeUpload() {
-  const inst = await getSchoolInstellingen();
-  openModal(`
-    <h2>📤 Werkboekje uit bestand</h2>
-    <p class="modal-sub">Upload een bestaand document. De AI analyseert het en zet het om naar de standaard layout met materiaalstaat, veiligheidsregels, machines en stappenplan.</p>
-
-    ${inst.schoolnaam
-      ? `<div style="font-size:13px;color:var(--ink-muted);margin-bottom:12px">🏫 <strong>${escHtml(inst.schoolnaam)}</strong>${inst.logoBestand ? ' · Logo ✓' : ''}</div>`
-      : ''}
-
-    <div class="form-field">
-      <label>Titel (optioneel — AI kiest anders zelf)</label>
-      <input id="wb-titel" type="text" placeholder="bijv. Wallmen — Wandkastje">
-    </div>
-
-    <div class="form-field">
-      <label>Bestand * (Word of PDF)</label>
-      <div class="upload-zone" onclick="document.getElementById('wb-bestand').click()" id="wb-zone"
-           style="padding:24px;text-align:center;border:2px dashed var(--border);border-radius:var(--radius-sm);cursor:pointer">
-        <div style="font-size:24px;margin-bottom:6px">↑</div>
-        <div style="font-weight:500;margin-bottom:4px">Sleep bestand hierheen of klik</div>
-        <div style="font-size:12px;color:var(--ink-muted)">.docx · .pdf — max 25 MB</div>
-      </div>
-      <input type="file" id="wb-bestand" accept=".docx,.doc,.pdf" style="display:none" onchange="toonBestandsnaamInZone(this,'wb-zone')">
-    </div>
-
-    <div id="wb-result" style="margin-top:8px;font-size:13px"></div>
-
-    <div class="modal-actions">
-      <button class="btn" onclick="openWerkboekjeGenerator()">← Terug</button>
-      ${Auth.isAdmin() ? `<button class="btn" onclick="closeModalDirect();openInstellingenModal()">⚙️ Instellingen</button>` : ''}
-      <button class="btn btn-primary" onclick="doGenererenWerkboekje()">📓 Genereren</button>
-    </div>
-  `);
-}
-
-async function doGenererenWerkboekje() {
-  const bestandInput = document.getElementById('wb-bestand');
-  const titel = document.getElementById('wb-titel').value.trim();
-  const result = document.getElementById('wb-result');
-
-  if (!bestandInput.files[0]) {
-    result.innerHTML = `<span style="color:var(--red)">Kies eerst een bestand.</span>`;
-    return;
-  }
-
-  result.innerHTML = `<span style="color:var(--amber)">⏳ AI analyseert document en bouwt werkboekje... (15-30 sec)</span>`;
-
-  const fd = new FormData();
-  fd.append('bestand', bestandInput.files[0]);
-  if (titel) fd.append('titel', titel);
-
-  try {
-    const res = await fetch('/api/genereer-werkboekje', { method: 'POST', body: fd });
-    const data = await res.json();
-    if (!data.success) throw new Error(data.error || 'Onbekende fout');
-
-    const waarschuwingHtml = data.waarschuwing
-      ? `<div style="margin-top:8px;padding:10px 12px;background:#FEF3C7;border:1px solid #D97706;border-radius:6px;font-size:12px;color:#92400E">
-           Waarschuwing: ${escHtml(data.waarschuwing)}<br>
-           <span style="margin-top:4px;display:block">Tip: gebruik Nieuw aanmaken om zelf het werkboekje stap voor stap in te vullen.</span>
-         </div>`
-      : '';
-
-    result.innerHTML = `
-      <div class="alert alert-info" style="background:var(--accent-dim);border:1px solid rgba(45,90,61,0.2);color:var(--accent-text)">
-        Klaar: <strong>${escHtml(data.titel)}</strong><br>
-        <a href="/uploads/${escHtml(data.bestandsnaam)}" download="${escHtml(data.bestandsnaam)}"
-           style="color:var(--accent);font-weight:600;display:inline-block;margin-top:6px">
-          Werkboekje downloaden (.docx)
-        </a>
-      </div>${waarschuwingHtml}`;
-  } catch (e) {
-    const msg = e.message || '';
-    const isQuota = msg.includes('429') || msg.includes('quota') || msg.includes('insufficient');
-    if (isQuota) {
-      result.innerHTML = `<div style="padding:12px;background:#FEF3C7;border:1px solid #D97706;border-radius:6px;font-size:13px;color:#92400E">
-        AI quota bereikt. Je OpenAI tegoed is op.<br>
-        <span style="font-size:12px;margin-top:6px;display:block">
-          Klik op Terug en kies Nieuw aanmaken om zonder AI een werkboekje te maken,
-          of verleng je tegoed via platform.openai.com.
-        </span>
-      </div>`;
-    } else {
-      result.innerHTML = `<span style="color:var(--red)">Fout: ${escHtml(msg)}</span>`;
-    }
-  }
-}
-
-// ============================================================
-// NIEUW WERKBOEKJE — STAPPEN-WIZARD (zonder AI)
-// ============================================================
-const _wbWizard = {
-  stap: 1,
-  data: {
-    vak: '', profieldeel: '', opdrachtnummer: '1', duur: '',
-    titel: '', leerdoelen: ['', '', ''],
-    introductie: '',
-    veiligheidsregels: ['Je werkpak en werkschoenen aantrekken.', 'Loshangende kleding is verboden.', 'Losse haren in een staart of knot.', 'Gehoorbescherming is verplicht bij machines.'],
-    materiaalstaat: [
-      { nummer: 1, benaming: '', lengte: '', breedte: '', dikte: '18', soortHout: 'Multiplex' },
-      { nummer: 2, benaming: '', lengte: '', breedte: '', dikte: '18', soortHout: 'Multiplex' },
-    ],
-    machines: ['', ''],
-    secties: [
-      { titel: '', benodigdheden: [''], stappen: [
-        { stap: '', type: 'foto', afbeeldingBase64: null, afbeeldingType: null },
-        { stap: '', type: 'foto', afbeeldingBase64: null, afbeeldingType: null },
-        { stap: '', type: 'foto', afbeeldingBase64: null, afbeeldingType: null }
-      ]}
-    ]
-  }
-};
-
-function openWerkboekjeWizard() {
-  _wbWizard.stap = 1;
-  renderWizardStap();
-}
-
-function renderWizardStap() {
-  const s = _wbWizard.stap;
-  const totaal = 5;
-  const progressPct = Math.round((s / totaal) * 100);
-
-  const stapTitels = ['Algemeen', 'Leerdoelen & intro', 'Materialen', 'Veiligheid & machines', 'Stappenplan'];
-
-  let inhoud = '';
-
-  if (s === 1) {
-    inhoud = `
-      <div class="form-grid">
-        <div class="form-field">
-          <label>Vak *</label>
-          <input id="wz-vak" placeholder="bijv. BWI" value="${escHtml(_wbWizard.data.vak)}">
-        </div>
-        <div class="form-field">
-          <label>Opdrachtnummer</label>
-          <input id="wz-opdrnr" placeholder="bijv. 1" value="${escHtml(_wbWizard.data.opdrachtnummer)}">
-        </div>
-        <div class="form-field form-full">
-          <label>Profieldeel / richting</label>
-          <input id="wz-profiel" placeholder="bijv. Wonen en interieur" value="${escHtml(_wbWizard.data.profieldeel)}">
-        </div>
-        <div class="form-field form-full">
-          <label>Titel opdracht *</label>
-          <input id="wz-titel" placeholder="bijv. Wallmen — Wandkastje" value="${escHtml(_wbWizard.data.titel)}">
-        </div>
-        <div class="form-field form-full">
-          <label>Duur</label>
-          <input id="wz-duur" placeholder="bijv. 11 x 45 minuten" value="${escHtml(_wbWizard.data.duur)}">
-        </div>
-      </div>`;
-  }
-
-  else if (s === 2) {
-    inhoud = `
-      <div class="form-field">
-        <label>Introductie (1-2 zinnen)</label>
-        <textarea id="wz-intro" rows="2" style="width:100%;padding:8px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:14px;resize:vertical">${escHtml(_wbWizard.data.introductie)}</textarea>
-      </div>
-      <div class="form-field">
-        <label>Leerdoelen (max. 4)</label>
-        ${_wbWizard.data.leerdoelen.map((d, i) => `
-          <input id="wz-doel-${i}" placeholder="De leerling kan ..." value="${escHtml(d)}" style="margin-bottom:6px">
-        `).join('')}
-        ${_wbWizard.data.leerdoelen.length < 4 ? `<button class="btn btn-sm" onclick="wizardVoegDoelToe()" style="margin-top:2px">+ Leerdoel toevoegen</button>` : ''}
-      </div>`;
-  }
-
-  else if (s === 3) {
-    inhoud = `
-      <div class="form-field">
-        <label>Materiaalstaat</label>
-        <div style="overflow-x:auto">
-          <table style="width:100%;border-collapse:collapse;font-size:13px">
-            <thead>
-              <tr style="background:var(--surface-2)">
-                <th style="padding:6px 8px;text-align:left;font-size:12px;border:1px solid var(--border)">Nr.</th>
-                <th style="padding:6px 8px;text-align:left;font-size:12px;border:1px solid var(--border)">Benaming</th>
-                <th style="padding:6px 8px;text-align:left;font-size:12px;border:1px solid var(--border)">Lengte</th>
-                <th style="padding:6px 8px;text-align:left;font-size:12px;border:1px solid var(--border)">Breedte</th>
-                <th style="padding:6px 8px;text-align:left;font-size:12px;border:1px solid var(--border)">Dikte</th>
-                <th style="padding:6px 8px;text-align:left;font-size:12px;border:1px solid var(--border)">Soort hout</th>
-                <th style="padding:6px 8px;border:1px solid var(--border)"></th>
-              </tr>
-            </thead>
-            <tbody id="wz-mat-tbody">
-              ${_wbWizard.data.materiaalstaat.map((r, i) => `
-                <tr>
-                  <td style="padding:4px 6px;border:1px solid var(--border);font-size:12px;color:var(--ink-muted)">${r.nummer}</td>
-                  <td style="padding:2px 4px;border:1px solid var(--border)"><input id="wz-mat-ben-${i}" value="${escHtml(r.benaming)}" placeholder="Naam onderdeel" style="width:100%;border:none;font-size:13px;background:transparent"></td>
-                  <td style="padding:2px 4px;border:1px solid var(--border)"><input id="wz-mat-len-${i}" value="${escHtml(r.lengte)}" placeholder="mm" style="width:60px;border:none;font-size:13px;background:transparent"></td>
-                  <td style="padding:2px 4px;border:1px solid var(--border)"><input id="wz-mat-br-${i}" value="${escHtml(r.breedte)}" placeholder="mm" style="width:60px;border:none;font-size:13px;background:transparent"></td>
-                  <td style="padding:2px 4px;border:1px solid var(--border)"><input id="wz-mat-dk-${i}" value="${escHtml(r.dikte)}" placeholder="mm" style="width:50px;border:none;font-size:13px;background:transparent"></td>
-                  <td style="padding:2px 4px;border:1px solid var(--border)"><input id="wz-mat-sh-${i}" value="${escHtml(r.soortHout)}" placeholder="Multiplex" style="width:90px;border:none;font-size:13px;background:transparent"></td>
-                  <td style="padding:2px 4px;border:1px solid var(--border);text-align:center">
-                    <button onclick="wizardVerwijderMateriaal(${i})" style="color:var(--red);border:none;background:none;cursor:pointer;font-size:14px">✕</button>
-                  </td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
-        </div>
-        <button class="btn btn-sm" onclick="wizardVoegMateriaalToe()" style="margin-top:8px">+ Rij toevoegen</button>
-      </div>`;
-  }
-
-  else if (s === 4) {
-    inhoud = `
-      <div class="form-field">
-        <label>Veiligheidsregels</label>
-        ${_wbWizard.data.veiligheidsregels.map((r, i) => `
-          <div style="display:flex;gap:6px;margin-bottom:6px;align-items:center">
-            <input id="wz-veil-${i}" value="${escHtml(r)}" placeholder="Veiligheidsregel" style="flex:1">
-            <button onclick="wizardVerwijderVeilRegel(${i})" style="color:var(--red);border:none;background:none;cursor:pointer;font-size:16px;padding:4px">✕</button>
-          </div>
-        `).join('')}
-        ${_wbWizard.data.veiligheidsregels.length < 6 ? `<button class="btn btn-sm" onclick="wizardVoegVeilRegelToe()">+ Regel toevoegen</button>` : ''}
-      </div>
-      <div class="form-field" style="margin-top:16px">
-        <label>Machines en gereedschappen</label>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
-          ${_wbWizard.data.machines.map((m, i) => `
-            <div style="display:flex;gap:6px;align-items:center">
-              <input id="wz-mac-${i}" value="${escHtml(m)}" placeholder="bijv. Invalzaag" style="flex:1">
-              <button onclick="wizardVerwijderMachine(${i})" style="color:var(--red);border:none;background:none;cursor:pointer;font-size:16px;padding:4px">✕</button>
-            </div>
-          `).join('')}
-        </div>
-        <button class="btn btn-sm" onclick="wizardVoegMachineToe()" style="margin-top:8px">+ Machine toevoegen</button>
-      </div>`;
-  }
-
-  else if (s === 5) {
-    inhoud = _wbWizard.data.secties.map((sectie, si) => `
-      <div style="border:1px solid var(--border);border-radius:var(--radius-sm);padding:14px;margin-bottom:12px">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
-          <div style="font-weight:600;font-size:14px;color:var(--accent)">Opdracht ${si + 1}</div>
-          ${_wbWizard.data.secties.length > 1 ? `<button onclick="wizardVerwijderSectie(${si})" style="color:var(--red);border:none;background:none;cursor:pointer;font-size:12px">Verwijderen</button>` : ''}
-        </div>
-        <div class="form-field">
-          <label>Naam opdracht</label>
-          <input id="wz-sec-titel-${si}" value="${escHtml(sectie.titel)}" placeholder="bijv. Materiaal pakken en aftekenen">
-        </div>
-        <div class="form-field">
-          <label>Benodigdheden (komma-gescheiden)</label>
-          <input id="wz-sec-ben-${si}" value="${escHtml(sectie.benodigdheden.join(', '))}" placeholder="bijv. Potlood, Duimstok, Winkelhaak">
-        </div>
-        <div class="form-field">
-          <label>Stappen</label>
-          <div style="font-size:11px;color:var(--ink-muted);margin-bottom:8px">Per stap: max 250 tekens tekst. Kies type: foto (afbeelding + tekst naast elkaar) of tekening (volledige pagina).</div>
-          ${sectie.stappen.map((stap, pi) => `
-            <div style="border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px;margin-bottom:8px;background:var(--surface)">
-              <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
-                <span style="font-weight:600;font-size:13px;color:var(--accent);min-width:20px">Stap ${pi + 1}</span>
-                <select id="wz-stap-type-${si}-${pi}" style="font-size:12px;padding:3px 6px;border:1px solid var(--border);border-radius:4px;background:var(--surface)" onchange="wizardWijzigStapType(${si},${pi},this.value)">
-                  <option value="foto" ${(stap.type||'foto')==='foto'?'selected':''}>📷 Foto + tekst</option>
-                  <option value="tekening" ${stap.type==='tekening'?'selected':''}>📐 Tekening (hele pagina)</option>
-                </select>
-                <button onclick="wizardVerwijderStap(${si},${pi})" style="color:var(--red);border:none;background:none;cursor:pointer;font-size:14px;margin-left:auto">✕</button>
-              </div>
-              ${(stap.type||'foto') === 'tekening' ? `
-                <div style="font-size:12px;color:var(--ink-muted);margin-bottom:6px">Deze stap krijgt een volledige pagina voor de tekening.</div>
-                <div style="display:flex;gap:6px;align-items:center">
-                  <label style="font-size:12px;font-weight:500;min-width:60px">Tekening:</label>
-                  <input type="file" id="wz-stap-afb-${si}-${pi}" accept="image/*" style="font-size:12px" onchange="wizardLaadAfbeelding(${si},${pi},this)">
-                  ${stap.afbeeldingBase64 ? `<span style="font-size:11px;color:var(--accent)">✓ Geladen</span>` : ''}
-                </div>
-                <div style="margin-top:6px">
-                  <label style="font-size:12px;font-weight:500">Beschrijving (optioneel)</label>
-                  <textarea id="wz-sec-stap-${si}-${pi}" maxlength="250" rows="2" placeholder="Optionele beschrijving..." style="width:100%;padding:6px 8px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:12px;resize:none;margin-top:3px">${escHtml(stap.stap||'')}</textarea>
-                </div>
-              ` : `
-                <div style="display:flex;gap:8px">
-                  <div style="flex:1">
-                    <label style="font-size:12px;font-weight:500">Stap beschrijving * <span style="color:var(--ink-muted);font-weight:400">(max 250 tekens)</span></label>
-                    <textarea id="wz-sec-stap-${si}-${pi}" maxlength="250" rows="3" placeholder="Beschrijf de stap concreet en kort..." style="width:100%;padding:6px 8px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:12px;resize:none;margin-top:3px" oninput="wizardTelTekens(this,'wz-tc-${si}-${pi}')">${escHtml(stap.stap||'')}</textarea>
-                    <div style="font-size:11px;color:var(--ink-muted);text-align:right"><span id="wz-tc-${si}-${pi}">${(stap.stap||'').length}</span>/250</div>
-                  </div>
-                  <div style="width:110px;flex-shrink:0">
-                    <label style="font-size:12px;font-weight:500">Foto</label>
-                    <div id="wz-afb-preview-${si}-${pi}" onclick="document.getElementById('wz-stap-afb-${si}-${pi}').click()" style="margin-top:3px;width:100%;height:80px;border:2px dashed var(--border);border-radius:6px;cursor:pointer;display:flex;align-items:center;justify-content:center;overflow:hidden;background:var(--surface-2)">
-                      ${stap.afbeeldingBase64
-                        ? `<img src="${stap.afbeeldingBase64}" style="width:100%;height:100%;object-fit:cover">`
-                        : `<span style="font-size:10px;color:var(--ink-muted);text-align:center">+ Foto<br>uploaden</span>`}
-                    </div>
-                    <input type="file" id="wz-stap-afb-${si}-${pi}" accept="image/*" style="display:none" onchange="wizardLaadAfbeelding(${si},${pi},this)">
-                    ${stap.afbeeldingBase64 ? `<button onclick="wizardVerwijderAfbeelding(${si},${pi})" style="font-size:10px;color:var(--red);border:none;background:none;cursor:pointer;width:100%;margin-top:3px">Verwijderen</button>` : ''}
-                  </div>
-                </div>
-              `}
-            </div>
-          `).join('')}
-          <button class="btn btn-sm" onclick="wizardVoegStapToe(${si})">+ Stap toevoegen</button>
-        </div>
-      </div>
-    `).join('') + `
-      ${_wbWizard.data.secties.length < 4 ? `<button class="btn btn-sm" onclick="wizardVoegSectieToe()">+ Opdracht toevoegen</button>` : ''}
-    `;
-  }
-
-  openModal(`
-    <h2>✏️ Nieuw werkboekje — stap ${s} van ${totaal}: ${stapTitels[s - 1]}</h2>
-
-    <div style="margin-bottom:16px">
-      <div style="display:flex;gap:4px;margin-bottom:6px">
-        ${stapTitels.map((t, i) => `
-          <div style="flex:1;height:4px;border-radius:2px;background:${i < s ? 'var(--accent)' : 'var(--border)'}"></div>
-        `).join('')}
-      </div>
-      <div style="font-size:12px;color:var(--ink-muted)">Stap ${s} van ${totaal}</div>
-    </div>
-
-    ${inhoud}
-
-    <div id="wz-result" style="margin-top:8px;font-size:13px"></div>
-
-    <div class="modal-actions">
-      ${s === 1
-        ? `<button class="btn" onclick="openWerkboekjeGenerator()">← Terug</button>`
-        : `<button class="btn" onclick="wizardVorigeStap()">← Vorige</button>`
-      }
-      ${s < totaal
-        ? `<button class="btn btn-primary" onclick="wizardVolgendeStap()">Volgende →</button>`
-        : `<button class="btn btn-primary" onclick="wizardGenereer()">📓 Werkboekje maken</button>`
-      }
-    </div>
-  `);
-}
-
-// ── Wizard navigatie
-function wizardVorigeStap() {
-  wizardSlaStapOp();
-  _wbWizard.stap--;
-  renderWizardStap();
-}
-
-function wizardVolgendeStap() {
-  wizardSlaStapOp();
-  const fout = wizardValideerStap();
-  if (fout) {
-    document.getElementById('wz-result').innerHTML = `<span style="color:var(--red)">${escHtml(fout)}</span>`;
-    return;
-  }
-  _wbWizard.stap++;
-  renderWizardStap();
-}
-
-function wizardValideerStap() {
-  const s = _wbWizard.stap;
-  if (s === 1) {
-    if (!_wbWizard.data.vak) return 'Vak is verplicht.';
-    if (!_wbWizard.data.titel) return 'Titel is verplicht.';
-  }
-  return null;
-}
-
-// ── Sla huidige stap op in _wbWizard.data
-function wizardSlaStapOp() {
-  const s = _wbWizard.stap;
-  if (s === 1) {
-    _wbWizard.data.vak = document.getElementById('wz-vak')?.value.trim() || '';
-    _wbWizard.data.opdrachtnummer = document.getElementById('wz-opdrnr')?.value.trim() || '1';
-    _wbWizard.data.profieldeel = document.getElementById('wz-profiel')?.value.trim() || '';
-    _wbWizard.data.titel = document.getElementById('wz-titel')?.value.trim() || '';
-    _wbWizard.data.duur = document.getElementById('wz-duur')?.value.trim() || '';
-  } else if (s === 2) {
-    _wbWizard.data.introductie = document.getElementById('wz-intro')?.value.trim() || '';
-    _wbWizard.data.leerdoelen = _wbWizard.data.leerdoelen.map((_, i) =>
-      document.getElementById(`wz-doel-${i}`)?.value.trim() || ''
-    ).filter(d => d);
-  } else if (s === 3) {
-    _wbWizard.data.materiaalstaat = _wbWizard.data.materiaalstaat.map((r, i) => ({
-      nummer: r.nummer,
-      benaming: document.getElementById(`wz-mat-ben-${i}`)?.value.trim() || '',
-      lengte: document.getElementById(`wz-mat-len-${i}`)?.value.trim() || '',
-      breedte: document.getElementById(`wz-mat-br-${i}`)?.value.trim() || '',
-      dikte: document.getElementById(`wz-mat-dk-${i}`)?.value.trim() || '',
-      soortHout: document.getElementById(`wz-mat-sh-${i}`)?.value.trim() || '',
-    }));
-  } else if (s === 4) {
-    _wbWizard.data.veiligheidsregels = _wbWizard.data.veiligheidsregels.map((_, i) =>
-      document.getElementById(`wz-veil-${i}`)?.value.trim() || ''
-    ).filter(r => r);
-    _wbWizard.data.machines = _wbWizard.data.machines.map((_, i) =>
-      document.getElementById(`wz-mac-${i}`)?.value.trim() || ''
-    ).filter(m => m);
-  } else if (s === 5) {
-    _wbWizard.data.secties = _wbWizard.data.secties.map((sectie, si) => ({
-      titel: document.getElementById(`wz-sec-titel-${si}`)?.value.trim() || '',
-      benodigdheden: (document.getElementById(`wz-sec-ben-${si}`)?.value || '').split(',').map(b => b.trim()).filter(b => b),
-      stappen: sectie.stappen.map((stap, pi) => ({
-        stap: (document.getElementById(`wz-sec-stap-${si}-${pi}`)?.value.trim() || '').slice(0, 250),
-        type: document.getElementById(`wz-stap-type-${si}-${pi}`)?.value || 'foto',
-        heeftAfbeelding: true,
-        afbeeldingBase64: stap.afbeeldingBase64 || null,
-        afbeeldingType: stap.afbeeldingType || null,
-      })).filter(p => p.type === 'tekening' || p.stap)
-    }));
-  }
-}
-
-// ── Wizard: items toevoegen/verwijderen
-function wizardVoegDoelToe() {
-  wizardSlaStapOp();
-  _wbWizard.data.leerdoelen.push('');
-  renderWizardStap();
-}
-function wizardVoegMateriaalToe() {
-  wizardSlaStapOp();
-  const n = _wbWizard.data.materiaalstaat.length + 1;
-  _wbWizard.data.materiaalstaat.push({ nummer: n, benaming: '', lengte: '', breedte: '', dikte: '18', soortHout: 'Multiplex' });
-  renderWizardStap();
-}
-function wizardVerwijderMateriaal(i) {
-  wizardSlaStapOp();
-  _wbWizard.data.materiaalstaat.splice(i, 1);
-  _wbWizard.data.materiaalstaat.forEach((r, idx) => { r.nummer = idx + 1; });
-  renderWizardStap();
-}
-function wizardVoegVeilRegelToe() {
-  wizardSlaStapOp();
-  _wbWizard.data.veiligheidsregels.push('');
-  renderWizardStap();
-}
-function wizardVerwijderVeilRegel(i) {
-  wizardSlaStapOp();
-  _wbWizard.data.veiligheidsregels.splice(i, 1);
-  renderWizardStap();
-}
-function wizardVoegMachineToe() {
-  wizardSlaStapOp();
-  _wbWizard.data.machines.push('');
-  renderWizardStap();
-}
-function wizardVerwijderMachine(i) {
-  wizardSlaStapOp();
-  _wbWizard.data.machines.splice(i, 1);
-  renderWizardStap();
-}
-function wizardVoegSectieToe() {
-  wizardSlaStapOp();
-  _wbWizard.data.secties.push({ titel: '', benodigdheden: [''], stappen: [{ stap: '', type: 'foto', afbeeldingBase64: null, afbeeldingType: null }, { stap: '', type: 'foto', afbeeldingBase64: null, afbeeldingType: null }] });
-  renderWizardStap();
-}
-function wizardVerwijderSectie(i) {
-  wizardSlaStapOp();
-  _wbWizard.data.secties.splice(i, 1);
-  renderWizardStap();
-}
-function wizardVoegStapToe(si) {
-  wizardSlaStapOp();
-  _wbWizard.data.secties[si].stappen.push({ stap: '', type: 'foto', afbeeldingBase64: null, afbeeldingType: null });
-  renderWizardStap();
-}
-function wizardVerwijderStap(si, pi) {
-  wizardSlaStapOp();
-  _wbWizard.data.secties[si].stappen.splice(pi, 1);
-  renderWizardStap();
-}
-
-function wizardTelTekens(ta, teller_id) {
-  const el = document.getElementById(teller_id);
-  if (el) el.textContent = ta.value.length;
-}
-
-function wizardWijzigStapType(si, pi, type) {
-  wizardSlaStapOp();
-  _wbWizard.data.secties[si].stappen[pi].type = type;
-  renderWizardStap();
-}
-
-function wizardVerwijderAfbeelding(si, pi) {
-  wizardSlaStapOp();
-  _wbWizard.data.secties[si].stappen[pi].afbeeldingBase64 = null;
-  _wbWizard.data.secties[si].stappen[pi].afbeeldingType = null;
-  renderWizardStap();
-}
-
-function wizardLaadAfbeelding(si, pi, input) {
-  const file = input.files[0];
-  if (!file) return;
-  if (file.size > 5 * 1024 * 1024) {
-    alert('Afbeelding is te groot (max 5 MB)');
-    return;
-  }
-  const reader = new FileReader();
-  reader.onload = (e) => {
-    wizardSlaStapOp();
-    _wbWizard.data.secties[si].stappen[pi].afbeeldingBase64 = e.target.result;
-    _wbWizard.data.secties[si].stappen[pi].afbeeldingType = file.type;
-    renderWizardStap();
-  };
-  reader.readAsDataURL(file);
-}
-
-// ── Wizard: genereer het docx via de server
-async function wizardGenereer() {
-  wizardSlaStapOp();
-  const result = document.getElementById('wz-result');
-  result.innerHTML = `<span style="color:var(--amber)">⏳ Werkboekje wordt aangemaakt...</span>`;
-
-  try {
-    const res = await fetch('/api/genereer-werkboekje-handmatig', {
-      method: 'POST',
-      credentials: 'same-origin',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(_wbWizard.data)
-    });
-    const data = await res.json();
-    if (!data.success) throw new Error(data.error || 'Onbekende fout');
-    result.innerHTML = `
-      <div class="alert alert-info" style="background:var(--accent-dim);border:1px solid rgba(45,90,61,0.2);color:var(--accent-text)">
-        ✓ <strong>${escHtml(data.titel)}</strong> is klaar!<br>
-        <a href="/uploads/${escHtml(data.bestandsnaam)}" download="${escHtml(data.bestandsnaam)}"
-           style="color:var(--accent);font-weight:600;display:inline-block;margin-top:6px">
-          ⬇ Werkboekje downloaden (.docx)
-        </a>
-      </div>`;
-  } catch (e) {
-    result.innerHTML = `<span style="color:var(--red)">Fout: ${escHtml(e.message)}</span>`;
-  }
-}
 
 // ============================================================
 // TOETS GENERATOR — keuze: upload (AI) of wizard (handmatig)
@@ -1014,7 +446,14 @@ async function doGenererenToets() {
     const res = await fetch('/api/genereer-toets', { method: 'POST', body: fd });
     const data = await res.json();
     if (!data.success) throw new Error(data.error || 'Onbekende fout');
-    result.innerHTML = renderToetsKlaarActies(data);
+    result.innerHTML = `
+      <div class="alert alert-info" style="background:var(--accent-dim);border:1px solid rgba(45,90,61,0.2);color:var(--accent-text)">
+        Klaar: <strong>${escHtml(data.titel)}</strong><br>
+        <a href="/uploads/${escHtml(data.bestandsnaam)}" download="${escHtml(data.bestandsnaam)}"
+           style="color:var(--accent);font-weight:600;display:inline-block;margin-top:6px">
+          Toets downloaden (.docx)
+        </a>
+      </div>`;
     renderToetsen();
   } catch (e) {
     const msg = e.message || '';
@@ -1052,8 +491,10 @@ async function doAnalyseToets() {
     const json = await res.json();
     if (!json.success) throw new Error(json.error || 'Onbekende fout');
 
-    // Laad resultaat in een schone wizard, zodat oude upload/data niet blijft hangen
-    resetToetsWizard(json.data || null);
+    // Laad resultaat in wizard
+    Object.assign(_toetsWizard.data, json.data);
+    _toetsWizard.stap = 1;
+    _twAiAdvies = {};
     closeModalDirect();
     renderToetsWizardStap();
   } catch (e) {
@@ -1068,8 +509,9 @@ async function doAnalyseToets() {
 // ============================================================
 // TOETS WIZARD — handmatig aanmaken (5 stappen)
 // ============================================================
-function maakLegeToetsWizardData() {
-  return {
+const _toetsWizard = {
+  stap: 1,
+  data: {
     documentSoort: 'Toets', vak: '', niveauLabel: 'VMBO-GL en TL', jaar: new Date().getFullYear().toString(),
     hoofdstuk: '',
     tijdvak: 'tijdvak 1', datum: '', tijd: '13.30 - 15.30 uur',
@@ -1085,20 +527,12 @@ function maakLegeToetsWizardData() {
         ]}
       ]
     }]
-  };
-}
-
-const _toetsWizard = { stap: 1, data: maakLegeToetsWizardData() };
+  }
+};
 let _twAiAdvies = {};
 
-function resetToetsWizard(data = null) {
-  _toetsWizard.stap = 1;
-  _toetsWizard.data = data ? JSON.parse(JSON.stringify(data)) : maakLegeToetsWizardData();
-  _twAiAdvies = {};
-}
-
 function openToetsWizard() {
-  resetToetsWizard();
+  _toetsWizard.stap = 1;
   renderToetsWizardStap();
 }
 
@@ -1179,11 +613,6 @@ function renderToetsWizardStap() {
               <label style="font-size:12px">Brontekst (gebruik Enter voor nieuwe regels)</label>
               <textarea id="tw-bron-tekst-${si}-${bi}" rows="4" style="width:100%;padding:8px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:12px;resize:vertical">${escHtml(bron.tekst)}</textarea>
             </div>
-            <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
-              <button onclick="twAiAdviseerBron(${si},${bi})" class="btn btn-sm" style="font-size:11px">AI bij bron</button>
-              <span id="tw-ai-bron-status-${si}-${bi}" style="font-size:11px;color:var(--ink-muted)"></span>
-            </div>
-            <div id="tw-ai-bron-advies-${si}-${bi}" style="display:none;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px;margin-bottom:8px;font-size:12px"></div>
             <div class="form-field" style="margin-bottom:0">
               <label style="font-size:12px">Figuur / afbeelding (optioneel)</label>
               ${bron.figuurBase64
@@ -1240,11 +669,6 @@ function renderToetsWizardStap() {
                   </div>
                 `).join('')}
               </div>
-              <div style="display:flex;align-items:center;gap:8px;margin-top:8px">
-                <button onclick="twAiGenereerMeerkeuzeOpties(${si},${vi})" class="btn btn-sm" style="font-size:11px">AI bij antwoorden</button>
-                <span id="tw-ai-mc-status-${si}-${vi}" style="font-size:11px;color:var(--ink-muted)"></span>
-              </div>
-              <div id="tw-ai-mc-advies-${si}-${vi}" style="display:none;background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px;margin-top:8px;font-size:12px"></div>
             ` : `
               <div style="display:flex;align-items:center;gap:8px">
                 <label style="font-size:12px;color:var(--ink-muted)">Antwoordregels:</label>
@@ -1418,89 +842,6 @@ function twVerwijderFiguur(si, bi) {
   renderToetsWizardStap();
 }
 
-async function twAiAdviseerBron(si, bi) {
-  twSlaOp();
-  const statusEl = document.getElementById(`tw-ai-bron-status-${si}-${bi}`);
-  const adviesEl = document.getElementById(`tw-ai-bron-advies-${si}-${bi}`);
-  const sectie = _toetsWizard.data.secties[si];
-  const bron = sectie?.bronnen?.[bi];
-  if (!statusEl || !adviesEl || !bron) return;
-  statusEl.textContent = '⏳ AI advies laden...';
-  adviesEl.style.display = 'none';
-  const ctx = { vak: _toetsWizard.data.vak, niveau: _toetsWizard.data.niveauLabel, hoofdstuk: _toetsWizard.data.hoofdstuk, sectieTitel: sectie.titel, bronNummer: bron.nummer, ondertitel: bron.ondertitel, tekst: bron.tekst };
-  try {
-    const res = await fetch('/api/ai/wizard-stap', {
-      method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ type: 'toets-bron', stapId: `bron-${si}-${bi}`, systeemPrompt: `Je helpt een docent met bronnen voor een toets. Maak de bron duidelijker, korter en passend voor ${_toetsWizard.data.niveauLabel || 'VMBO'}-niveau. Geef JSON terug met: advies, ondertitel, tekst. Verzin geen nieuwe feiten; verbeter alleen wat er staat.`, userPrompt: `Verbeter deze toetsbron. Geef alleen JSON terug.\n\n${JSON.stringify(ctx, null, 2)}`, context: ctx })
-    });
-    const data = await res.json();
-    if (data.error) throw new Error(data.error);
-    const sug = data.suggestie || {};
-    _twAiAdvies[`bron-${si}-${bi}`] = sug;
-    adviesEl.innerHTML = `
-      <div style="font-weight:600;margin-bottom:4px;color:var(--accent)">AI-advies bron:</div>
-      <div style="margin-bottom:8px">${escHtml(sug.advies || sug.feedback || 'Brontekst kan worden aangescherpt.')}</div>
-      ${sug.ondertitel || sug.tekst ? `<div style="background:var(--surface-2);border:1px solid var(--border-2);border-radius:4px;padding:8px;margin-bottom:8px">${sug.ondertitel ? `<strong>${escHtml(sug.ondertitel)}</strong><br>` : ''}${sug.tekst ? escHtml(sug.tekst).replace(/\n/g, '<br>') : ''}</div><button onclick="twNeemBronAdviesOver(${si},${bi})" class="btn btn-sm btn-primary" style="font-size:11px">Bron overnemen</button>` : ''}
-    `;
-    adviesEl.style.display = 'block';
-    statusEl.textContent = '✓ AI-advies klaar';
-  } catch (e) {
-    statusEl.textContent = 'AI kon geen bronadvies genereren.';
-    console.warn('AI bron advies fout:', e.message);
-  }
-}
-
-function twNeemBronAdviesOver(si, bi) {
-  const sug = _twAiAdvies[`bron-${si}-${bi}`];
-  const bron = _toetsWizard.data.secties[si]?.bronnen?.[bi];
-  if (!sug || !bron) return;
-  if (sug.ondertitel) bron.ondertitel = sug.ondertitel;
-  if (sug.tekst) bron.tekst = sug.tekst;
-  renderToetsWizardStap();
-}
-
-async function twAiGenereerMeerkeuzeOpties(si, vi) {
-  twSlaOp();
-  const statusEl = document.getElementById(`tw-ai-mc-status-${si}-${vi}`);
-  const adviesEl = document.getElementById(`tw-ai-mc-advies-${si}-${vi}`);
-  const sectie = _toetsWizard.data.secties[si];
-  const v = sectie?.vragen?.[vi];
-  if (!statusEl || !adviesEl || !v) return;
-  if (!v.vraag.trim()) { statusEl.textContent = 'Vul eerst de vraagstelling in.'; return; }
-  statusEl.textContent = '⏳ AI antwoorden maken...';
-  adviesEl.style.display = 'none';
-  const ctx = { vak: _toetsWizard.data.vak, niveau: _toetsWizard.data.niveauLabel, hoofdstuk: _toetsWizard.data.hoofdstuk, sectieTitel: sectie.titel, bronnen: sectie.bronnen, context: v.context, vraag: v.vraag, opties: v.opties || [] };
-  try {
-    const res = await fetch('/api/ai/wizard-stap', {
-      method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ type: 'toets-meerkeuze-antwoorden', stapId: `meerkeuze-${si}-${vi}`, systeemPrompt: `Je helpt een docent met meerkeuze-antwoorden voor een toets. Maak vier duidelijke antwoordopties A t/m D op ${_toetsWizard.data.niveauLabel || 'VMBO'}-niveau. Geef JSON terug met: advies en opties [{letter, tekst}]. Zorg dat er één beste antwoord is en drie geloofwaardige afleiders.`, userPrompt: `Maak of verbeter de antwoordopties bij deze meerkeuzevraag. Geef alleen JSON terug.\n\n${JSON.stringify(ctx, null, 2)}`, context: ctx })
-    });
-    const data = await res.json();
-    if (data.error) throw new Error(data.error);
-    const sug = data.suggestie || {};
-    _twAiAdvies[`mc-${si}-${vi}`] = sug;
-    const opties = Array.isArray(sug.opties) ? sug.opties : [];
-    adviesEl.innerHTML = `
-      <div style="font-weight:600;margin-bottom:4px;color:var(--accent)">AI-advies antwoorden:</div>
-      <div style="margin-bottom:8px">${escHtml(sug.advies || sug.feedback || 'Antwoordopties aangemaakt.')}</div>
-      ${opties.length ? `<div style="display:grid;gap:4px;margin-bottom:8px">${opties.map(o => `<div><strong>${escHtml(o.letter || '')}</strong> ${escHtml(o.tekst || '')}</div>`).join('')}</div><button onclick="twNeemMeerkeuzeAdviesOver(${si},${vi})" class="btn btn-sm btn-primary" style="font-size:11px">Antwoorden overnemen</button>` : ''}
-    `;
-    adviesEl.style.display = 'block';
-    statusEl.textContent = '✓ AI-antwoorden klaar';
-  } catch (e) {
-    statusEl.textContent = 'AI kon geen antwoorden maken.';
-    console.warn('AI meerkeuze advies fout:', e.message);
-  }
-}
-
-function twNeemMeerkeuzeAdviesOver(si, vi) {
-  const sug = _twAiAdvies[`mc-${si}-${vi}`];
-  const v = _toetsWizard.data.secties[si]?.vragen?.[vi];
-  if (!sug || !v || !Array.isArray(sug.opties)) return;
-  v.opties = sug.opties.slice(0, 6).map((o, i) => ({ letter: o.letter || String.fromCharCode(65 + i), tekst: o.tekst || '' }));
-  renderToetsWizardStap();
-}
-
 async function twAiAdviseerVraag(si, vi) {
   twSlaOp();
   const statusEl = document.getElementById(`tw-ai-status-${si}-${vi}`);
@@ -1579,38 +920,6 @@ function twNeemAdviesOver(si, vi) {
   if (statusEl) statusEl.textContent = '✓ Overgenomen';
 }
 
-function renderToetsKlaarActies(data) {
-  const materiaalId = data.materiaalId || '';
-  return `
-    <div class="alert alert-info" style="background:var(--accent-dim);border:1px solid rgba(45,90,61,0.2);color:var(--accent-text)">
-      Klaar: <strong>${escHtml(data.titel || 'Toets')}</strong><br>
-      <a href="/uploads/${escHtml(data.bestandsnaam)}" download="${escHtml(data.bestandsnaam)}"
-         style="color:var(--accent);font-weight:600;display:inline-block;margin-top:6px">Toets downloaden (.docx)</a>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
-        <button class="btn btn-primary" onclick="twBevestigOpslaanToets()">Opslaan en afsluiten</button>
-        <button class="btn" style="color:var(--red)" onclick="twSluitZonderOpslaan('${escHtml(materiaalId)}')">Afsluiten zonder opslaan</button>
-      </div>
-    </div>`;
-}
-
-function twBevestigOpslaanToets() {
-  resetToetsWizard();
-  closeModalDirect();
-  renderToetsen();
-}
-
-async function twSluitZonderOpslaan(materiaalId) {
-  try {
-    if (materiaalId) await API.deleteMateriaal(materiaalId);
-  } catch (e) {
-    alert('Verwijderen van de concept-toets is mislukt: ' + e.message);
-    return;
-  }
-  resetToetsWizard();
-  closeModalDirect();
-  renderToetsen();
-}
-
 async function twGenereer() {
   twSlaOp();
   const result = document.getElementById('tw-result');
@@ -1623,7 +932,14 @@ async function twGenereer() {
     });
     const data = await res.json();
     if (!data.success) throw new Error(data.error || 'Onbekende fout');
-    result.innerHTML = renderToetsKlaarActies(data);
+    result.innerHTML = `
+      <div class="alert alert-info" style="background:var(--accent-dim);border:1px solid rgba(45,90,61,0.2);color:var(--accent-text)">
+        Klaar: <strong>${escHtml(data.titel)}</strong><br>
+        <a href="/uploads/${escHtml(data.bestandsnaam)}" download="${escHtml(data.bestandsnaam)}"
+           style="color:var(--accent);font-weight:600;display:inline-block;margin-top:6px">
+          Toets downloaden (.docx)
+        </a>
+      </div>`;
     renderToetsen();
   } catch (e) {
     result.innerHTML = `<span style="color:var(--red)">Fout: ${escHtml(e.message)}</span>`;
