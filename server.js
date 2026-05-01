@@ -1567,6 +1567,137 @@ app.post('/api/genereer-werkboekje-handmatig', requireCanEdit, async (req, res) 
 });
 
 
+
+app.post('/api/genereer-lesprofiel-wizard', requireCanEdit, async (req, res) => {
+  const data = req.body || {};
+  try {
+    const naam = String(data.naam || '').trim();
+    const vakId = String(data.vakId || '').trim();
+    const niveau = String(data.niveau || '').trim();
+    const aantalWeken = Math.max(1, Math.min(40, Number(data.aantalWeken || 8)));
+    const urenPerWeek = Math.max(1, Number(data.urenPerWeek || 3));
+    const beschrijving = String(data.beschrijving || '').trim();
+    const vak = db.getVakken().find(v => String(v.id) === vakId);
+
+    if (!naam || !vakId || !beschrijving) return res.status(400).json({ error: 'Naam, vak en beschrijving zijn verplicht.' });
+    if (!vak) return res.status(404).json({ error: 'Vak niet gevonden.' });
+
+    const maakFallback = () => {
+      const weken = Array.from({ length: aantalWeken }, (_, i) => {
+        const weekNr = i + 1;
+        const laatste = weekNr === aantalWeken;
+        const eerste = weekNr === 1;
+        const theorieUren = Math.max(1, Math.min(urenPerWeek, Math.round(urenPerWeek * 0.35)));
+        return {
+          weekIndex: weekNr,
+          thema: eerste ? 'Introductie en basis' : laatste ? 'Afronding en beoordeling' : `Uitwerking stap ${weekNr - 1}`,
+          activiteiten: [
+            {
+              type: 'Theorie',
+              uren: theorieUren,
+              omschrijving: eerste ? `Introductie op ${naam}: doel, begrippen, veiligheid en aanpak.` : `Korte instructie en terugblik bij week ${weekNr} van ${naam}.`,
+              link: '', syllabus: '', bestand: null
+            },
+            {
+              type: laatste ? 'Presentatie' : 'Praktijk',
+              uren: Math.max(1, urenPerWeek - theorieUren),
+              omschrijving: laatste ? `Afronden, presenteren/controleren en reflecteren op ${naam}.` : `Praktische verwerking: leerlingen werken stap voor stap aan ${naam}.`,
+              link: '', syllabus: '', bestand: null
+            }
+          ]
+        };
+      });
+      return { naam, vakId, niveau, aantalWeken, urenPerWeek, beschrijving, weken };
+    };
+
+    const wilAI = data.aiWeekthemas || data.aiActiviteiten || data.aiBronnen || data.aiDifferentiatie;
+    if (!wilAI) return res.json({ success: true, profiel: maakFallback() });
+
+    try {
+      const ai = await chatJson({
+        maxTokens: 5000,
+        temperature: 0.25,
+        system: 'Je maakt lesprofielen voor Nederlands voortgezet onderwijs. Geef alleen geldig JSON terug, zonder markdown.',
+        user: `Maak een lesprofiel als JSON.
+
+Verplichte JSON structuur:
+{
+  "naam": string,
+  "niveau": string,
+  "aantalWeken": number,
+  "urenPerWeek": number,
+  "beschrijving": string,
+  "weken": [
+    {
+      "weekIndex": number,
+      "thema": string,
+      "activiteiten": [
+        {"type":"Theorie|Praktijk|Toets|Presentatie|Overig", "uren": number, "omschrijving": string, "link":"", "syllabus":"", "bestand": null}
+      ]
+    }
+  ]
+}
+
+Context:
+Naam: ${naam}
+Vak: ${vak.volledig || vak.naam}
+Niveau: ${niveau || 'alle niveaus'}
+Aantal weken: ${aantalWeken}
+Uren per week: ${urenPerWeek}
+Beschrijving/onderwerp: ${beschrijving}
+
+AI opties:
+Weekthema's maken: ${!!data.aiWeekthemas}
+Activiteiten maken: ${!!data.aiActiviteiten}
+Bronnen/materialen noemen in omschrijving: ${!!data.aiBronnen}
+Differentiatie noemen in omschrijving: ${!!data.aiDifferentiatie}
+
+Regels:
+- Maak exact ${aantalWeken} weken.
+- Gebruik maximaal 3 activiteiten per week.
+- Het totaal aantal uren per week moet ongeveer ${urenPerWeek} zijn.
+- Houd de omschrijvingen kort, concreet en bruikbaar voor een docent.
+- Gebruik link altijd als lege string.
+- Gebruik bestand altijd null.
+- Gebruik syllabus als lege string als er geen concrete code bekend is.`
+      });
+
+      const fallback = maakFallback();
+      const weken = Array.isArray(ai.weken) ? ai.weken.slice(0, aantalWeken) : fallback.weken;
+      while (weken.length < aantalWeken) weken.push(fallback.weken[weken.length]);
+      const profiel = {
+        naam: String(ai.naam || naam),
+        vakId,
+        niveau: String(ai.niveau || niveau || ''),
+        aantalWeken,
+        urenPerWeek,
+        beschrijving: String(ai.beschrijving || beschrijving),
+        weken: weken.map((w, i) => ({
+          weekIndex: i + 1,
+          thema: String(w?.thema || fallback.weken[i].thema || `Week ${i + 1}`),
+          activiteiten: Array.isArray(w?.activiteiten) && w.activiteiten.length
+            ? w.activiteiten.slice(0, 3).map(a => ({
+                type: ['Theorie', 'Praktijk', 'Toets', 'Presentatie', 'Overig'].includes(a?.type) ? a.type : 'Praktijk',
+                uren: Number(a?.uren || 1),
+                omschrijving: String(a?.omschrijving || ''),
+                link: String(a?.link || ''),
+                syllabus: String(a?.syllabus || ''),
+                bestand: a?.bestand || null
+              }))
+            : fallback.weken[i].activiteiten
+        }))
+      };
+      return res.json({ success: true, profiel });
+    } catch (aiError) {
+      console.warn('AI lesprofiel wizard niet beschikbaar, fallback gebruikt:', aiError.message);
+      return res.json({ success: true, profiel: maakFallback(), warning: `AI niet beschikbaar: ${aiError.message}. Er is een basislesprofiel gemaakt.` });
+    }
+  } catch (e) {
+    console.error('Fout bij /api/genereer-lesprofiel-wizard:', e);
+    return res.status(500).json({ error: 'Fout bij genereren van lesprofiel', details: e.message });
+  }
+});
+
 // ============================================================
 // LESBRIEVEN — CRUD + AI genereren
 // ============================================================
