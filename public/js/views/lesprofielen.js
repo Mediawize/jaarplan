@@ -470,8 +470,6 @@ async function renderLesprofielen() {
       <div class="page-header">
         <div class="page-header-left"><h1>Lesprofielen</h1></div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-          <a href="/api/lesprofiel-template" class="btn btn-sm" download>⬇ Template</a>
-          <button class="btn btn-sm" onclick="openImportModal()">↑ Importeren</button>
           <button class="btn btn-sm btn-primary" onclick="openLesprofielWizard()">+ Nieuw lesprofiel</button>
         </div>
       </div>
