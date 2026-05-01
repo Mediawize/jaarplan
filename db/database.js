@@ -155,6 +155,15 @@ db.exec(`
     sleutel TEXT PRIMARY KEY,
     waarde   TEXT
   );
+
+  CREATE TABLE IF NOT EXISTS ai_voorkeuren (
+    id TEXT PRIMARY KEY,
+    type TEXT NOT NULL,
+    stapId TEXT NOT NULL,
+    invoer TEXT,
+    resultaat TEXT,
+    aangemaakt TEXT DEFAULT (datetime('now'))
+  );
 `);
 
 // ============================================================
@@ -390,6 +399,9 @@ const Q = {
 
   getInstelling: db.prepare('SELECT waarde FROM school_instellingen WHERE sleutel = ?'),
   setInstelling: db.prepare('INSERT OR REPLACE INTO school_instellingen (sleutel, waarde) VALUES (?, ?)'),
+
+  getAiVoorkeuren: db.prepare('SELECT * FROM ai_voorkeuren WHERE type=? AND stapId=? ORDER BY aangemaakt DESC LIMIT 5'),
+  insAiVoorkeur: db.prepare('INSERT INTO ai_voorkeuren (id,type,stapId,invoer,resultaat) VALUES (?,?,?,?,?)'),
 };
 
 // ============================================================
@@ -618,6 +630,9 @@ module.exports = {
   setInstelling(sleutel, waarde) {
     Q.setInstelling.run(sleutel, waarde);
   },
+
+  getAiVoorkeuren(type, stapId) { return Q.getAiVoorkeuren.all(type, stapId); },
+  addAiVoorkeur(d) { Q.insAiVoorkeur.run(genId(), d.type, d.stapId, d.invoer || null, d.resultaat || null); },
 
   // ============================================================
   // ALIASSEN — server.js gebruikt deze namen
