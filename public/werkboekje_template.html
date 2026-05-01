@@ -1,0 +1,1231 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Werkboekje – Praktijkopdracht</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+  /* ── MEDIAWIZE JAARPLAN KLEUREN ── */
+  :root {
+    --donkerblauw:   #1E2A4A;   /* nav / cover achtergrond */
+    --middenblauw:   #2D3F6B;   /* secundaire vlakken */
+    --accentblauw:   #3B5BDB;   /* knoppen, badges */
+    --lichtblauw:    #E8EDFB;   /* lichte highlight */
+    --groen:         #2FB97D;   /* succes / actief accent */
+    --groen-licht:   #E6F9F0;
+    --geel:          #F59F00;   /* waarschuwing */
+    --geel-licht:    #FFF8E6;
+    --rood:          #E03131;
+    --rood-licht:    #FFF0F0;
+    --tekst:         #1A1F36;
+    --tekst-zacht:   #5A6480;
+    --rand:          #DDE1EE;
+    --achtergrond:   #F4F6FB;
+    --wit:           #FFFFFF;
+    --radius-s:       6px;
+    --radius:        12px;
+    --radius-l:      16px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Inter', system-ui, sans-serif;
+    background: var(--achtergrond);
+    color: var(--tekst);
+    font-size: 14px;
+    line-height: 1.65;
+  }
+
+  /* ══════════════════════════════
+     COVER
+  ══════════════════════════════ */
+  .cover {
+    background: var(--donkerblauw);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    padding: 60px 40px;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+  }
+
+  /* subtiel rasterpatroon */
+  .cover::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(59,91,219,0.12) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(59,91,219,0.12) 1px, transparent 1px);
+    background-size: 48px 48px;
+  }
+
+  /* groene accentbalk boven */
+  .cover::after {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 4px;
+    background: var(--groen);
+  }
+
+  .cover-inner { position: relative; max-width: 560px; width: 100%; }
+
+  .cover-label {
+    display: inline-block;
+    background: rgba(47,185,125,0.15);
+    color: var(--groen);
+    border: 1px solid rgba(47,185,125,0.35);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    padding: 5px 16px;
+    border-radius: 100px;
+    margin-bottom: 28px;
+  }
+
+  .cover h1 {
+    font-size: clamp(40px, 8vw, 72px);
+    font-weight: 800;
+    color: var(--wit);
+    letter-spacing: -1.5px;
+    line-height: 1.0;
+    margin-bottom: 12px;
+  }
+
+  .cover h1 .accent { color: var(--groen); }
+
+  .cover-vak {
+    font-size: 16px;
+    color: rgba(255,255,255,0.5);
+    margin-bottom: 48px;
+  }
+
+  /* invulvelden */
+  .cover-fields {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    width: 100%;
+  }
+
+  .cover-field {
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: var(--radius);
+    padding: 14px 18px;
+    text-align: left;
+  }
+
+  .cover-field label {
+    display: block;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    color: var(--groen);
+    margin-bottom: 8px;
+  }
+
+  .cover-field .invul-lijn {
+    border-bottom: 1px solid rgba(255,255,255,0.22);
+    height: 22px;
+  }
+
+  .cover-field.span2 { grid-column: 1 / -1; }
+
+  .duur-pill {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    color: rgba(255,255,255,0.7);
+    font-size: 13px;
+  }
+
+  .duur-pill strong { color: var(--groen); }
+
+  /* ══════════════════════════════
+     PAGINA-WRAPPER
+  ══════════════════════════════ */
+  .pagina {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 56px 32px;
+  }
+
+  /* ══════════════════════════════
+     SECTIE HEADER
+  ══════════════════════════════ */
+  .sectie-header {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 24px;
+    padding-bottom: 16px;
+    border-bottom: 2px solid var(--lichtblauw);
+  }
+
+  .sectie-icon {
+    width: 40px;
+    height: 40px;
+    background: var(--accentblauw);
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    flex-shrink: 0;
+  }
+
+  .sectie-header h2 {
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: -0.3px;
+    color: var(--donkerblauw);
+  }
+
+  .scheidingslijn {
+    border: none;
+    border-top: 1px solid var(--rand);
+    margin: 52px 0;
+  }
+
+  /* ══════════════════════════════
+     MATERIAALSTAAT
+  ══════════════════════════════ */
+  .mat-tabel {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    border-radius: var(--radius);
+    overflow: hidden;
+    border: 1px solid var(--rand);
+    font-size: 13px;
+  }
+
+  .mat-tabel thead tr {
+    background: var(--donkerblauw);
+    color: var(--wit);
+  }
+
+  .mat-tabel thead th {
+    padding: 11px 14px;
+    text-align: left;
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+  }
+
+  .mat-tabel tbody tr:nth-child(odd)  { background: var(--wit); }
+  .mat-tabel tbody tr:nth-child(even) { background: var(--lichtblauw); }
+
+  .mat-tabel tbody td {
+    padding: 11px 14px;
+    border-bottom: 1px solid var(--rand);
+    vertical-align: middle;
+  }
+
+  .mat-tabel tbody tr:last-child td { border-bottom: none; }
+
+  .nr-cirkel {
+    width: 24px; height: 24px;
+    border-radius: 50%;
+    background: var(--accentblauw);
+    color: var(--wit);
+    font-size: 11px;
+    font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .dikte-tag {
+    background: var(--donkerblauw);
+    color: var(--wit);
+    font-size: 10.5px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 100px;
+    white-space: nowrap;
+  }
+
+  .hout-type { color: var(--tekst-zacht); font-style: italic; font-size: 12px; }
+
+  .mat-input {
+    border: none;
+    background: transparent;
+    border-bottom: 1.5px dashed #AABBD8;
+    width: 72px;
+    font-size: 13px;
+    color: var(--tekst);
+    outline: none;
+    padding: 2px 4px;
+    font-family: inherit;
+  }
+
+  /* ══════════════════════════════
+     VEILIGHEIDSKAARTEN
+  ══════════════════════════════ */
+  .veilig-raster {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+    gap: 10px;
+  }
+
+  .veilig-kaart {
+    background: var(--wit);
+    border: 1px solid var(--rand);
+    border-radius: var(--radius);
+    padding: 14px 16px;
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+  }
+
+  .veilig-vink {
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    background: var(--groen);
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; margin-top: 1px;
+  }
+
+  .veilig-vink svg {
+    width: 11px; height: 11px;
+    fill: none; stroke: white;
+    stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round;
+  }
+
+  .veilig-kaart p { font-size: 13px; line-height: 1.45; }
+
+  /* ══════════════════════════════
+     GEREEDSCHAPPEN & MACHINES
+  ══════════════════════════════ */
+  .tool-raster {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 10px;
+  }
+
+  .tool-kaart {
+    background: var(--wit);
+    border: 1px solid var(--rand);
+    border-radius: var(--radius);
+    padding: 16px;
+    text-align: center;
+  }
+
+  .tool-emoji { font-size: 28px; margin-bottom: 8px; display: block; }
+
+  .tool-kaart strong {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--donkerblauw);
+    margin-bottom: 4px;
+  }
+
+  .tool-kaart small { font-size: 11.5px; color: var(--tekst-zacht); }
+
+  /* afbeeldingsvak binnen tool */
+  .tool-foto {
+    width: 100%;
+    height: 100px;
+    background: var(--achtergrond);
+    border: 1.5px dashed #AABBD8;
+    border-radius: var(--radius-s);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 10px;
+    color: #AABBD8;
+    font-size: 11px;
+    font-weight: 500;
+  }
+
+  /* ══════════════════════════════
+     STAPPENPLAN
+  ══════════════════════════════ */
+  .stappen { display: flex; flex-direction: column; gap: 0; }
+
+  .stap {
+    display: grid;
+    grid-template-columns: 52px 1fr;
+    position: relative;
+  }
+
+  /* verbindingslijn */
+  .stap:not(:last-child)::before {
+    content: '';
+    position: absolute;
+    left: 25px;
+    top: 46px;
+    bottom: 0;
+    width: 2px;
+    background: var(--lichtblauw);
+    z-index: 0;
+  }
+
+  .stap-nummering {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding-top: 2px;
+    position: relative;
+    z-index: 1;
+  }
+
+  .stap-cirkel {
+    width: 38px; height: 38px;
+    border-radius: 50%;
+    background: var(--accentblauw);
+    color: var(--wit);
+    font-size: 15px;
+    font-weight: 800;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .stap-kaart {
+    background: var(--wit);
+    border: 1px solid var(--rand);
+    border-radius: var(--radius);
+    padding: 20px 22px;
+    margin: 0 0 14px 14px;
+  }
+
+  .stap-kaart h3 {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--donkerblauw);
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .stap-kaart p {
+    font-size: 13.5px;
+    color: #333;
+    line-height: 1.65;
+    margin-bottom: 8px;
+  }
+
+  .stap-kaart p:last-child { margin-bottom: 0; }
+
+  /* ══════════════════════════════
+     AFBEELDINGSVAKKEN (vast formaat)
+  ══════════════════════════════ */
+  .foto-rij {
+    display: grid;
+    gap: 10px;
+    margin: 14px 0;
+  }
+
+  .foto-rij.een   { grid-template-columns: 1fr; }
+  .foto-rij.twee  { grid-template-columns: 1fr 1fr; }
+  .foto-rij.drie  { grid-template-columns: 1fr 1fr 1fr; }
+
+  .foto-vak {
+    background: var(--achtergrond);
+    border: 1.5px dashed #AABBD8;
+    border-radius: var(--radius);
+    height: 180px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: #AABBD8;
+    gap: 8px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .foto-vak svg {
+    width: 28px; height: 28px;
+    stroke: #AABBD8;
+    fill: none;
+    stroke-width: 1.5;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  .foto-vak span { font-size: 11px; font-weight: 500; }
+
+  .foto-label {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    background: rgba(30,42,74,0.06);
+    border-top: 1px dashed #AABBD8;
+    padding: 5px 10px;
+    font-size: 11px;
+    color: #AABBD8;
+    text-align: center;
+  }
+
+  /* groot enkel vak */
+  .foto-vak.groot { height: 240px; }
+
+  /* ══════════════════════════════
+     BLOKKEN: TIP / INFO / LET OP / BENODIGDHEDEN
+  ══════════════════════════════ */
+  .blok {
+    border-radius: 0 var(--radius) var(--radius) 0;
+    padding: 14px 18px;
+    margin: 12px 0;
+    font-size: 13.5px;
+    border-left-width: 3px;
+    border-left-style: solid;
+  }
+
+  .blok-titel {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+
+  .blok.info    { background: var(--lichtblauw);  border-color: var(--accentblauw); }
+  .blok.info    .blok-titel { color: var(--accentblauw); }
+
+  .blok.tip     { background: var(--geel-licht);  border-color: var(--geel); }
+  .blok.tip     .blok-titel { color: var(--geel); }
+
+  .blok.letop   { background: var(--rood-licht);  border-color: var(--rood); }
+  .blok.letop   .blok-titel { color: var(--rood); }
+
+  .blok.succes  { background: var(--groen-licht); border-color: var(--groen); }
+  .blok.succes  .blok-titel { color: var(--groen); }
+
+  .blok ul { list-style: none; padding: 0; }
+  .blok ul li { padding: 3px 0 3px 16px; position: relative; }
+  .blok ul li::before { content: '→'; position: absolute; left: 0; font-size: 12px; color: inherit; opacity: 0.7; }
+
+  /* ══════════════════════════════
+     BENODIGDHEDEN
+  ══════════════════════════════ */
+  .benodigd {
+    background: var(--groen-licht);
+    border-radius: var(--radius);
+    padding: 14px 18px;
+    margin: 10px 0 12px;
+  }
+
+  .benodigd-label {
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--groen);
+    margin-bottom: 10px;
+  }
+
+  .benodigd-items {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 7px;
+  }
+
+  .benodigd-item {
+    background: var(--wit);
+    border: 1px solid rgba(47,185,125,0.35);
+    border-radius: 100px;
+    padding: 4px 12px;
+    font-size: 12.5px;
+    font-weight: 500;
+    color: #1A7A52;
+  }
+
+  /* ══════════════════════════════
+     CHECKLIST
+  ══════════════════════════════ */
+  .checklist { list-style: none; padding: 0; margin: 10px 0; }
+
+  .checklist li {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 5px 0;
+    font-size: 13.5px;
+    border-bottom: 1px solid var(--rand);
+  }
+
+  .checklist li:last-child { border-bottom: none; }
+
+  .check-vakje {
+    width: 18px; height: 18px;
+    border: 2px solid var(--rand);
+    border-radius: 4px;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+
+  /* ══════════════════════════════
+     INVULVELDEN
+  ══════════════════════════════ */
+  .invul-raster {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin: 10px 0;
+  }
+
+  .invul-blok {
+    background: var(--achtergrond);
+    border: 1px solid var(--rand);
+    border-radius: var(--radius);
+    padding: 12px 14px;
+  }
+
+  .invul-blok label {
+    display: block;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--tekst-zacht);
+    margin-bottom: 8px;
+  }
+
+  .invul-reken {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    flex-wrap: wrap;
+  }
+
+  .invul-reken input {
+    border: none;
+    border-bottom: 2px solid var(--accentblauw);
+    background: transparent;
+    font-size: 14px;
+    font-family: inherit;
+    outline: none;
+    width: 66px;
+    padding: 2px 4px;
+    color: var(--tekst);
+    text-align: center;
+  }
+
+  /* ══════════════════════════════
+     SPEC-BOX (maten / kengetallen)
+  ══════════════════════════════ */
+  .spec-box {
+    background: var(--achtergrond);
+    border: 1px solid var(--rand);
+    border-radius: var(--radius);
+    padding: 16px 20px;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    flex-wrap: wrap;
+    margin: 12px 0;
+  }
+
+  .spec-item { text-align: center; }
+
+  .spec-waarde {
+    font-size: 24px;
+    font-weight: 800;
+    color: var(--accentblauw);
+    display: block;
+    line-height: 1.1;
+  }
+
+  .spec-naam {
+    font-size: 11px;
+    color: var(--tekst-zacht);
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    margin-top: 2px;
+    display: block;
+  }
+
+  .spec-lijn { width: 1px; height: 40px; background: var(--rand); }
+
+  /* ══════════════════════════════
+     VRIJESCHRIJFVAK
+  ══════════════════════════════ */
+  .schrijfvak {
+    background: var(--wit);
+    border: 1px solid var(--rand);
+    border-radius: var(--radius);
+    padding: 16px;
+    margin: 10px 0;
+  }
+
+  .schrijfvak label {
+    display: block;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--tekst-zacht);
+    margin-bottom: 10px;
+  }
+
+  .schrijflijnen { }
+
+  .schrijflijn {
+    border: none;
+    border-bottom: 1px solid var(--rand);
+    height: 34px;
+    display: block;
+    width: 100%;
+    margin-bottom: 2px;
+  }
+
+  /* ══════════════════════════════
+     SUCCES BANNER
+  ══════════════════════════════ */
+  .succes-banner {
+    background: var(--donkerblauw);
+    border-radius: var(--radius-l);
+    padding: 40px;
+    text-align: center;
+    margin-top: 8px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .succes-banner::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    background: var(--groen);
+  }
+
+  .succes-banner h2 {
+    font-size: 32px;
+    font-weight: 800;
+    color: var(--groen);
+    letter-spacing: -0.5px;
+    margin-bottom: 8px;
+  }
+
+  .succes-banner p {
+    font-size: 14px;
+    color: rgba(255,255,255,0.6);
+  }
+
+  /* ══════════════════════════════
+     PRINT
+  ══════════════════════════════ */
+  @media print {
+    body { background: white; }
+    .cover { min-height: auto; page-break-after: always; }
+    .pagina { padding: 24px; }
+    .scheidingslijn { margin: 32px 0; }
+  }
+
+  @media (max-width: 600px) {
+    .pagina { padding: 32px 16px; }
+    .invul-raster { grid-template-columns: 1fr; }
+    .cover-fields { grid-template-columns: 1fr; }
+    .cover-field.span2 { grid-column: 1; }
+    .foto-rij.drie { grid-template-columns: 1fr 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════
+     COVER — pas aan per opdracht
+══════════════════════════════════════════ -->
+<div class="cover">
+  <div class="cover-inner">
+    <div class="cover-label">BWI · Wonen &amp; Interieur</div>
+    <h1>Opdracht<br><span class="accent">Titel</span></h1>
+    <p class="cover-vak">Vak / onderdeel</p>
+
+    <div class="cover-fields">
+      <div class="cover-field">
+        <label>Naam</label>
+        <div class="invul-lijn"></div>
+      </div>
+      <div class="cover-field">
+        <label>Klas</label>
+        <div class="invul-lijn"></div>
+      </div>
+      <div class="cover-field">
+        <label>Datum</label>
+        <div class="invul-lijn"></div>
+      </div>
+      <div class="cover-field">
+        <label>Docent</label>
+        <div class="invul-lijn"></div>
+      </div>
+      <div class="cover-field span2">
+        <label>Duur van de opdracht</label>
+        <div class="duur-pill">
+          <span>&#9201;</span>
+          <strong>__ × 45 minuten</strong>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     PAGINA
+══════════════════════════════════════════ -->
+<div class="pagina">
+
+  <!-- ─────────────────────────────────
+       SECTIE: MATERIAALSTAAT
+  ───────────────────────────────── -->
+  <div class="sectie-header">
+    <div class="sectie-icon">📋</div>
+    <h2>Materiaalstaat</h2>
+  </div>
+
+  <table class="mat-tabel">
+    <thead>
+      <tr>
+        <th>Nr.</th>
+        <th>Benaming</th>
+        <th>Aantal</th>
+        <th>Lengte</th>
+        <th>Breedte</th>
+        <th>Dikte</th>
+        <th>Soort materiaal</th>
+      </tr>
+    </thead>
+    <tbody>
+      <!-- ── Voeg rijen toe of verwijder ze naar behoefte ── -->
+      <tr>
+        <td><span class="nr-cirkel">1</span></td>
+        <td></td>
+        <td><input class="mat-input" type="text"></td>
+        <td><input class="mat-input" type="text"></td>
+        <td><input class="mat-input" type="text"></td>
+        <td><span class="dikte-tag">__ mm</span></td>
+        <td class="hout-type"></td>
+      </tr>
+      <tr>
+        <td><span class="nr-cirkel">2</span></td>
+        <td></td>
+        <td><input class="mat-input" type="text"></td>
+        <td><input class="mat-input" type="text"></td>
+        <td><input class="mat-input" type="text"></td>
+        <td><span class="dikte-tag">__ mm</span></td>
+        <td class="hout-type"></td>
+      </tr>
+      <tr>
+        <td><span class="nr-cirkel">3</span></td>
+        <td></td>
+        <td><input class="mat-input" type="text"></td>
+        <td><input class="mat-input" type="text"></td>
+        <td><input class="mat-input" type="text"></td>
+        <td><span class="dikte-tag">__ mm</span></td>
+        <td class="hout-type"></td>
+      </tr>
+      <tr>
+        <td><span class="nr-cirkel">4</span></td>
+        <td></td>
+        <td><input class="mat-input" type="text"></td>
+        <td><input class="mat-input" type="text"></td>
+        <td><input class="mat-input" type="text"></td>
+        <td><span class="dikte-tag">__ mm</span></td>
+        <td class="hout-type"></td>
+      </tr>
+      <tr>
+        <td><span class="nr-cirkel">5</span></td>
+        <td></td>
+        <td><input class="mat-input" type="text"></td>
+        <td><input class="mat-input" type="text"></td>
+        <td><input class="mat-input" type="text"></td>
+        <td><span class="dikte-tag">__ mm</span></td>
+        <td class="hout-type"></td>
+      </tr>
+      <tr>
+        <td><span class="nr-cirkel">6</span></td>
+        <td></td>
+        <td><input class="mat-input" type="text"></td>
+        <td><input class="mat-input" type="text"></td>
+        <td><input class="mat-input" type="text"></td>
+        <td><span class="dikte-tag">__ mm</span></td>
+        <td class="hout-type"></td>
+      </tr>
+      <tr>
+        <td><span class="nr-cirkel">7</span></td>
+        <td></td>
+        <td><input class="mat-input" type="text"></td>
+        <td><input class="mat-input" type="text"></td>
+        <td><input class="mat-input" type="text"></td>
+        <td><span class="dikte-tag">__ mm</span></td>
+        <td class="hout-type"></td>
+      </tr>
+      <tr>
+        <td><span class="nr-cirkel">8</span></td>
+        <td></td>
+        <td><input class="mat-input" type="text"></td>
+        <td><input class="mat-input" type="text"></td>
+        <td><input class="mat-input" type="text"></td>
+        <td><span class="dikte-tag">__ mm</span></td>
+        <td class="hout-type"></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <hr class="scheidingslijn">
+
+  <!-- ─────────────────────────────────
+       SECTIE: VEILIGHEID
+  ───────────────────────────────── -->
+  <div class="sectie-header">
+    <div class="sectie-icon">🦺</div>
+    <h2>Voorbereiding &amp; veiligheid</h2>
+  </div>
+
+  <div class="veilig-raster">
+    <div class="veilig-kaart">
+      <div class="veilig-vink"><svg viewBox="0 0 12 12"><polyline points="1,6 4,10 11,2"/></svg></div>
+      <p>Werkpak en <strong>veiligheidsschoenen</strong> aan</p>
+    </div>
+    <div class="veilig-kaart">
+      <div class="veilig-vink"><svg viewBox="0 0 12 12"><polyline points="1,6 4,10 11,2"/></svg></div>
+      <p>Loshangende kleding <strong>vastmaken of verboden</strong></p>
+    </div>
+    <div class="veilig-kaart">
+      <div class="veilig-vink"><svg viewBox="0 0 12 12"><polyline points="1,6 4,10 11,2"/></svg></div>
+      <p>Losse haren in een <strong>staart of knot</strong></p>
+    </div>
+    <div class="veilig-kaart">
+      <div class="veilig-vink"><svg viewBox="0 0 12 12"><polyline points="1,6 4,10 11,2"/></svg></div>
+      <p><strong>Gehoorbescherming</strong> verplicht bij machines</p>
+    </div>
+  </div>
+
+  <!-- ─ Gereedschappen ─ -->
+  <div class="sectie-header" style="margin-top:32px; border-bottom-color:var(--rand);">
+    <div class="sectie-icon" style="background:var(--middenblauw);">🔧</div>
+    <h2 style="font-size:17px;">Gereedschappen</h2>
+  </div>
+
+  <div class="tool-raster">
+    <!-- Voeg gereedschapkaartjes toe — foto-vak is het afbeeldingsplaceholder -->
+    <div class="tool-kaart">
+      <div class="tool-foto">
+        <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>
+        <span>Foto hier</span>
+      </div>
+      <strong>Gereedschap 1</strong>
+      <small>Omschrijving</small>
+    </div>
+    <div class="tool-kaart">
+      <div class="tool-foto">
+        <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>
+        <span>Foto hier</span>
+      </div>
+      <strong>Gereedschap 2</strong>
+      <small>Omschrijving</small>
+    </div>
+    <div class="tool-kaart">
+      <div class="tool-foto">
+        <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>
+        <span>Foto hier</span>
+      </div>
+      <strong>Gereedschap 3</strong>
+      <small>Omschrijving</small>
+    </div>
+    <div class="tool-kaart">
+      <div class="tool-foto">
+        <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>
+        <span>Foto hier</span>
+      </div>
+      <strong>Machine 1</strong>
+      <small>Omschrijving</small>
+    </div>
+  </div>
+
+  <hr class="scheidingslijn">
+
+  <!-- ─────────────────────────────────
+       SECTIE: STAPPENPLAN
+  ───────────────────────────────── -->
+  <div class="sectie-header">
+    <div class="sectie-icon">🪵</div>
+    <h2>Stappenplan</h2>
+  </div>
+
+  <div class="stappen">
+
+    <!-- ══ STAP 1 ══ -->
+    <div class="stap">
+      <div class="stap-nummering"><div class="stap-cirkel">1</div></div>
+      <div class="stap-kaart">
+        <h3>Stap titel</h3>
+        <p>Beschrijving van wat de leerling moet doen in deze stap. Zo duidelijk en concreet mogelijk.</p>
+
+        <!-- ── 2 afbeeldingsvakken naast elkaar ── -->
+        <div class="foto-rij twee">
+          <div class="foto-vak">
+            <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21,15 16,10 5,21"/></svg>
+            <span>Foto hier plaatsen</span>
+            <div class="foto-label">Bijschrift / situatie</div>
+          </div>
+          <div class="foto-vak">
+            <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21,15 16,10 5,21"/></svg>
+            <span>Foto hier plaatsen</span>
+            <div class="foto-label">Bijschrift / situatie</div>
+          </div>
+        </div>
+
+        <div class="blok tip">
+          <div class="blok-titel">💡 Tip</div>
+          Tekst van de tip komt hier.
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ STAP 2 ══ -->
+    <div class="stap">
+      <div class="stap-nummering"><div class="stap-cirkel">2</div></div>
+      <div class="stap-kaart">
+        <h3>Stap titel</h3>
+        <p>Beschrijving van de stap.</p>
+
+        <!-- ── 1 breed afbeeldingsvak ── -->
+        <div class="foto-rij een">
+          <div class="foto-vak groot">
+            <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21,15 16,10 5,21"/></svg>
+            <span>Foto hier plaatsen</span>
+            <div class="foto-label">Bijschrift</div>
+          </div>
+        </div>
+
+        <div class="blok info">
+          <div class="blok-titel">ℹ️ Let op</div>
+          Belangrijke informatie of instructie.
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ STAP 3 ══ -->
+    <div class="stap">
+      <div class="stap-nummering"><div class="stap-cirkel">3</div></div>
+      <div class="stap-kaart">
+        <h3>Stap titel</h3>
+        <p>Beschrijving van de stap.</p>
+
+        <!-- ── 3 kleine afbeeldingen naast elkaar ── -->
+        <div class="foto-rij drie">
+          <div class="foto-vak">
+            <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21,15 16,10 5,21"/></svg>
+            <span>Foto 1</span>
+            <div class="foto-label">Bijschrift</div>
+          </div>
+          <div class="foto-vak">
+            <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21,15 16,10 5,21"/></svg>
+            <span>Foto 2</span>
+            <div class="foto-label">Bijschrift</div>
+          </div>
+          <div class="foto-vak">
+            <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21,15 16,10 5,21"/></svg>
+            <span>Foto 3</span>
+            <div class="foto-label">Bijschrift</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ STAP 4 — met benodigdheden + checklist ══ -->
+    <div class="stap">
+      <div class="stap-nummering"><div class="stap-cirkel">4</div></div>
+      <div class="stap-kaart">
+        <h3>Stap titel</h3>
+
+        <!-- Benodigdheden pill-list -->
+        <div class="benodigd">
+          <div class="benodigd-label">✓ Je hebt nodig:</div>
+          <div class="benodigd-items">
+            <span class="benodigd-item">Item 1</span>
+            <span class="benodigd-item">Item 2</span>
+            <span class="benodigd-item">Item 3</span>
+          </div>
+        </div>
+
+        <p>Instructietekst voor deze stap.</p>
+
+        <!-- Checklist -->
+        <ul class="checklist">
+          <li><span class="check-vakje"></span>Controleer punt 1</li>
+          <li><span class="check-vakje"></span>Controleer punt 2</li>
+          <li><span class="check-vakje"></span>Controleer punt 3</li>
+        </ul>
+
+        <div class="blok letop">
+          <div class="blok-titel">⚠️ Let op!</div>
+          <ul>
+            <li>Waarschuwingspunt 1</li>
+            <li>Waarschuwingspunt 2</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ STAP 5 — met maten / kengetallen ══ -->
+    <div class="stap">
+      <div class="stap-nummering"><div class="stap-cirkel">5</div></div>
+      <div class="stap-kaart">
+        <h3>Stap titel</h3>
+        <p>Instructietekst voor deze stap.</p>
+
+        <!-- Kengetallen/maten spec-box -->
+        <div class="spec-box">
+          <div class="spec-item">
+            <span class="spec-waarde">00</span>
+            <span class="spec-naam">Naam maat</span>
+          </div>
+          <div class="spec-lijn"></div>
+          <div class="spec-item">
+            <span class="spec-waarde">00 mm</span>
+            <span class="spec-naam">Naam maat</span>
+          </div>
+          <div class="spec-lijn"></div>
+          <div class="spec-item">
+            <span class="spec-waarde">00 mm</span>
+            <span class="spec-naam">Naam maat</span>
+          </div>
+        </div>
+
+        <div class="foto-rij twee">
+          <div class="foto-vak">
+            <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21,15 16,10 5,21"/></svg>
+            <span>Foto hier plaatsen</span>
+            <div class="foto-label">Bijschrift</div>
+          </div>
+          <div class="foto-vak">
+            <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21,15 16,10 5,21"/></svg>
+            <span>Foto hier plaatsen</span>
+            <div class="foto-label">Bijschrift</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ STAP 6 — met invulvelden ══ -->
+    <div class="stap">
+      <div class="stap-nummering"><div class="stap-cirkel">6</div></div>
+      <div class="stap-kaart">
+        <h3>Stap titel — invullen &amp; berekenen</h3>
+        <p>Instructietekst. Meet op en vul in:</p>
+
+        <div class="invul-raster">
+          <div class="invul-blok">
+            <label>Maat A berekenen</label>
+            <div class="invul-reken">
+              <input type="text" placeholder="___"> mm − <input type="text" placeholder="__"> mm = <input type="text" placeholder="___"> mm
+            </div>
+          </div>
+          <div class="invul-blok">
+            <label>Maat B berekenen</label>
+            <div class="invul-reken">
+              <input type="text" placeholder="___"> mm − <input type="text" placeholder="__"> mm = <input type="text" placeholder="___"> mm
+            </div>
+          </div>
+        </div>
+
+        <div class="foto-rij een">
+          <div class="foto-vak">
+            <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21,15 16,10 5,21"/></svg>
+            <span>Foto hier plaatsen</span>
+            <div class="foto-label">Bijschrift</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ STAP 7 — vrij schrijfvak ══ (laatste stap) -->
+    <div class="stap">
+      <div class="stap-nummering"><div class="stap-cirkel">7</div></div>
+      <div class="stap-kaart">
+        <h3>Reflectie / evaluatie</h3>
+        <p>Beantwoord de onderstaande vragen.</p>
+
+        <div class="schrijfvak">
+          <label>Wat ging goed?</label>
+          <div class="schrijflijnen">
+            <span class="schrijflijn"></span>
+            <span class="schrijflijn"></span>
+            <span class="schrijflijn"></span>
+          </div>
+        </div>
+
+        <div class="schrijfvak">
+          <label>Wat zou je volgende keer anders doen?</label>
+          <div class="schrijflijnen">
+            <span class="schrijflijn"></span>
+            <span class="schrijflijn"></span>
+            <span class="schrijflijn"></span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /stappen -->
+
+  <hr class="scheidingslijn">
+
+  <!-- ─────────────────────────────────
+       SUCCES
+  ───────────────────────────────── -->
+  <div class="succes-banner">
+    <h2>Goed gedaan! 🎉</h2>
+    <p>Controleer je eigen werk nog één keer op netheid en kwaliteit voor je inlevert.</p>
+  </div>
+
+</div><!-- /pagina -->
+
+<!--
+════════════════════════════════════════════════
+HANDLEIDING VOOR DE DOCENT
+════════════════════════════════════════════════
+
+KLEUREN (MediaWize JaarPlan palet):
+  Donkerblauw  #1E2A4A  → cover, headers, badges
+  Middenblauw  #2D3F6B  → secundaire vlakken
+  Accentblauw  #3B5BDB  → knoppen, nummers, accenten
+  Lichtblauw   #E8EDFB  → achtergronden, zebra
+  Groen        #2FB97D  → succes, checkmarks, cover accent
+  Geel         #F59F00  → tip-blokken
+  Rood         #E03131  → let op-blokken
+
+AFBEELDINGSVAKKEN (vaste hoogtes):
+  .foto-vak         → 180px hoog (standaard)
+  .foto-vak.groot   → 240px hoog (breed/enkel)
+  Lay-outs: .foto-rij.een / .twee / .drie
+
+BLOKKEN:
+  <div class="blok tip">    → geel, tips
+  <div class="blok info">   → blauw, informatie
+  <div class="blok letop">  → rood, waarschuwingen
+  <div class="blok succes"> → groen, bevestiging
+
+STAPPEN TOEVOEGEN:
+  Kopieer een <div class="stap">...</div> blok
+  en verhoog het cijfer in .stap-cirkel.
+
+RIJEN MATERIAALSTAAT:
+  Kopieer een <tr>...</tr> blok en pas het
+  nummertje en de benamingen aan.
+════════════════════════════════════════════════
+-->
+
+</body>
+</html>
