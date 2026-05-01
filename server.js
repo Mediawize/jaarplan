@@ -664,6 +664,102 @@ app.post('/api/ai/wizard-voorkeur', requireAuth, (req, res) => {
   }
 });
 
+// ── Analyseer toets uit bestand → JSON structuur (geen .docx)
+app.post('/api/analyse-toets', requireCanEdit, upload.single('bestand'), async (req, res) => {
+  if (!req.file) return res.status(400).json({ error: 'Geen bestand geüpload' });
+  try {
+    const { vak, niveau, hoofdstuk, documentSoort, aantalVragen } = req.body;
+    const nVragen = parseInt(aantalVragen) || 10;
+    const inhoud = await extractTekstUitBestand(req.file.path, req.file.originalname);
+    if (req.file?.path && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
+
+    const inhoudSchoon = inhoud.split('\n')
+      .filter(r => !/^[\s\-_=─━═▬*~|•]{3,}$/.test(r.trim()))
+      .join('\n');
+
+    const data = await chatJson({
+      system: 'Je analyseert lesmateriaal en extraheert de structuur voor een toets in officiële VMBO/HAVO-examenstijl. Geef altijd alleen geldig JSON terug.',
+      user: `Analyseer het lesmateriaal en maak de JSON-structuur voor een toets. Geef ALLEEN geldige JSON terug.
+
+JSON-formaat:
+{
+  "documentSoort": "${documentSoort || 'Toets'}",
+  "vak": "${vak || 'Aardrijkskunde'}",
+  "niveauLabel": "${niveau || 'VMBO-GL en TL'}",
+  "hoofdstuk": "${hoofdstuk || ''}",
+  "jaar": "${new Date().getFullYear()}",
+  "tijdvak": "tijdvak 1",
+  "datum": "",
+  "tijd": "13.30 - 15.30 uur",
+  "code": "",
+  "aantalPaginas": "",
+  "secties": [
+    {
+      "titel": "Thema naam",
+      "bronnen": [
+        {
+          "nummer": 1,
+          "ondertitel": "Korte omschrijving",
+          "tekst": "Brontekst. Gebruik \\n voor nieuwe regels."
+        }
+      ],
+      "vragen": [
+        {
+          "type": "open",
+          "punten": 2,
+          "context": "Lees bron 1.",
+          "vraag": "Vraagstelling...",
+          "antwoordRegels": 3
+        },
+        {
+          "type": "meerkeuze",
+          "punten": 1,
+          "context": "Bekijk bron 1.",
+          "vraag": "Welke uitspraak is juist?",
+          "opties": [
+            {"letter": "A", "tekst": "Optie A"},
+            {"letter": "B", "tekst": "Optie B"},
+            {"letter": "C", "tekst": "Optie C"},
+            {"letter": "D", "tekst": "Optie D"}
+          ]
+        }
+      ]
+    }
+  ]
+}
+
+Regels:
+- Maak ca. ${nVragen} vragen uit het lesmateriaal
+- Haal bronnen direct uit de tekst, verander ze niet
+- Mix open en meerkeuze vragen (50/50)
+- Als er geen bronnen zijn, gebruik "bronnen": []
+- Punten per vraag: 1-6 afhankelijk van complexiteit
+
+Tekst:
+${String(inhoudSchoon).slice(0, 18000)}`,
+      maxTokens: 3500,
+      temperature: 0.2,
+    });
+
+    data.documentSoort = data.documentSoort || documentSoort || 'Toets';
+    data.vak = data.vak || vak || '';
+    data.niveauLabel = data.niveauLabel || niveau || 'VMBO-GL en TL';
+    data.hoofdstuk = data.hoofdstuk || hoofdstuk || '';
+    // Ensure figuurBase64/figuurType fields exist on each bron
+    (data.secties || []).forEach(s => {
+      (s.bronnen || []).forEach(b => { b.figuurBase64 = null; b.figuurType = null; });
+    });
+
+    res.json({ success: true, data });
+  } catch (e) {
+    if (req.file?.path && fs.existsSync(req.file.path)) { try { fs.unlinkSync(req.file.path); } catch (_) {} }
+    console.error('Analyse toets fout:', e);
+    const msg = e.message || '';
+    const isQuota = msg.includes('429') || msg.includes('quota') || msg.includes('insufficient');
+    res.status(500).json({ error: isQuota ? 'AI_QUOTA' : 'Fout bij analyseren: ' + msg });
+  }
+});
+
 app.post('/api/admin/cleanup-profielen', requireAdmin, (req, res) => {
   const raw = db.db;
   const lbR = raw.prepare("DELETE FROM lesbrieven WHERE profielId NOT IN (SELECT id FROM lesprofielen)").run();
@@ -813,6 +909,14 @@ async function bouwToetsExamenStijl({ schoolnaam, logoBestand, data }) {
 
   k.push(new Paragraph({ spacing: { before: 200, after: 60 }, children: [] }));
 
+  if (data.hoofdstuk) {
+    k.push(new Paragraph({
+      alignment: AlignmentType.CENTER,
+      spacing: { before: 0, after: 120 },
+      children: [new TextRun({ text: data.hoofdstuk, font: 'Arial', size: 22, italics: true })]
+    }));
+  }
+
   // Tijdvak / datum info
   if (data.tijdvak) {
     k.push(new Paragraph({
@@ -932,6 +1036,21 @@ async function bouwToetsExamenStijl({ schoolnaam, logoBestand, data }) {
           }));
         }
         k.push(new Paragraph({ spacing: { before: 200, after: 0 }, children: [] }));
+      }
+
+      // Figuur (afbeelding) bij bron
+      if (bron.figuurBase64) {
+        try {
+          const b64data = bron.figuurBase64.replace(/^data:[^;]+;base64,/, '');
+          const imgBuf = Buffer.from(b64data, 'base64');
+          const ext = (bron.figuurType || 'image/png').replace('image/', '');
+          const typeMap = { jpeg: 'jpg', jpg: 'jpg', png: 'png', gif: 'gif', webp: 'png' };
+          k.push(new Paragraph({
+            spacing: { before: 80, after: 200 },
+            alignment: AlignmentType.CENTER,
+            children: [new ImageRun({ data: imgBuf, transformation: { width: 380, height: 280 }, type: typeMap[ext] || 'png' })]
+          }));
+        } catch (_) {}
       }
     }
 
