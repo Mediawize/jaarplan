@@ -1,612 +1,440 @@
 // ============================================================
 // public/js/views/werkboekjes.js
-// Werkboekje wizard: upload/analyse, AI per stap, afbeeldingen,
-// template-preview, PDF-download, opslaan/annuleren.
+// Werkboekje wizard: upload-analyse, AI per stap, afbeeldingen, preview en PDF
+// Deze functies overrulen bewust de oude werkboekje-functies uit toetsen.js.
 // ============================================================
 
-let _werkboekjeWizard = null;
-let _werkboekjeTemplateHtml = null;
-let _werkboekjeLaatsteHtml = null;
-let _werkboekjeOpgeslagenMateriaalId = null;
-
-function wbEsc(v) {
-  if (typeof escHtml === 'function') return escHtml(v == null ? '' : String(v));
-  return String(v == null ? '' : v).replace(/[&<>"']/g, m => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[m]));
-}
-function wbAttr(v) { return wbEsc(v); }
-function wbSafeId(v) { return String(v || '').replace(/[^a-zA-Z0-9_-]/g, '_'); }
-
-function resetWerkboekjeWizard() {
-  _werkboekjeWizard = {
-    stap: 1,
-    uploads: [],
-    afbeeldingen: [],
-    aiOpties: ['basis', 'leerdoelen', 'materiaalstaat', 'gereedschappen', 'stappen_visueel'],
-    data: leegWerkboekjeData()
-  };
-  _werkboekjeLaatsteHtml = null;
-  _werkboekjeOpgeslagenMateriaalId = null;
-}
-
-function leegWerkboekjeData() {
-  return {
+const WB_LEEG = () => ({
+  stap: 1,
+  uploadTekst: '',
+  uploadBestand: null,
+  afbeeldingen: [],
+  previewHtml: '',
+  data: {
     titel: '',
     vak: '',
-    niveau: '',
     profieldeel: '',
     opdrachtnummer: '1',
     duur: '',
     introductie: '',
-    leerdoelen: [''],
+    leerdoelen: ['', '', ''],
     veiligheidsregels: [
-      'Werkpak en veiligheidsschoenen aan.',
-      'Loshangende kleding vastmaken of uitdoen.',
+      'Werkpak en veiligheidsschoenen dragen.',
+      'Loshangende kleding vastmaken of niet dragen.',
       'Losse haren in een staart of knot.',
-      'Gehoorbescherming verplicht bij machines.'
+      'Gehoorbescherming dragen bij gebruik van machines.'
     ],
-    materiaalstaat: [{ benaming:'', aantal:'', lengte:'', breedte:'', dikte:'', soortMateriaal:'' }],
-    gereedschappen: [{ naam:'', omschrijving:'', afbeelding:'' }],
-    stappen: [{ titel:'Voorbereiden', beschrijving:'', fotos:1, afbeeldingen:[], tip:'', letop:'', benodigdheden:[], checklist:[] }],
-    reflectievragen: ['Wat ging goed?', 'Wat zou je volgende keer anders doen?']
-  };
+    materiaalstaat: [
+      { nummer: 1, benaming: '', aantal: '', lengte: '', breedte: '', dikte: '', soortHout: '' }
+    ],
+    machines: [
+      { naam: '', omschrijving: '', afbeeldingBase64: null }
+    ],
+    secties: [
+      { titel: 'Stappenplan', benodigdheden: [], stappen: [
+        { stap: '', tip: '', letop: '', afbeeldingBase64: null, afbeeldingLabel: '' }
+      ]}
+    ]
+  }
+});
+
+let _werkboekjeWizard = WB_LEEG();
+
+function wbReset() {
+  _werkboekjeWizard = WB_LEEG();
+}
+
+async function wbJson(res) {
+  const text = await res.text();
+  let data;
+  try {
+    data = text ? JSON.parse(text) : {};
+  } catch (_) {
+    const kort = text.slice(0, 160).replace(/\s+/g, ' ');
+    throw new Error(`Server gaf geen JSON terug. Waarschijnlijk klopt de API-route niet of je bent uitgelogd. Antwoord begon met: ${kort}`);
+  }
+  if (!res.ok) throw new Error(data.error || `Serverfout ${res.status}`);
+  return data;
 }
 
 async function openWerkboekjeGenerator() {
-  resetWerkboekjeWizard();
-  await renderWerkboekjeWizard();
+  wbReset();
+  wbRenderStap();
 }
 
-function sluitWerkboekjeWizard() {
-  resetWerkboekjeWizard();
-  if (typeof closeModalDirect === 'function') closeModalDirect();
+function wbClose() {
+  wbReset();
+  closeModalDirect();
 }
 
-async function laadWerkboekjeTemplate() {
-  if (_werkboekjeTemplateHtml) return _werkboekjeTemplateHtml;
-  const r = await fetch('/templates/werkboekje_template.html', { credentials:'same-origin' });
-  if (!r.ok) throw new Error('Template niet gevonden');
-  _werkboekjeTemplateHtml = await r.text();
-  return _werkboekjeTemplateHtml;
+function wbProgress() {
+  const labels = ['Upload', 'Algemeen', 'Leerdoelen', 'Materiaal', 'Stappen', 'Voorbeeld'];
+  return `<div style="display:flex;gap:6px;margin:12px 0 18px;flex-wrap:wrap">${labels.map((l, i) => {
+    const nr = i + 1;
+    const actief = nr === _werkboekjeWizard.stap;
+    const klaar = nr < _werkboekjeWizard.stap;
+    return `<span style="font-size:12px;padding:5px 9px;border-radius:999px;border:1px solid ${actief ? 'var(--accent)' : 'var(--border)'};background:${actief ? 'var(--accent-dim)' : klaar ? 'var(--surface-2)' : 'transparent'};color:${actief ? 'var(--accent-text)' : 'var(--ink-muted)'}">${nr}. ${l}</span>`;
+  }).join('')}</div>`;
 }
 
-async function renderWerkboekjeWizard() {
-  const w = _werkboekjeWizard || (resetWerkboekjeWizard(), _werkboekjeWizard);
-  const s = w.stap;
-  const totaal = 7;
-  const titels = [
-    'Upload & basis',
-    'AI-keuzes & leerdoelen',
-    'Materiaalstaat',
-    'Veiligheid & gereedschap',
-    'Stappenplan',
-    'Reflectie',
-    'Voorbeeld & opslaan'
-  ];
-
+function wbRenderStap() {
+  const s = _werkboekjeWizard.stap;
   let inhoud = '';
-  if (s === 1) inhoud = renderWbStapUpload();
-  if (s === 2) inhoud = renderWbStapAi();
-  if (s === 3) inhoud = renderWbStapMateriaal();
-  if (s === 4) inhoud = renderWbStapVeiligheid();
-  if (s === 5) inhoud = renderWbStapStappen();
-  if (s === 6) inhoud = renderWbStapReflectie();
-  if (s === 7) inhoud = await renderWbStapPreview();
+
+  if (s === 1) inhoud = wbStapUpload();
+  if (s === 2) inhoud = wbStapAlgemeen();
+  if (s === 3) inhoud = wbStapLeerdoelen();
+  if (s === 4) inhoud = wbStapMateriaal();
+  if (s === 5) inhoud = wbStapStappen();
+  if (s === 6) inhoud = wbStapPreview();
 
   openModal(`
-    <h2>📓 Werkboekje maken — stap ${s} van ${totaal}</h2>
-    <p class="modal-sub">${wbEsc(titels[s - 1])}. Alles blijft aanpasbaar voordat je opslaat.</p>
-    <div style="display:flex;gap:5px;margin:0 0 16px">
-      ${Array.from({ length:totaal }, (_, i) => `<div style="height:5px;flex:1;border-radius:999px;background:${i < s ? 'var(--accent)' : 'var(--border)'}"></div>`).join('')}
-    </div>
+    <h2>📓 Werkboekje maken</h2>
+    <p class="modal-sub">Werk op dezelfde manier als de toets-wizard. Je kunt uploaden, AI per stap gebruiken en alles zelf aanpassen.</p>
+    ${wbProgress()}
+    <div id="wb-status" style="font-size:13px;margin-bottom:8px"></div>
     ${inhoud}
-    <div id="wb-result" style="margin-top:10px;font-size:13px"></div>
     <div class="modal-actions">
-      ${s === 1 ? `<button class="btn" onclick="sluitWerkboekjeWizard()">Afsluiten</button>` : `<button class="btn" onclick="wbVorigeStap()">← Vorige</button>`}
-      ${s < totaal ? `<button class="btn btn-primary" onclick="wbVolgendeStap()">Volgende →</button>` : `<button class="btn" onclick="wbDownloadPdf()">⬇ PDF downloaden</button><button class="btn" onclick="wbDownloadHtml()">HTML downloaden</button><button class="btn btn-primary" onclick="wbOpslaanHtml()">Opslaan</button><button class="btn" style="color:var(--red)" onclick="wbAfsluitenZonderOpslaan()">Afsluiten zonder opslaan</button>`}
+      ${s === 1 ? `<button class="btn" onclick="wbClose()">Annuleren</button>` : `<button class="btn" onclick="wbVorige()">← Vorige</button>`}
+      ${s < 6 ? `<button class="btn btn-primary" onclick="wbVolgende()">Volgende →</button>` : `<button class="btn btn-primary" onclick="wbOpslaan()">Opslaan</button>`}
     </div>
-  `, { wide:true });
+  `);
 }
 
-function renderWbStapUpload() {
-  const d = _werkboekjeWizard.data;
+function wbStapUpload() {
   const imgs = _werkboekjeWizard.afbeeldingen || [];
   return `
-    <div class="alert alert-info" style="margin-bottom:12px">
-      Upload een syllabus, opdrachtbestand of losse afbeeldingen. De analyse probeert alvast titel, leerdoelen, materiaalstaat, gereedschappen en stappen te vullen.
-    </div>
-    <div class="form-grid">
-      <div class="form-field">
-        <label>Upload bestand(en)</label>
-        <input id="wb-upload" type="file" multiple accept=".pdf,.doc,.docx,.txt,.png,.jpg,.jpeg,.webp">
-        <div style="font-size:12px;color:var(--ink-muted);margin-top:5px">PDF/DOCX/TXT voor inhoud. Afbeeldingen kun je later kiezen bij gereedschap en stappen.</div>
-      </div>
-      <div class="form-field"><label>Titel</label><input id="wb-titel" value="${wbAttr(d.titel)}" placeholder="Bijv. Opdracht vogelhuisje"></div>
-      <div class="form-field"><label>Vak / profiel</label><input id="wb-vak" value="${wbAttr(d.vak)}"></div>
-      <div class="form-field"><label>Niveau / leerjaar</label><input id="wb-niveau" value="${wbAttr(d.niveau)}"></div>
-      <div class="form-field"><label>Profieldeel / module</label><input id="wb-profieldeel" value="${wbAttr(d.profieldeel)}"></div>
-      <div class="form-field"><label>Duur</label><input id="wb-duur" value="${wbAttr(d.duur)}" placeholder="Bijv. 6 x 45 minuten"></div>
-    </div>
     <div class="form-field">
-      <label>Beschrijving / opmerkingen aan AI</label>
-      <textarea id="wb-intro" rows="4" placeholder="Bijv. weinig tekst, veel praktijk, vmbo basis, extra duidelijke stappen...">${wbEsc(d.introductie)}</textarea>
-    </div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap">
-      <button class="btn btn-primary" onclick="wbAnalyseUpload()">✨ Upload analyseren met AI</button>
-      <button class="btn" onclick="wbLeesAlleenAfbeeldingen()">🖼 Alleen afbeeldingen toevoegen</button>
-    </div>
-    ${imgs.length ? renderWbAfbeeldingenOverzicht() : ''}
-  `;
-}
-
-function renderWbStapAi() {
-  const opts = [
-    ['basis', 'Basisgegevens', 'Titel, introductie, niveau, duur en profieldeel aanvullen.'],
-    ['leerdoelen', 'Leerdoelen', 'Concrete leerdoelen laten formuleren.'],
-    ['materiaalstaat', 'Materiaalstaat', 'Materiaal, aantallen en maten aanvullen.'],
-    ['gereedschappen', 'Gereedschappen', 'Gereedschap en machines aanvullen.'],
-    ['veiligheid', 'Veiligheid', 'Passende veiligheidsregels toevoegen.'],
-    ['stappen_visueel', 'Visuele stappen', 'Korte concrete stappen met fotoplaatsen.'],
-    ['differentiatie', 'Extra steun', 'Tips, let-op-blokken en checklists toevoegen.'],
-    ['reflectie', 'Reflectievragen', 'Evaluatievragen maken.']
-  ];
-  return `
-    <div class="alert alert-info" style="margin-bottom:12px">
-      Je mag meerdere opties aanvinken. Elke optie voegt iets extra’s toe aan het werkboekje.
-    </div>
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:10px">
-      ${opts.map(([id, t, sub]) => `
-        <label style="border:1px solid var(--border);border-radius:var(--radius);padding:12px;display:flex;gap:10px;align-items:flex-start;cursor:pointer">
-          <input type="checkbox" class="wb-ai-optie" value="${id}" ${_werkboekjeWizard.aiOpties.includes(id) ? 'checked' : ''}>
-          <span><strong>${wbEsc(t)}</strong><br><small style="color:var(--ink-muted)">${wbEsc(sub)}</small></span>
-        </label>`).join('')}
-    </div>
-    <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
-      <button class="btn btn-primary" onclick="wbAiAanvullen('alles')">✨ AI toepassen op aangevinkte opties</button>
-      <button class="btn" onclick="wbAiAanvullen('leerdoelen')">✨ Alleen leerdoelen invullen</button>
-    </div>
-    <div class="form-field" style="margin-top:12px">
-      <label>Leerdoelen</label>
-      ${renderInputLijst('wb-doel', _werkboekjeWizard.data.leerdoelen)}
-    </div>
-    <button class="btn" onclick="wbVoegLijstItem('leerdoelen')">+ Leerdoel</button>
-  `;
-}
-
-function renderWbStapMateriaal() {
-  const rows = _werkboekjeWizard.data.materiaalstaat || [];
-  return `
-    <div style="display:flex;justify-content:space-between;gap:8px;align-items:center;margin-bottom:8px">
-      <h3 style="font-size:15px;margin:0">Materiaalstaat</h3>
-      <button class="btn" onclick="wbAiAanvullen('materiaalstaat')">✨ AI materiaal aanvullen</button>
-    </div>
-    <div style="overflow:auto">
-      <table class="data-table">
-        <thead><tr><th>Benaming</th><th>Aantal</th><th>Lengte</th><th>Breedte</th><th>Dikte</th><th>Soort</th><th></th></tr></thead>
-        <tbody>${rows.map((r, i) => `
-          <tr>
-            <td><input id="wb-mat-ben-${i}" value="${wbAttr(r.benaming || '')}"></td>
-            <td><input id="wb-mat-aan-${i}" value="${wbAttr(r.aantal || '')}"></td>
-            <td><input id="wb-mat-len-${i}" value="${wbAttr(r.lengte || '')}"></td>
-            <td><input id="wb-mat-bre-${i}" value="${wbAttr(r.breedte || '')}"></td>
-            <td><input id="wb-mat-dik-${i}" value="${wbAttr(r.dikte || '')}"></td>
-            <td><input id="wb-mat-soort-${i}" value="${wbAttr(r.soortMateriaal || r.soortHout || '')}"></td>
-            <td><button class="btn btn-sm" onclick="wbVerwijderMateriaal(${i})">×</button></td>
-          </tr>`).join('')}
-        </tbody>
-      </table>
-    </div>
-    <button class="btn" onclick="wbVoegMateriaal()">+ Materiaalregel</button>
-  `;
-}
-
-function renderWbStapVeiligheid() {
-  const d = _werkboekjeWizard.data;
-  return `
-    <div style="display:flex;justify-content:flex-end;margin-bottom:8px">
-      <button class="btn" onclick="wbAiAanvullen('veiligheid_gereedschap')">✨ AI veiligheid/gereedschap aanvullen</button>
-    </div>
-    <div class="form-grid">
-      <div>
-        <h3 style="font-size:15px;margin-bottom:8px">Veiligheid</h3>
-        ${renderInputLijst('wb-veilig', d.veiligheidsregels)}
-        <button class="btn" onclick="wbVoegLijstItem('veiligheidsregels')">+ Veiligheidsregel</button>
+      <label>Upload bronbestand of syllabus (optioneel)</label>
+      <div class="upload-zone" onclick="document.getElementById('wb-upload-file').click()" id="wb-upload-zone"
+           style="padding:22px;text-align:center;border:2px dashed var(--border);border-radius:var(--radius-sm);cursor:pointer">
+        <div style="font-size:24px;margin-bottom:6px">📤</div>
+        <div style="font-weight:500">Upload PDF of Word-bestand</div>
+        <div style="font-size:12px;color:var(--ink-muted)">AI haalt titel, leerdoelen, materialen, gereedschap en stappen eruit.</div>
       </div>
-      <div>
-        <h3 style="font-size:15px;margin-bottom:8px">Gereedschappen / machines</h3>
-        ${(d.gereedschappen || []).map((g, i) => `
-          <div class="card" style="padding:10px;margin-bottom:8px">
-            <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:6px;margin-bottom:6px">
-              <input id="wb-tool-naam-${i}" value="${wbAttr(g.naam || '')}" placeholder="Naam">
-              <input id="wb-tool-om-${i}" value="${wbAttr(g.omschrijving || '')}" placeholder="Omschrijving">
-              <button class="btn btn-sm" onclick="wbVerwijderTool(${i})">×</button>
-            </div>
-            ${renderAfbeeldingSelect(`wb-tool-img-${i}`, g.afbeelding || '')}
-          </div>`).join('')}
-        <button class="btn" onclick="wbVoegTool()">+ Gereedschap</button>
-      </div>
+      <input id="wb-upload-file" type="file" accept=".pdf,.doc,.docx,.txt" style="display:none" onchange="wbUploadGekozen(this)">
     </div>
-  `;
-}
-
-function renderWbStapStappen() {
-  const stappen = _werkboekjeWizard.data.stappen || [];
-  return `
-    <div style="display:flex;justify-content:space-between;gap:8px;align-items:center;margin-bottom:8px">
-      <h3 style="font-size:15px;margin:0">Stappenplan</h3>
-      <button class="btn" onclick="wbAiAanvullen('stappen')">✨ AI stappen aanvullen</button>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+      <button class="btn" onclick="wbAnalyseUpload()">✨ Upload analyseren</button>
+      <button class="btn" onclick="wbVolgende()">Overslaan en leeg beginnen</button>
     </div>
-    ${stappen.map((st, i) => `
-      <div class="card" style="padding:14px;margin-bottom:12px">
-        <div style="display:flex;justify-content:space-between;gap:8px">
-          <h3 style="font-size:15px">Stap ${i + 1}</h3>
-          <button class="btn btn-sm" onclick="wbVerwijderStap(${i})">Verwijderen</button>
-        </div>
-        <div class="form-grid">
-          <div class="form-field"><label>Titel</label><input id="wb-stap-titel-${i}" value="${wbAttr(st.titel || '')}"></div>
-          <div class="form-field"><label>Aantal fotovakken</label><select id="wb-stap-fotos-${i}"><option value="1" ${st.fotos == 1 ? 'selected' : ''}>1</option><option value="2" ${st.fotos == 2 ? 'selected' : ''}>2</option><option value="3" ${st.fotos == 3 ? 'selected' : ''}>3</option></select></div>
-        </div>
-        <div class="form-field"><label>Beschrijving</label><textarea id="wb-stap-beschrijving-${i}" rows="3">${wbEsc(st.beschrijving || '')}</textarea></div>
-        <div class="form-grid">
-          <div class="form-field"><label>Tip</label><input id="wb-stap-tip-${i}" value="${wbAttr(st.tip || '')}"></div>
-          <div class="form-field"><label>Let op</label><input id="wb-stap-letop-${i}" value="${wbAttr(st.letop || '')}"></div>
-        </div>
-        <div class="form-field"><label>Benodigdheden (komma gescheiden)</label><input id="wb-stap-ben-${i}" value="${wbAttr((st.benodigdheden || []).join(', '))}"></div>
-        <div class="form-field"><label>Checklist (komma gescheiden)</label><input id="wb-stap-check-${i}" value="${wbAttr((st.checklist || []).join(', '))}"></div>
-        <div class="form-field"><label>Afbeeldingen bij deze stap</label>${renderMeerdereAfbeeldingSelects(i, st.afbeeldingen || [])}</div>
-      </div>`).join('')}
-    <button class="btn" onclick="wbVoegStap()">+ Stap toevoegen</button>
+    ${_werkboekjeWizard.uploadTekst ? `<div class="alert alert-info">Upload is geanalyseerd. Je kunt alle velden in de volgende stappen nog aanpassen.</div>` : ''}
+    ${imgs.length ? `<div style="font-size:12px;color:var(--ink-muted);margin-top:8px">${imgs.length} afbeelding(en) gevonden in de upload. Die kun je kiezen bij gereedschap en stappen.</div>` : ''}
   `;
 }
 
-function renderWbStapReflectie() {
-  return `
-    <div style="display:flex;justify-content:space-between;gap:8px;align-items:center;margin-bottom:8px">
-      <h3 style="font-size:15px;margin:0">Reflectievragen</h3>
-      <button class="btn" onclick="wbAiAanvullen('reflectie')">✨ AI reflectie aanvullen</button>
-    </div>
-    ${renderInputLijst('wb-reflectie', _werkboekjeWizard.data.reflectievragen)}
-    <button class="btn" onclick="wbVoegLijstItem('reflectievragen')">+ Vraag</button>
-  `;
-}
-
-async function renderWbStapPreview() {
-  wbSlaStapOp();
-  _werkboekjeLaatsteHtml = await bouwWerkboekjeHtml(_werkboekjeWizard.data);
-  return `
-    <div class="alert alert-info" style="margin-bottom:10px">Controleer het voorbeeld. Je kunt terug om alles aan te passen. PDF gebruikt hetzelfde template als hieronder.</div>
-    <iframe id="wb-preview-frame" style="width:100%;height:620px;border:1px solid var(--border);border-radius:12px;background:white" srcdoc="${wbAttr(_werkboekjeLaatsteHtml)}"></iframe>
-  `;
-}
-
-function renderInputLijst(prefix, arr) {
-  return (arr || []).map((v, i) => `
-    <div style="display:grid;grid-template-columns:1fr auto;gap:6px;margin-bottom:6px">
-      <input id="${prefix}-${i}" value="${wbAttr(v || '')}">
-      <button class="btn btn-sm" onclick="wbVerwijderLijstItem('${prefix}',${i})">×</button>
-    </div>`).join('');
-}
-
-function renderWbAfbeeldingenOverzicht() {
-  const imgs = _werkboekjeWizard.afbeeldingen || [];
-  return `
-    <div style="margin-top:12px">
-      <strong>Beschikbare afbeeldingen (${imgs.length})</strong>
-      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px;margin-top:8px">
-        ${imgs.map(img => `<div style="border:1px solid var(--border);border-radius:10px;padding:6px;background:white"><img src="${wbAttr(img.url)}" style="width:100%;height:80px;object-fit:cover;border-radius:8px"><div style="font-size:11px;color:var(--ink-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${wbEsc(img.naam || 'Afbeelding')}</div></div>`).join('')}
-      </div>
-    </div>`;
-}
-
-function renderAfbeeldingSelect(id, selected) {
-  const imgs = _werkboekjeWizard.afbeeldingen || [];
-  if (!imgs.length) return `<div style="font-size:12px;color:var(--ink-muted)">Nog geen afbeeldingen beschikbaar. Voeg ze toe in stap 1.</div>`;
-  return `<select id="${id}"><option value="">Geen afbeelding</option>${imgs.map(img => `<option value="${wbAttr(img.url)}" ${img.url === selected ? 'selected' : ''}>${wbEsc(img.naam || img.url)}</option>`).join('')}</select>`;
-}
-
-function renderMeerdereAfbeeldingSelects(stapIndex, selected) {
-  const aantal = Math.max(1, Math.min(3, parseInt((_werkboekjeWizard.data.stappen[stapIndex] || {}).fotos) || 1));
-  return Array.from({ length:aantal }, (_, j) => renderAfbeeldingSelect(`wb-stap-img-${stapIndex}-${j}`, selected[j] || '')).join('<div style="height:6px"></div>');
-}
-
-function wbSlaStapOp() {
-  if (!_werkboekjeWizard) return;
-  const d = _werkboekjeWizard.data;
-  const q = id => document.getElementById(id);
-
-  if (q('wb-upload')?.files?.length) _werkboekjeWizard.uploads = Array.from(q('wb-upload').files);
-  if (q('wb-titel')) d.titel = q('wb-titel').value.trim();
-  if (q('wb-vak')) d.vak = q('wb-vak').value.trim();
-  if (q('wb-niveau')) d.niveau = q('wb-niveau').value.trim();
-  if (q('wb-profieldeel')) d.profieldeel = q('wb-profieldeel').value.trim();
-  if (q('wb-duur')) d.duur = q('wb-duur').value.trim();
-  if (q('wb-intro')) d.introductie = q('wb-intro').value.trim();
-
-  const checked = Array.from(document.querySelectorAll('.wb-ai-optie:checked')).map(x => x.value);
-  if (document.querySelectorAll('.wb-ai-optie').length) _werkboekjeWizard.aiOpties = checked;
-
-  d.leerdoelen = leesInputLijst('wb-doel');
-  d.veiligheidsregels = leesInputLijst('wb-veilig');
-  d.reflectievragen = leesInputLijst('wb-reflectie');
-
-  if ((d.materiaalstaat || []).length && q('wb-mat-ben-0')) {
-    d.materiaalstaat = d.materiaalstaat.map((_, i) => ({
-      benaming: q(`wb-mat-ben-${i}`)?.value || '',
-      aantal: q(`wb-mat-aan-${i}`)?.value || '',
-      lengte: q(`wb-mat-len-${i}`)?.value || '',
-      breedte: q(`wb-mat-bre-${i}`)?.value || '',
-      dikte: q(`wb-mat-dik-${i}`)?.value || '',
-      soortMateriaal: q(`wb-mat-soort-${i}`)?.value || ''
-    }));
-  }
-
-  if ((d.gereedschappen || []).length && q('wb-tool-naam-0')) {
-    d.gereedschappen = d.gereedschappen.map((_, i) => ({
-      naam: q(`wb-tool-naam-${i}`)?.value || '',
-      omschrijving: q(`wb-tool-om-${i}`)?.value || '',
-      afbeelding: q(`wb-tool-img-${i}`)?.value || ''
-    }));
-  }
-
-  if ((d.stappen || []).length && q('wb-stap-titel-0')) {
-    d.stappen = d.stappen.map((st, i) => {
-      const fotos = parseInt(q(`wb-stap-fotos-${i}`)?.value || st.fotos || 1);
-      const afbeeldingen = Array.from({ length:Math.max(1, Math.min(3, fotos)) }, (_, j) => q(`wb-stap-img-${i}-${j}`)?.value || '').filter(Boolean);
-      return {
-        titel: q(`wb-stap-titel-${i}`)?.value || '',
-        beschrijving: q(`wb-stap-beschrijving-${i}`)?.value || '',
-        fotos,
-        afbeeldingen,
-        tip: q(`wb-stap-tip-${i}`)?.value || '',
-        letop: q(`wb-stap-letop-${i}`)?.value || '',
-        benodigdheden: splitKomma(q(`wb-stap-ben-${i}`)?.value || ''),
-        checklist: splitKomma(q(`wb-stap-check-${i}`)?.value || '')
-      };
-    });
-  }
-}
-
-function leesInputLijst(prefix) {
-  const els = Array.from(document.querySelectorAll(`[id^="${prefix}-"]`));
-  if (!els.length) return undefined;
-  return els.map(x => x.value.trim()).filter(Boolean);
-}
-function splitKomma(v) { return String(v || '').split(',').map(x => x.trim()).filter(Boolean); }
-
-async function wbVolgendeStap() { wbSlaStapOp(); _werkboekjeWizard.stap++; await renderWerkboekjeWizard(); }
-async function wbVorigeStap() { wbSlaStapOp(); _werkboekjeWizard.stap--; await renderWerkboekjeWizard(); }
-
-async function wbLeesAlleenAfbeeldingen() {
-  wbSlaStapOp();
-  const result = document.getElementById('wb-result');
-  if (!_werkboekjeWizard.uploads.length) { if (result) result.innerHTML = '<span style="color:var(--red)">Kies eerst één of meer afbeeldingen.</span>'; return; }
-  await wbUploadBestanden(false);
-  await renderWerkboekjeWizard();
+function wbUploadGekozen(input) {
+  const file = input.files?.[0];
+  if (!file) return;
+  _werkboekjeWizard.uploadBestand = file;
+  const zone = document.getElementById('wb-upload-zone');
+  if (zone) zone.innerHTML = `<div style="font-size:22px">📄</div><div style="font-weight:600;color:var(--accent)">${escHtml(file.name)}</div><div style="font-size:12px;color:var(--ink-muted)">${(file.size/1024/1024).toFixed(2)} MB</div>`;
 }
 
 async function wbAnalyseUpload() {
-  wbSlaStapOp();
-  const result = document.getElementById('wb-result');
-  if (result) result.innerHTML = '<span style="color:var(--amber)">⏳ AI analyseert upload/invoer...</span>';
-  try {
-    const json = await wbUploadBestanden(true);
-    if (json.data) _werkboekjeWizard.data = normaliseerWerkboekjeData(json.data);
-    if (Array.isArray(json.afbeeldingen)) wbMergeAfbeeldingen(json.afbeeldingen);
-    if (result) result.innerHTML = '<span style="color:var(--accent)">✓ Analyse klaar. Controleer en pas alles aan in de volgende stappen.</span>';
-  } catch (e) {
-    if (result) result.innerHTML = `<span style="color:var(--red)">Fout: ${wbEsc(e.message)}</span>`;
-  }
-}
-
-async function wbAiAanvullen(optie) {
-  wbSlaStapOp();
-  const result = document.getElementById('wb-result');
-  if (result) result.innerHTML = '<span style="color:var(--amber)">⏳ AI vult dit onderdeel aan...</span>';
-  const oudeData = JSON.parse(JSON.stringify(_werkboekjeWizard.data));
+  const status = document.getElementById('wb-status');
+  const file = _werkboekjeWizard.uploadBestand || document.getElementById('wb-upload-file')?.files?.[0];
+  if (!file) { status.innerHTML = `<span style="color:var(--red)">Kies eerst een bestand of klik op overslaan.</span>`; return; }
+  status.innerHTML = `<span style="color:var(--amber)">⏳ Upload wordt geanalyseerd...</span>`;
   try {
     const fd = new FormData();
-    fd.append('titel', oudeData.titel || '');
-    fd.append('vak', oudeData.vak || '');
-    fd.append('niveau', oudeData.niveau || '');
-    fd.append('opdracht', JSON.stringify(oudeData, null, 2));
-    fd.append('aiOpties', JSON.stringify(optie === 'alles' ? (_werkboekjeWizard.aiOpties || []) : [optie]));
-    const res = await fetch('/api/werkboekje/analyse', { method:'POST', credentials:'same-origin', body:fd });
-    const json = await res.json();
-    if (!res.ok || !json.success) throw new Error(json.error || 'AI aanvullen mislukt');
-    _werkboekjeWizard.data = normaliseerWerkboekjeData({ ...oudeData, ...(json.data || {}) });
-    if (result) result.innerHTML = '<span style="color:var(--accent)">✓ AI-aanvulling klaar.</span>';
-    await renderWerkboekjeWizard();
+    fd.append('bestand', file);
+    const res = await fetch('/api/analyse-werkboekje-upload', { method: 'POST', body: fd, credentials: 'same-origin' });
+    const out = await wbJson(res);
+    _werkboekjeWizard.uploadTekst = out.tekst || '';
+    _werkboekjeWizard.afbeeldingen = out.afbeeldingen || [];
+    if (out.data) wbMergeData(out.data);
+    _werkboekjeWizard.stap = 2;
+    wbRenderStap();
   } catch (e) {
-    if (result) result.innerHTML = `<span style="color:var(--red)">Fout: ${wbEsc(e.message)}</span>`;
+    status.innerHTML = `<span style="color:var(--red)">Fout: ${escHtml(e.message)}</span>`;
   }
 }
 
-async function wbUploadBestanden(metAnalyse) {
-  const fd = new FormData();
-  (_werkboekjeWizard.uploads || []).forEach(f => fd.append('bestanden', f));
-  fd.append('titel', _werkboekjeWizard.data.titel || '');
-  fd.append('vak', _werkboekjeWizard.data.vak || '');
-  fd.append('niveau', _werkboekjeWizard.data.niveau || '');
-  fd.append('opdracht', _werkboekjeWizard.data.introductie || '');
-  fd.append('aiOpties', JSON.stringify(metAnalyse ? (_werkboekjeWizard.aiOpties || []) : ['alleen_afbeeldingen']));
-  const res = await fetch('/api/werkboekje/analyse', { method:'POST', credentials:'same-origin', body:fd });
-  const json = await res.json();
-  if (!res.ok || !json.success) throw new Error(json.error || 'Upload verwerken mislukt');
-  if (Array.isArray(json.afbeeldingen)) wbMergeAfbeeldingen(json.afbeeldingen);
-  return json;
-}
-
-function wbMergeAfbeeldingen(imgs) {
-  const bestaand = new Set((_werkboekjeWizard.afbeeldingen || []).map(x => x.url));
-  for (const img of imgs || []) {
-    if (!img?.url || bestaand.has(img.url)) continue;
-    _werkboekjeWizard.afbeeldingen.push(img);
-    bestaand.add(img.url);
-  }
-}
-
-function normaliseerWerkboekjeData(d) {
-  const b = leegWerkboekjeData();
-  d = d || {};
-  const stappen = Array.isArray(d.stappen) ? d.stappen : (Array.isArray(d.secties)
-    ? d.secties.flatMap(s => (s.stappen || []).map(p => ({
-        titel: p.titel || s.titel || '',
-        beschrijving: p.stap || p.beschrijving || '',
-        fotos: p.fotos || (p.heeftAfbeelding ? 1 : 1),
-        afbeeldingen: p.afbeeldingen || [],
-        tip: p.tip || '',
-        letop: p.letop || '',
-        benodigdheden: p.benodigdheden || s.benodigdheden || [],
-        checklist: p.checklist || []
-      })))
-    : b.stappen);
-
-  return {
-    ...b,
-    ...d,
-    leerdoelen: Array.isArray(d.leerdoelen) && d.leerdoelen.length ? d.leerdoelen : b.leerdoelen,
-    veiligheidsregels: Array.isArray(d.veiligheidsregels) && d.veiligheidsregels.length ? d.veiligheidsregels : b.veiligheidsregels,
-    materiaalstaat: Array.isArray(d.materiaalstaat) && d.materiaalstaat.length ? d.materiaalstaat : b.materiaalstaat,
-    gereedschappen: Array.isArray(d.gereedschappen) && d.gereedschappen.length ? d.gereedschappen : (Array.isArray(d.machines) ? d.machines.map(x => typeof x === 'string' ? { naam:x, omschrijving:'', afbeelding:'' } : { ...x, afbeelding:x.afbeelding || '' }) : b.gereedschappen),
-    stappen: stappen.length ? stappen.map(s => ({ fotos:1, afbeeldingen:[], tip:'', letop:'', benodigdheden:[], checklist:[], ...s })) : b.stappen,
-    reflectievragen: Array.isArray(d.reflectievragen) && d.reflectievragen.length ? d.reflectievragen : b.reflectievragen
-  };
-}
-
-function wbVoegLijstItem(veld) { wbSlaStapOp(); _werkboekjeWizard.data[veld] = _werkboekjeWizard.data[veld] || []; _werkboekjeWizard.data[veld].push(''); renderWerkboekjeWizard(); }
-function wbVerwijderLijstItem(prefix, i) { wbSlaStapOp(); const map = { 'wb-doel':'leerdoelen', 'wb-veilig':'veiligheidsregels', 'wb-reflectie':'reflectievragen' }; const veld = map[prefix]; if (veld) { _werkboekjeWizard.data[veld].splice(i, 1); renderWerkboekjeWizard(); } }
-function wbVoegMateriaal() { wbSlaStapOp(); _werkboekjeWizard.data.materiaalstaat.push({ benaming:'', aantal:'', lengte:'', breedte:'', dikte:'', soortMateriaal:'' }); renderWerkboekjeWizard(); }
-function wbVerwijderMateriaal(i) { wbSlaStapOp(); _werkboekjeWizard.data.materiaalstaat.splice(i, 1); renderWerkboekjeWizard(); }
-function wbVoegTool() { wbSlaStapOp(); _werkboekjeWizard.data.gereedschappen.push({ naam:'', omschrijving:'', afbeelding:'' }); renderWerkboekjeWizard(); }
-function wbVerwijderTool(i) { wbSlaStapOp(); _werkboekjeWizard.data.gereedschappen.splice(i, 1); renderWerkboekjeWizard(); }
-function wbVoegStap() { wbSlaStapOp(); _werkboekjeWizard.data.stappen.push({ titel:'', beschrijving:'', fotos:1, afbeeldingen:[], tip:'', letop:'', benodigdheden:[], checklist:[] }); renderWerkboekjeWizard(); }
-function wbVerwijderStap(i) { wbSlaStapOp(); _werkboekjeWizard.data.stappen.splice(i, 1); renderWerkboekjeWizard(); }
-
-async function bouwWerkboekjeHtml(data) {
-  const tpl = await laadWerkboekjeTemplate();
-  let css = (tpl.match(/<style>[\s\S]*?<\/style>/i) || [''])[0];
-  css += `<style>@page{size:A4;margin:0} html,body{width:794px;min-height:1123px;background:#fff!important}.cover{page-break-after:always}.pagina{page-break-inside:auto}.stap,.sectie-header,.mat-tabel,.veilig-kaart,.tool-kaart,.schrijfvak,.succes-banner{break-inside:avoid;page-break-inside:avoid}.jp-no-print{display:none!important}</style>`;
-  return `<!DOCTYPE html><html lang="nl"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>${wbEsc(data.titel || 'Werkboekje')}</title>${css}</head><body>${maakWerkboekjeBody(data)}</body></html>`;
-}
-
-function maakWerkboekjeBody(d) {
-  const mat = (d.materiaalstaat || []).filter(r => Object.values(r || {}).some(Boolean));
-  const tools = (d.gereedschappen || []).filter(g => g.naam || g.omschrijving || g.afbeelding);
-  const stappen = (d.stappen || []).filter(s => s.titel || s.beschrijving);
+function wbStapAlgemeen() {
+  const d = _werkboekjeWizard.data;
   return `
-    <div class="cover">
-      <div class="cover-inner">
-        <div class="cover-label">${wbEsc(d.vak || 'Techniek')} ${d.profieldeel ? '· ' + wbEsc(d.profieldeel) : ''}</div>
-        <h1>Opdracht<br><span class="accent">${wbEsc(d.titel || 'Titel')}</span></h1>
-        <p class="cover-vak">${wbEsc(d.niveau || d.vak || 'Vak / onderdeel')}</p>
-        <div class="cover-fields">
-          <div class="cover-field"><label>Naam</label><div class="invul-lijn"></div></div>
-          <div class="cover-field"><label>Klas</label><div class="invul-lijn"></div></div>
-          <div class="cover-field"><label>Datum</label><div class="invul-lijn"></div></div>
-          <div class="cover-field"><label>Docent</label><div class="invul-lijn"></div></div>
-          <div class="cover-field span2"><label>Duur van de opdracht</label><div class="duur-pill"><span>⏱</span><strong>${wbEsc(d.duur || '__ × 45 minuten')}</strong></div></div>
-        </div>
-      </div>
+    <div class="form-grid">
+      <div class="form-field"><label>Vak *</label><input id="wb-vak" value="${escHtml(d.vak)}" placeholder="bijv. PIE of BWI"></div>
+      <div class="form-field"><label>Opdrachtnummer</label><input id="wb-opdr" value="${escHtml(d.opdrachtnummer)}"></div>
+      <div class="form-field form-full"><label>Titel *</label><input id="wb-titel" value="${escHtml(d.titel)}" placeholder="Titel van de opdracht"></div>
+      <div class="form-field"><label>Profieldeel / richting</label><input id="wb-profiel" value="${escHtml(d.profieldeel)}"></div>
+      <div class="form-field"><label>Duur</label><input id="wb-duur" value="${escHtml(d.duur)}" placeholder="bijv. 6 × 45 minuten"></div>
+      <div class="form-field form-full"><label>Beschrijving / introductie</label><textarea id="wb-intro" rows="3" style="width:100%;padding:8px;border:1.5px solid var(--border);border-radius:var(--radius-sm)">${escHtml(d.introductie)}</textarea></div>
     </div>
-    <div class="pagina">
-      ${d.introductie ? `<div class="blok info"><div class="blok-titel">ℹ️ Opdracht</div>${wbEsc(d.introductie)}</div><hr class="scheidingslijn">` : ''}
-      ${d.leerdoelen?.filter(Boolean).length ? `<div class="sectie-header"><div class="sectie-icon">🎯</div><h2>Leerdoelen</h2></div><div class="blok succes"><div class="blok-titel">Na deze opdracht kun je</div><ul>${d.leerdoelen.filter(Boolean).map(x => `<li>${wbEsc(x)}</li>`).join('')}</ul></div><hr class="scheidingslijn">` : ''}
-      <div class="sectie-header"><div class="sectie-icon">📋</div><h2>Materiaalstaat</h2></div>
-      <table class="mat-tabel"><thead><tr><th>Nr.</th><th>Benaming</th><th>Aantal</th><th>Lengte</th><th>Breedte</th><th>Dikte</th><th>Soort materiaal</th></tr></thead><tbody>${(mat.length ? mat : [{}]).map((r, i) => `<tr><td><span class="nr-cirkel">${i + 1}</span></td><td>${wbEsc(r.benaming || '')}</td><td>${wbEsc(r.aantal || '')}</td><td>${wbEsc(r.lengte || '')}</td><td>${wbEsc(r.breedte || '')}</td><td><span class="dikte-tag">${wbEsc(r.dikte || '__ mm')}</span></td><td class="hout-type">${wbEsc(r.soortMateriaal || r.soortHout || '')}</td></tr>`).join('')}</tbody></table>
-      <hr class="scheidingslijn">
-      <div class="sectie-header"><div class="sectie-icon">🦺</div><h2>Voorbereiding & veiligheid</h2></div>
-      <div class="veilig-raster">${(d.veiligheidsregels || []).map(r => `<div class="veilig-kaart"><div class="veilig-vink"><svg viewBox="0 0 12 12"><polyline points="1,6 4,10 11,2"/></svg></div><p>${wbEsc(r)}</p></div>`).join('')}</div>
-      <div class="sectie-header" style="margin-top:32px; border-bottom-color:var(--rand);"><div class="sectie-icon" style="background:var(--middenblauw);">🔧</div><h2 style="font-size:17px;">Gereedschappen</h2></div>
-      <div class="tool-raster">${(tools.length ? tools : [{ naam:'Gereedschap', omschrijving:'Omschrijving' }]).map(g => `<div class="tool-kaart">${maakToolFoto(g.afbeelding)}<strong>${wbEsc(g.naam || 'Gereedschap')}</strong><small>${wbEsc(g.omschrijving || '')}</small></div>`).join('')}</div>
-      <hr class="scheidingslijn">
-      <div class="sectie-header"><div class="sectie-icon">🪵</div><h2>Stappenplan</h2></div>
-      <div class="stappen">${stappen.map((s, i) => maakStapHtml(s, i)).join('')}</div>
-      <hr class="scheidingslijn">
-      <div class="sectie-header"><div class="sectie-icon">✍️</div><h2>Reflectie</h2></div>
-      ${(d.reflectievragen || []).map(v => `<div class="schrijfvak"><label>${wbEsc(v)}</label><div class="schrijflijnen"><span class="schrijflijn"></span><span class="schrijflijn"></span><span class="schrijflijn"></span></div></div>`).join('')}
-      <div class="succes-banner"><h2>Goed gedaan! 🎉</h2><p>Controleer je eigen werk nog één keer op netheid en kwaliteit voor je inlevert.</p></div>
+    <button class="btn" onclick="wbAiStap('algemeen')">✨ AI vul titel, duur en beschrijving aan</button>
+  `;
+}
+
+function wbStapLeerdoelen() {
+  const doelen = _werkboekjeWizard.data.leerdoelen.length ? _werkboekjeWizard.data.leerdoelen : [''];
+  return `
+    <div class="form-field">
+      <label>Leerdoelen</label>
+      <p style="font-size:12px;color:var(--ink-muted);margin-bottom:8px">Laat AI dit invullen of pas ze zelf aan. Gebruik concrete zinnen: De leerling kan...</p>
+      ${doelen.map((d, i) => `<input id="wb-doel-${i}" value="${escHtml(d)}" placeholder="De leerling kan ..." style="margin-bottom:6px">`).join('')}
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn" onclick="wbVoegDoelToe()">+ Leerdoel</button>
+      <button class="btn" onclick="wbAiStap('leerdoelen')">✨ Leerdoelen met AI</button>
+    </div>
+  `;
+}
+
+function wbStapMateriaal() {
+  const d = _werkboekjeWizard.data;
+  return `
+    <div class="form-field">
+      <label>Materiaalstaat</label>
+      <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13px">
+        <thead><tr style="background:var(--surface-2)"><th>Nr</th><th>Benaming</th><th>Aantal</th><th>Lengte</th><th>Breedte</th><th>Dikte</th><th>Soort</th><th></th></tr></thead>
+        <tbody>${(d.materiaalstaat || []).map((r,i)=>`
+          <tr>
+            <td>${i+1}</td>
+            <td><input id="wb-mat-ben-${i}" value="${escHtml(r.benaming||'')}"></td>
+            <td><input id="wb-mat-aantal-${i}" value="${escHtml(r.aantal||'')}"></td>
+            <td><input id="wb-mat-len-${i}" value="${escHtml(r.lengte||'')}"></td>
+            <td><input id="wb-mat-br-${i}" value="${escHtml(r.breedte||'')}"></td>
+            <td><input id="wb-mat-dik-${i}" value="${escHtml(r.dikte||'')}"></td>
+            <td><input id="wb-mat-soort-${i}" value="${escHtml(r.soortHout||'')}"></td>
+            <td><button class="btn btn-sm" onclick="wbVerwijderMateriaal(${i})">×</button></td>
+          </tr>`).join('')}</tbody>
+      </table></div>
+      <button class="btn btn-sm" onclick="wbVoegMateriaalToe()" style="margin-top:8px">+ Materiaal</button>
+    </div>
+
+    <div class="form-field">
+      <label>Gereedschappen en machines</label>
+      ${(d.machines || []).map((m,i)=>`
+        <div style="border:1px solid var(--border);border-radius:8px;padding:8px;margin-bottom:8px">
+          <input id="wb-tool-naam-${i}" value="${escHtml(typeof m === 'string' ? m : (m.naam||''))}" placeholder="Gereedschap of machine" style="margin-bottom:6px">
+          <input id="wb-tool-om-${i}" value="${escHtml(m.omschrijving||'')}" placeholder="Korte omschrijving" style="margin-bottom:6px">
+          ${wbAfbeeldingKeuze(`wb-tool-img-${i}`, m.afbeeldingBase64)}
+          <button class="btn btn-sm" onclick="wbVerwijderTool(${i})">Verwijderen</button>
+        </div>`).join('')}
+      <button class="btn btn-sm" onclick="wbVoegToolToe()">+ Gereedschap</button>
+    </div>
+
+    <div class="form-field">
+      <label>Veiligheid</label>
+      ${(d.veiligheidsregels || []).map((v,i)=>`<input id="wb-veilig-${i}" value="${escHtml(v)}" style="margin-bottom:6px">`).join('')}
+      <button class="btn btn-sm" onclick="wbVoegVeiligheidToe()">+ Veiligheidsregel</button>
+    </div>
+
+    <button class="btn" onclick="wbAiStap('materiaal')">✨ Materiaal, gereedschap en veiligheid met AI</button>
+  `;
+}
+
+function wbStapStappen() {
+  const secties = _werkboekjeWizard.data.secties || [];
+  return `
+    <div class="form-field">
+      <label>Stappenplan</label>
+      <p style="font-size:12px;color:var(--ink-muted);margin-bottom:8px">Elke stap kan tekst, tip, let-op en een afbeelding krijgen. Afbeeldingen kun je uploaden of kiezen uit de upload.</p>
+      ${secties.map((sec,si)=>`
+        <div style="border:1px solid var(--border);border-radius:10px;padding:10px;margin-bottom:12px">
+          <input id="wb-sec-titel-${si}" value="${escHtml(sec.titel||'')}" placeholder="Sectietitel" style="font-weight:600;margin-bottom:8px">
+          <input id="wb-sec-ben-${si}" value="${escHtml((sec.benodigdheden||[]).join(', '))}" placeholder="Benodigdheden, gescheiden met komma's" style="margin-bottom:8px">
+          ${(sec.stappen||[]).map((st,pi)=>`
+            <div style="border-top:1px solid var(--border);padding-top:8px;margin-top:8px">
+              <label style="font-size:12px;color:var(--ink-muted)">Stap ${pi+1}</label>
+              <textarea id="wb-stap-${si}-${pi}" rows="2" maxlength="350" style="width:100%;padding:8px;border:1.5px solid var(--border);border-radius:var(--radius-sm);margin-bottom:6px">${escHtml(st.stap||'')}</textarea>
+              <input id="wb-stap-tip-${si}-${pi}" value="${escHtml(st.tip||'')}" placeholder="Tip (optioneel)" style="margin-bottom:6px">
+              <input id="wb-stap-letop-${si}-${pi}" value="${escHtml(st.letop||'')}" placeholder="Let op (optioneel)" style="margin-bottom:6px">
+              ${wbAfbeeldingKeuze(`wb-stap-img-${si}-${pi}`, st.afbeeldingBase64)}
+              <button class="btn btn-sm" onclick="wbAiStap('stap', ${si}, ${pi})">✨ AI vul deze stap aan</button>
+              <button class="btn btn-sm" onclick="wbVerwijderStap(${si},${pi})">Verwijderen</button>
+            </div>`).join('')}
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
+            <button class="btn btn-sm" onclick="wbVoegStapToe(${si})">+ Stap</button>
+            <button class="btn btn-sm" onclick="wbAiStap('stappen', ${si})">✨ Deze sectie met AI</button>
+            <button class="btn btn-sm" onclick="wbVerwijderSectie(${si})">Sectie verwijderen</button>
+          </div>
+        </div>`).join('')}
+      <button class="btn" onclick="wbVoegSectieToe()">+ Sectie</button>
+    </div>
+    <button class="btn" onclick="wbAiStap('stappen')">✨ Volledig stappenplan met AI</button>
+  `;
+}
+
+function wbAfbeeldingKeuze(id, huidige) {
+  const opties = (_werkboekjeWizard.afbeeldingen || []).map((img, i) => `<option value="${i}">${escHtml(img.naam || ('Afbeelding ' + (i+1)))}</option>`).join('');
+  return `
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:6px 0">
+      ${huidige ? `<img src="${huidige}" style="width:80px;height:55px;object-fit:cover;border:1px solid var(--border);border-radius:6px">` : `<span style="font-size:12px;color:var(--ink-muted)">Geen afbeelding</span>`}
+      <input type="file" accept="image/*" id="${id}-file" style="display:none" onchange="wbUploadAfbeelding('${id}', this)">
+      <button type="button" class="btn btn-sm" onclick="document.getElementById('${id}-file').click()">Upload afbeelding</button>
+      ${opties ? `<select id="${id}-select" style="max-width:180px"><option value="">Kies uit upload</option>${opties}</select><button type="button" class="btn btn-sm" onclick="wbKiesAfbeelding('${id}')">Kiezen</button>` : ''}
+      <input type="hidden" id="${id}" value="${escHtml(huidige || '')}">
     </div>`;
 }
 
-function maakToolFoto(url) {
-  if (url) return `<div class="tool-foto"><img src="${wbAttr(url)}" style="width:100%;height:100%;object-fit:cover;border-radius:var(--radius-s)"></div>`;
-  return `<div class="tool-foto"><span>Foto hier</span></div>`;
+function wbStapPreview() {
+  return `
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+      <button class="btn" onclick="wbMaakPreview()">🔄 Voorbeeld vernieuwen</button>
+      <button class="btn" onclick="wbDownloadPdf()">⬇ Download PDF</button>
+    </div>
+    <div id="wb-preview-wrap" style="border:1px solid var(--border);border-radius:10px;overflow:hidden;background:white;max-height:65vh;overflow-y:auto">
+      ${_werkboekjeWizard.previewHtml ? _werkboekjeWizard.previewHtml : `<div style="padding:20px;color:var(--ink-muted)">Klik op voorbeeld vernieuwen.</div>`}
+    </div>
+  `;
 }
 
-function maakStapHtml(s, i) {
-  const imgs = Array.isArray(s.afbeeldingen) ? s.afbeeldingen.filter(Boolean) : [];
-  const n = Math.max(1, Math.min(3, parseInt(s.fotos) || imgs.length || 1));
-  const cls = n === 1 ? 'een' : n === 2 ? 'twee' : 'drie';
-  return `<div class="stap"><div class="stap-nummering"><div class="stap-cirkel">${i + 1}</div></div><div class="stap-kaart"><h3>${wbEsc(s.titel || 'Stap titel')}</h3>${s.benodigdheden?.length ? `<div class="benodigd"><div class="benodigd-label">✓ Je hebt nodig:</div><div class="benodigd-items">${s.benodigdheden.map(b => `<span class="benodigd-item">${wbEsc(b)}</span>`).join('')}</div></div>` : ''}<p>${wbEsc(s.beschrijving || 'Beschrijving van de stap.')}</p><div class="foto-rij ${cls}">${Array.from({ length:n }, (_, j) => maakFotoVak(imgs[j], n, j)).join('')}</div>${s.checklist?.length ? `<ul class="checklist">${s.checklist.map(c => `<li><span class="check-vakje"></span>${wbEsc(c)}</li>`).join('')}</ul>` : ''}${s.tip ? `<div class="blok tip"><div class="blok-titel">💡 Tip</div>${wbEsc(s.tip)}</div>` : ''}${s.letop ? `<div class="blok letop"><div class="blok-titel">⚠️ Let op!</div>${wbEsc(s.letop)}</div>` : ''}</div></div>`;
+function wbSlaStapOp() {
+  const s = _werkboekjeWizard.stap;
+  const d = _werkboekjeWizard.data;
+  if (s === 2) {
+    d.vak = document.getElementById('wb-vak')?.value.trim() || '';
+    d.opdrachtnummer = document.getElementById('wb-opdr')?.value.trim() || '1';
+    d.titel = document.getElementById('wb-titel')?.value.trim() || '';
+    d.profieldeel = document.getElementById('wb-profiel')?.value.trim() || '';
+    d.duur = document.getElementById('wb-duur')?.value.trim() || '';
+    d.introductie = document.getElementById('wb-intro')?.value.trim() || '';
+  }
+  if (s === 3) {
+    d.leerdoelen = (d.leerdoelen || []).map((_,i)=>document.getElementById(`wb-doel-${i}`)?.value.trim() || '').filter(Boolean);
+  }
+  if (s === 4) {
+    d.materiaalstaat = (d.materiaalstaat || []).map((r,i)=>({
+      nummer: i + 1,
+      benaming: document.getElementById(`wb-mat-ben-${i}`)?.value.trim() || '',
+      aantal: document.getElementById(`wb-mat-aantal-${i}`)?.value.trim() || '',
+      lengte: document.getElementById(`wb-mat-len-${i}`)?.value.trim() || '',
+      breedte: document.getElementById(`wb-mat-br-${i}`)?.value.trim() || '',
+      dikte: document.getElementById(`wb-mat-dik-${i}`)?.value.trim() || '',
+      soortHout: document.getElementById(`wb-mat-soort-${i}`)?.value.trim() || ''
+    })).filter(r=>r.benaming || r.aantal || r.lengte || r.breedte || r.dikte || r.soortHout);
+    d.machines = (d.machines || []).map((m,i)=>({
+      naam: document.getElementById(`wb-tool-naam-${i}`)?.value.trim() || '',
+      omschrijving: document.getElementById(`wb-tool-om-${i}`)?.value.trim() || '',
+      afbeeldingBase64: document.getElementById(`wb-tool-img-${i}`)?.value || m.afbeeldingBase64 || null
+    })).filter(m=>m.naam || m.omschrijving || m.afbeeldingBase64);
+    d.veiligheidsregels = (d.veiligheidsregels || []).map((_,i)=>document.getElementById(`wb-veilig-${i}`)?.value.trim() || '').filter(Boolean);
+  }
+  if (s === 5) {
+    d.secties = (d.secties || []).map((sec,si)=>({
+      titel: document.getElementById(`wb-sec-titel-${si}`)?.value.trim() || '',
+      benodigdheden: (document.getElementById(`wb-sec-ben-${si}`)?.value || '').split(',').map(x=>x.trim()).filter(Boolean),
+      stappen: (sec.stappen || []).map((st,pi)=>({
+        stap: document.getElementById(`wb-stap-${si}-${pi}`)?.value.trim() || '',
+        tip: document.getElementById(`wb-stap-tip-${si}-${pi}`)?.value.trim() || '',
+        letop: document.getElementById(`wb-stap-letop-${si}-${pi}`)?.value.trim() || '',
+        afbeeldingBase64: document.getElementById(`wb-stap-img-${si}-${pi}`)?.value || st.afbeeldingBase64 || null,
+        afbeeldingLabel: st.afbeeldingLabel || ''
+      })).filter(x=>x.stap || x.tip || x.letop || x.afbeeldingBase64)
+    })).filter(sec=>sec.titel || sec.stappen.length);
+  }
 }
 
-function maakFotoVak(url, n, j) {
-  if (url) return `<div class="foto-vak ${n === 1 ? 'groot' : ''}"><img src="${wbAttr(url)}" style="width:100%;height:100%;object-fit:cover"><div class="foto-label">Afbeelding ${j + 1}</div></div>`;
-  return `<div class="foto-vak ${n === 1 ? 'groot' : ''}"><span>Foto hier plaatsen</span><div class="foto-label">Bijschrift ${j + 1}</div></div>`;
+function wbVolgende() {
+  wbSlaStapOp();
+  if (_werkboekjeWizard.stap === 2 && !_werkboekjeWizard.data.titel) { document.getElementById('wb-status').innerHTML = `<span style="color:var(--red)">Titel is verplicht.</span>`; return; }
+  if (_werkboekjeWizard.stap < 6) _werkboekjeWizard.stap++;
+  wbRenderStap();
+  if (_werkboekjeWizard.stap === 6) wbMaakPreview();
+}
+function wbVorige() { wbSlaStapOp(); if (_werkboekjeWizard.stap > 1) _werkboekjeWizard.stap--; wbRenderStap(); }
+
+function wbMergeData(partial) {
+  const d = _werkboekjeWizard.data;
+  for (const key of ['titel','vak','profieldeel','opdrachtnummer','duur','introductie']) if (partial[key]) d[key] = partial[key];
+  if (Array.isArray(partial.leerdoelen) && partial.leerdoelen.length) d.leerdoelen = partial.leerdoelen;
+  if (Array.isArray(partial.veiligheidsregels) && partial.veiligheidsregels.length) d.veiligheidsregels = partial.veiligheidsregels;
+  if (Array.isArray(partial.materiaalstaat) && partial.materiaalstaat.length) d.materiaalstaat = partial.materiaalstaat.map((r,i)=>({ nummer:i+1, ...r }));
+  if (Array.isArray(partial.machines) && partial.machines.length) d.machines = partial.machines.map(m => typeof m === 'string' ? { naam:m, omschrijving:'', afbeeldingBase64:null } : m);
+  if (Array.isArray(partial.secties) && partial.secties.length) d.secties = partial.secties;
+}
+
+async function wbAiStap(type, si = null, pi = null) {
+  wbSlaStapOp();
+  const status = document.getElementById('wb-status');
+  status.innerHTML = `<span style="color:var(--amber)">⏳ AI vult ${escHtml(type)} aan...</span>`;
+  try {
+    const res = await fetch('/api/ai-werkboekje-stap', {
+      method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type, sectieIndex: si, stapIndex: pi, data: _werkboekjeWizard.data, uploadTekst: _werkboekjeWizard.uploadTekst })
+    });
+    const out = await wbJson(res);
+    if (out.data) wbMergeData(out.data);
+    status.innerHTML = `<span style="color:var(--accent)">✓ AI-aanvulling geplaatst. Controleer en pas aan waar nodig.</span>`;
+    wbRenderStap();
+  } catch (e) {
+    status.innerHTML = `<span style="color:var(--red)">Fout: ${escHtml(e.message)}</span>`;
+  }
+}
+
+function wbVoegDoelToe(){ wbSlaStapOp(); _werkboekjeWizard.data.leerdoelen.push(''); wbRenderStap(); }
+function wbVoegMateriaalToe(){ wbSlaStapOp(); _werkboekjeWizard.data.materiaalstaat.push({nummer:_werkboekjeWizard.data.materiaalstaat.length+1,benaming:'',aantal:'',lengte:'',breedte:'',dikte:'',soortHout:''}); wbRenderStap(); }
+function wbVerwijderMateriaal(i){ wbSlaStapOp(); _werkboekjeWizard.data.materiaalstaat.splice(i,1); wbRenderStap(); }
+function wbVoegToolToe(){ wbSlaStapOp(); _werkboekjeWizard.data.machines.push({naam:'',omschrijving:'',afbeeldingBase64:null}); wbRenderStap(); }
+function wbVerwijderTool(i){ wbSlaStapOp(); _werkboekjeWizard.data.machines.splice(i,1); wbRenderStap(); }
+function wbVoegVeiligheidToe(){ wbSlaStapOp(); _werkboekjeWizard.data.veiligheidsregels.push(''); wbRenderStap(); }
+function wbVoegSectieToe(){ wbSlaStapOp(); _werkboekjeWizard.data.secties.push({titel:'', benodigdheden:[], stappen:[{stap:'',tip:'',letop:'',afbeeldingBase64:null}]}); wbRenderStap(); }
+function wbVerwijderSectie(si){ wbSlaStapOp(); _werkboekjeWizard.data.secties.splice(si,1); wbRenderStap(); }
+function wbVoegStapToe(si){ wbSlaStapOp(); _werkboekjeWizard.data.secties[si].stappen.push({stap:'',tip:'',letop:'',afbeeldingBase64:null}); wbRenderStap(); }
+function wbVerwijderStap(si,pi){ wbSlaStapOp(); _werkboekjeWizard.data.secties[si].stappen.splice(pi,1); wbRenderStap(); }
+
+function wbUploadAfbeelding(id, input) {
+  const file = input.files?.[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => { document.getElementById(id).value = e.target.result; wbSlaStapOp(); wbRenderStap(); };
+  reader.readAsDataURL(file);
+}
+function wbKiesAfbeelding(id) {
+  const idx = document.getElementById(`${id}-select`)?.value;
+  if (idx === '') return;
+  const img = _werkboekjeWizard.afbeeldingen[Number(idx)];
+  if (!img) return;
+  document.getElementById(id).value = img.dataUrl;
+  wbSlaStapOp(); wbRenderStap();
+}
+
+async function wbMaakPreview() {
+  wbSlaStapOp();
+  const wrap = document.getElementById('wb-preview-wrap');
+  if (wrap) wrap.innerHTML = `<div style="padding:20px;color:var(--ink-muted)">Voorbeeld wordt gemaakt...</div>`;
+  try {
+    const res = await fetch('/api/werkboekje-preview-html', {
+      method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(_werkboekjeWizard.data)
+    });
+    const out = await wbJson(res);
+    _werkboekjeWizard.previewHtml = out.html || '';
+    const w = document.getElementById('wb-preview-wrap');
+    if (w) w.innerHTML = _werkboekjeWizard.previewHtml;
+  } catch (e) {
+    if (wrap) wrap.innerHTML = `<div style="padding:20px;color:var(--red)">Fout: ${escHtml(e.message)}</div>`;
+  }
 }
 
 async function wbDownloadPdf() {
-  wbSlaStapOp();
-  _werkboekjeLaatsteHtml = await bouwWerkboekjeHtml(_werkboekjeWizard.data);
-  const frame = document.getElementById('wb-preview-frame');
-  if (frame) frame.srcdoc = _werkboekjeLaatsteHtml;
-  if (!window.html2pdf) {
-    await new Promise((resolve, reject) => {
-      const s = document.createElement('script');
-      s.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
-      s.onload = resolve;
-      s.onerror = reject;
-      document.head.appendChild(s);
-    });
-  }
-  const doc = frame?.contentDocument;
-  const element = doc?.documentElement;
-  if (!element) { alert('Voorbeeld niet gevonden.'); return; }
-  await html2pdf().set({
+  if (!_werkboekjeWizard.previewHtml) await wbMaakPreview();
+  const element = document.getElementById('wb-preview-wrap');
+  if (!element) return;
+  if (!window.html2pdf) { alert('PDF-bibliotheek is nog niet geladen. Probeer opnieuw of gebruik Afdrukken > Opslaan als PDF.'); return; }
+  const opt = {
     margin: 0,
-    filename: `${(_werkboekjeWizard.data.titel || 'werkboekje').replace(/[^a-zA-Z0-9_-]+/g, '_')}.pdf`,
-    image: { type:'jpeg', quality:0.98 },
-    html2canvas: { scale:2, useCORS:true, allowTaint:true, backgroundColor:'#ffffff', windowWidth:794, scrollY:0 },
-    jsPDF: { unit:'mm', format:'a4', orientation:'portrait', compress:true },
-    pagebreak: { mode:['css', 'legacy'], before:'.cover', avoid:['.stap', '.stap-kaart', '.sectie-header', '.tool-kaart', '.veilig-kaart'] }
-  }).from(element).save();
+    filename: `${(_werkboekjeWizard.data.titel || 'werkboekje').replace(/[^a-z0-9_-]+/gi, '_')}.pdf`,
+    image: { type: 'jpeg', quality: 0.98 },
+    html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff' },
+    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+  };
+  await html2pdf().set(opt).from(element).save();
 }
 
-async function wbDownloadHtml() {
+async function wbOpslaan() {
   wbSlaStapOp();
-  const html = await bouwWerkboekjeHtml(_werkboekjeWizard.data);
-  const blob = new Blob([html], { type:'text/html;charset=utf-8' });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = `${(_werkboekjeWizard.data.titel || 'werkboekje').replace(/[^a-zA-Z0-9_-]+/g, '_')}.html`;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-}
-
-async function wbOpslaanHtml() {
-  wbSlaStapOp();
-  const result = document.getElementById('wb-result');
-  if (result) result.innerHTML = '<span style="color:var(--amber)">⏳ Werkboekje wordt opgeslagen...</span>';
-  _werkboekjeLaatsteHtml = await bouwWerkboekjeHtml(_werkboekjeWizard.data);
+  const status = document.getElementById('wb-status');
+  status.innerHTML = `<span style="color:var(--amber)">⏳ Opslaan...</span>`;
   try {
-    const res = await fetch('/api/werkboekje/save-html', {
-      method:'POST', credentials:'same-origin', headers:{ 'Content-Type':'application/json' },
-      body:JSON.stringify({ html:_werkboekjeLaatsteHtml, titel:_werkboekjeWizard.data.titel, vak:_werkboekjeWizard.data.vak })
+    const res = await fetch('/api/genereer-werkboekje-handmatig', {
+      method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(_werkboekjeWizard.data)
     });
-    const json = await res.json();
-    if (!res.ok || !json.success) throw new Error(json.error || 'Opslaan mislukt');
-    _werkboekjeOpgeslagenMateriaalId = json.materiaalId;
-    if (result) result.innerHTML = `<span style="color:var(--accent)">✓ Opgeslagen. Bestand: <a href="/uploads/${wbAttr(json.bestandsnaam)}" target="_blank">openen</a></span>`;
-    setTimeout(() => { if (typeof closeModalDirect === 'function') closeModalDirect(); resetWerkboekjeWizard(); if (typeof renderToetsen === 'function') renderToetsen(); }, 600);
-  } catch (e) {
-    if (result) result.innerHTML = `<span style="color:var(--red)">Fout: ${wbEsc(e.message)}</span>`;
+    const out = await wbJson(res);
+    status.innerHTML = `<span style="color:var(--accent)">✓ Werkboekje opgeslagen.</span>`;
+    setTimeout(() => { closeModalDirect(); if (typeof renderToetsen === 'function') renderToetsen(); }, 900);
+  } catch(e) {
+    status.innerHTML = `<span style="color:var(--red)">Fout: ${escHtml(e.message)}</span>`;
   }
-}
-
-async function wbAfsluitenZonderOpslaan() {
-  if (_werkboekjeOpgeslagenMateriaalId) {
-    try { await API.deleteMateriaal(_werkboekjeOpgeslagenMateriaalId); } catch (_) {}
-  }
-  sluitWerkboekjeWizard();
 }
