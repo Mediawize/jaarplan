@@ -211,7 +211,6 @@ async function renderLesprofielen() {
       <div class="page-header">
         <div class="page-header-left"><h1>Lesprofielen</h1></div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-          <button class="btn btn-sm" onclick="openSyllabusWizard()">⚡ Uit syllabus</button>
           <button class="btn btn-sm btn-primary" onclick="openProfielModal()">+ Nieuw lesprofiel</button>
         </div>
       </div>
