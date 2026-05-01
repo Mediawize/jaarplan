@@ -1261,6 +1261,12 @@ input, select, textarea { font-family: var(--font); }
   transition: all 0.2s;
 }
 
+.aiw-ai-badge.aiw-ai-loading {
+  background: var(--surface-2);
+  border-color: var(--border);
+  color: var(--ink-3);
+}
+
 .aiw-ai-badge.aiw-ai-ok {
   background: var(--accent-dim);
   border-color: rgba(22,163,74,0.2);
