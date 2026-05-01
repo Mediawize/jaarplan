@@ -1582,6 +1582,32 @@ app.post('/api/genereer-lesprofiel-wizard', requireCanEdit, async (req, res) => 
     if (!naam || !vakId || !beschrijving) return res.status(400).json({ error: 'Naam, vak en beschrijving zijn verplicht.' });
     if (!vak) return res.status(404).json({ error: 'Vak niet gevonden.' });
 
+    let syllabusContext = '';
+    let syllabusModule = null;
+    const syllabusUploadToken = String(data.syllabusUploadToken || '').trim();
+    const syllabusModuleCode = String(data.syllabusModuleCode || '').trim();
+    if (syllabusUploadToken) {
+      const uploadInfo = syllabusUploadTokens.get(syllabusUploadToken);
+      if (uploadInfo?.filePath && fs.existsSync(uploadInfo.filePath)) {
+        try {
+          const analysed = await analyseSyllabusPdf(uploadInfo.filePath);
+          const modules = analysed.modules || [];
+          syllabusModule = modules.find(m => String(m.code) === syllabusModuleCode) || null;
+          const selectedModules = syllabusModule ? [syllabusModule] : modules.slice(0, 4);
+          syllabusContext = selectedModules.map(m => {
+            const taken = (m.taken || m.tasks || m.onderdelen || []).slice(0, 25).map(t => {
+              if (typeof t === 'string') return `- ${t}`;
+              return `- ${t.code || t.syllabus || ''} ${t.omschrijving || t.naam || t.title || ''}`.trim();
+            }).join('\n');
+            return `Module ${m.code || ''} ${m.naam || ''}\n${taken}`.trim();
+          }).join('\n\n');
+          if (!syllabusContext && analysed.sourceText) syllabusContext = String(analysed.sourceText).slice(0, 6000);
+        } catch (analyseError) {
+          console.warn('Syllabuscontext voor lesprofiel-wizard kon niet worden gelezen:', analyseError.message);
+        }
+      }
+    }
+
     const maakFallback = () => {
       const weken = Array.from({ length: aantalWeken }, (_, i) => {
         const weekNr = i + 1;
@@ -1645,7 +1671,10 @@ Niveau: ${niveau || 'alle niveaus'}
 Aantal weken: ${aantalWeken}
 Uren per week: ${urenPerWeek}
 Beschrijving/onderwerp: ${beschrijving}
-
+${syllabusContext ? `
+Syllabuscontext ${syllabusModule ? `(gekozen module ${syllabusModule.code || ''} ${syllabusModule.naam || ''})` : '(geanalyseerde upload)'}:
+${syllabusContext}
+` : ''}
 AI opties:
 Weekthema's maken: ${!!data.aiWeekthemas}
 Activiteiten maken: ${!!data.aiActiviteiten}
@@ -1659,6 +1688,7 @@ Regels:
 - Houd de omschrijvingen kort, concreet en bruikbaar voor een docent.
 - Gebruik link altijd als lege string.
 - Gebruik bestand altijd null.
+- Als syllabuscontext is meegegeven: gebruik concrete syllabuscodes of modulecodes in het veld syllabus.
 - Gebruik syllabus als lege string als er geen concrete code bekend is.`
       });
 
