@@ -126,7 +126,14 @@ async function renderLesprofielWizard() {
       <div class="form-field"><label>Aantal weken *</label><input id="lpw-weken" type="number" min="1" max="40" value="${escHtml(d.aantalWeken)}"></div>
       <div class="form-field"><label>Uren per week *</label><input id="lpw-uren" type="number" min="1" max="20" value="${escHtml(d.urenPerWeek)}"></div>
       ${d.syllabusModules?.length ? `<div class="form-field form-full"><label>Module uit syllabus</label><select id="lpw-syllabus-module"><option value="">Gebruik hele syllabus / geen specifieke module</option>${d.syllabusModules.map(m => `<option value="${escHtml(m.code)}" ${d.syllabusModuleCode === m.code ? 'selected' : ''}>Module ${escHtml(m.code)} ${escHtml(m.naam || '')} (${escHtml(m.taskCount || 0)} onderdelen)</option>`).join('')}</select></div>` : ''}
-      <div class="form-field form-full"><label>Beschrijving / onderwerp *</label><textarea id="lpw-beschrijving" rows="5" placeholder="Beschrijf kort wat leerlingen moeten leren en maken.">${escHtml(d.beschrijving)}</textarea></div>
+      <div class="form-field form-full">
+        <label>Beschrijving / onderwerp *</label>
+        <textarea id="lpw-beschrijving" rows="5" placeholder="Beschrijf kort wat leerlingen moeten leren en maken.">${escHtml(d.beschrijving)}</textarea>
+        <div style="display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap">
+          <button type="button" class="btn btn-sm" onclick="genereerLesprofielBeschrijvingAI()">✨ AI beschrijving maken</button>
+          <small id="lpw-beschrijving-ai-status" style="color:var(--ink-muted)">Vul bij voorkeur eerst naam, vak en niveau in.</small>
+        </div>
+      </div>
     </div>`;
 
   const stap3 = `
@@ -158,6 +165,60 @@ async function renderLesprofielWizard() {
   const closeText = step === 4 && preview ? 'Afsluiten zonder opslaan' : 'Sluiten';
 
   openModal(`<h2>Nieuw lesprofiel maken</h2><p class="modal-sub">Wizard voor een nieuw lesprofiel. De wizard start altijd leeg en slaat pas op na jouw keuze.</p><div style="height:8px;background:#E7E1D7;border-radius:999px;margin-bottom:18px;overflow:hidden"><div style="height:100%;width:${progress}%;background:var(--accent);border-radius:999px"></div></div><div style="font-size:12px;color:var(--ink-muted);margin-bottom:12px">Stap ${step} van 4</div>${body}<div class="modal-actions"><button class="btn" onclick="closeLesprofielWizard()">${closeText}</button>${backBtn}${nextBtn}${generateBtn}${saveBtn}</div>`);
+}
+
+async function genereerLesprofielBeschrijvingAI() {
+  if (!lesprofielWizardState) resetLesprofielWizard();
+  leesLesprofielWizardStap2();
+  const d = lesprofielWizardState.data;
+  const status = document.getElementById('lpw-beschrijving-ai-status');
+  const textarea = document.getElementById('lpw-beschrijving');
+  const vakSelect = document.getElementById('lpw-vak');
+  const vakNaam = vakSelect?.selectedOptions?.[0]?.textContent?.trim() || '';
+
+  if (!d.naam && !d.niveau && !vakNaam) {
+    if (status) status.textContent = 'Vul eerst minimaal naam, vak of niveau in.';
+    return;
+  }
+
+  if (status) status.textContent = '⏳ AI maakt beschrijving...';
+
+  const ctx = {
+    naam: d.naam,
+    vak: vakNaam,
+    niveau: d.niveau,
+    aantalWeken: d.aantalWeken,
+    urenPerWeek: d.urenPerWeek,
+    huidigeBeschrijving: d.beschrijving,
+    syllabusModuleCode: d.syllabusModuleCode,
+    syllabusPreview: d.syllabusPreview ? String(d.syllabusPreview).slice(0, 2500) : ''
+  };
+
+  try {
+    const res = await fetch('/api/ai/wizard-stap', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        type: 'lesprofiel-beschrijving',
+        stapId: 'beschrijving-onderwerp',
+        systeemPrompt: 'Je helpt een docent met het formuleren van een korte, concrete beschrijving voor een lesprofiel. Geef alleen geldig JSON terug met: beschrijving. Maximaal 5 zinnen. Praktisch, helder en geschikt voor voortgezet onderwijs.',
+        userPrompt: `Maak of verbeter de beschrijving/het onderwerp voor dit lesprofiel. Geef alleen JSON terug.\n\n${JSON.stringify(ctx, null, 2)}`,
+        context: ctx
+      })
+    });
+    const json = await res.json();
+    if (json.error) throw new Error(json.error);
+    const sug = json.suggestie || {};
+    const beschrijving = String(sug.beschrijving || sug.tekst || sug.omschrijving || '').trim();
+    if (!beschrijving) throw new Error('AI gaf geen beschrijving terug.');
+    if (textarea) textarea.value = beschrijving;
+    d.beschrijving = beschrijving;
+    if (status) status.textContent = '✓ AI-beschrijving ingevuld';
+  } catch (e) {
+    if (status) status.textContent = 'AI kon geen beschrijving maken.';
+    console.warn('AI beschrijving lesprofiel fout:', e.message);
+  }
 }
 
 async function analyseerLesprofielWizardUpload(input) {
