@@ -1,6 +1,6 @@
 // ============================================================
 // public/js/views/lesbrieven.js
-// Tabs navigatie; lesverloop toont alles zonder scroll
+// Wizard-stijl navigatie (6 stappen) — zelfde stijl als toets/werkboekje wizard
 // ============================================================
 
 const _lb = {
@@ -10,7 +10,7 @@ const _lb = {
   actIdx: null,
   activiteitInfo: null,
   data: null,
-  actieveTab: 'voorbereiding',
+  stap: 1,
   opgeslagen: true,
 };
 
@@ -22,7 +22,7 @@ async function openLesbrief(profielId, weekIdx, actIdx, activiteitInfo) {
   _lb.weekIdx = weekIdx;
   _lb.actIdx = actIdx;
   _lb.activiteitInfo = activiteitInfo || {};
-  _lb.actieveTab = 'voorbereiding';
+  _lb.stap = 1;
   _lb.opgeslagen = true;
 
   try {
@@ -56,63 +56,76 @@ function lbLeeg() {
 }
 
 // ============================================================
-// TABS DEFINITIES
+// STAPPEN DEFINITIES
 // ============================================================
-const LB_TABS = [
-  { id: 'voorbereiding', label: 'Voorbereiding', icon: '📋' },
-  { id: 'lesverloop',    label: 'Lesverloop',    icon: '⏱' },
-  { id: 'stappenplan',   label: 'Stappenplan',   icon: '📝' },
-  { id: 'aandachtspunten', label: 'Aandachtspunten', icon: '⚠' },
-  { id: 'differentiatie',  label: 'Differentiatie',  icon: '⭐' },
-  { id: 'opmerkingen',     label: 'Opmerkingen',     icon: '💬' },
+const LB_STAPPEN = [
+  { id: 'voorbereiding',    label: 'Voorbereiding' },
+  { id: 'lesverloop',       label: 'Lesverloop' },
+  { id: 'stappenplan',      label: 'Stappenplan' },
+  { id: 'aandachtspunten',  label: 'Aandachtspunten' },
+  { id: 'differentiatie',   label: 'Differentiatie' },
+  { id: 'opmerkingen',      label: 'Opmerkingen' },
 ];
 
 // ============================================================
-// RENDER MODAL
+// RENDER MODAL — wizard-stijl
 // ============================================================
 function renderLb() {
+  const s = _lb.stap;
+  const totaal = LB_STAPPEN.length;
+  const huidigId = LB_STAPPEN[s - 1].id;
+  const huidigLabel = LB_STAPPEN[s - 1].label;
   const info = _lb.activiteitInfo || {};
   const ro = !Auth.canEdit();
-
-  const tabHTML = LB_TABS.map(t => `
-    <button onclick="lbWisselTab('${t.id}')" id="lb-tab-${t.id}"
-      style="display:flex;align-items:center;gap:5px;padding:8px 13px;border:none;background:none;cursor:pointer;font-size:13px;font-weight:500;white-space:nowrap;border-bottom:2px solid ${_lb.actieveTab === t.id ? 'var(--accent)' : 'transparent'};color:${_lb.actieveTab === t.id ? 'var(--accent)' : 'var(--ink-muted)'};transition:color .15s">
-      <span>${t.icon}</span>${t.label}
-    </button>`).join('');
 
   openModal(`
     <div style="margin:-4px -4px 0">
       <!-- Header -->
-      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;padding-bottom:12px">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;padding-bottom:10px">
         <div>
-          <h2 style="margin:0 0 4px;font-size:18px">📄 Lesbrief</h2>
+          <h2 style="margin:0 0 4px;font-size:18px">📄 Lesbrief — stap ${s} van ${totaal}: ${huidigLabel}</h2>
           <div style="font-size:13px;color:var(--ink-muted)">
             ${info.type ? `<span style="background:var(--accent-dim);color:var(--accent);border-radius:4px;padding:1px 7px;font-size:12px;font-weight:600;margin-right:6px">${escHtml(info.type)}</span>` : ''}
-            ${escHtml(info.omschrijving || info.naam || '')}
-            ${info.uren ? `<span style="color:var(--ink-muted)"> · ${info.uren} uur</span>` : ''}
+            ${escHtml(info.omschrijving || info.naam || '')}${info.uren ? ` · ${info.uren} uur` : ''}
           </div>
         </div>
-        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+        <div style="display:flex;gap:6px;align-items:center;flex-shrink:0">
           ${!ro ? `<button class="btn btn-sm" onclick="lbGenereerAI()" id="lb-ai-btn">✨ AI invullen</button>` : ''}
-          ${_lb.id ? `<button class="btn btn-sm" onclick="lbDownload()">⬇ Download</button>` : ''}
-          ${!ro ? `<button class="btn btn-sm btn-primary" onclick="lbOpslaan()" id="lb-opslaan-btn">Opslaan</button>` : ''}
-          <button class="btn btn-sm" onclick="closeModalDirect()">Sluiten</button>
+          ${!ro ? `<button class="btn btn-sm" onclick="lbOpslaan()" id="lb-opslaan-btn">💾 Opslaan</button>` : ''}
         </div>
+      </div>
+
+      <!-- Progress bar -->
+      <div style="margin-bottom:16px">
+        <div style="display:flex;gap:4px;margin-bottom:6px">
+          ${LB_STAPPEN.map((_, i) => `<div style="flex:1;height:4px;border-radius:2px;background:${i < s ? 'var(--accent)' : 'var(--border)'}"></div>`).join('')}
+        </div>
+        <div style="font-size:12px;color:var(--ink-muted)">Stap ${s} van ${totaal}</div>
       </div>
 
       <div id="lb-ai-status" style="font-size:13px;margin-bottom:8px"></div>
 
-      <!-- Tabs -->
-      <div style="display:flex;gap:0;overflow-x:auto;border-bottom:1px solid var(--border);margin-bottom:16px;-webkit-overflow-scrolling:touch">
-        ${tabHTML}
-      </div>
-
-      <!-- Tab inhoud -->
+      <!-- Stap inhoud -->
       <div id="lb-tab-inhoud">
-        ${lbRenderTab(_lb.actieveTab, ro)}
+        ${lbRenderTab(huidigId, ro)}
       </div>
 
-      <div id="lb-opslaan-status" style="font-size:13px;margin-top:8px;text-align:right"></div>
+      <div id="lb-opslaan-status" style="font-size:13px;margin-top:8px"></div>
+
+      <!-- Navigatie -->
+      <div class="modal-actions">
+        ${s === 1
+          ? `<button class="btn" onclick="closeModalDirect()">Sluiten</button>`
+          : `<button class="btn" onclick="lbVorigeStap()">← Vorige</button>`
+        }
+        ${s < totaal
+          ? `<button class="btn btn-primary" onclick="lbVolgendeStap()">Volgende →</button>`
+          : `
+            ${_lb.id ? `<button class="btn btn-sm" onclick="lbDownload()">⬇ Download</button>` : ''}
+            <button class="btn" onclick="closeModalDirect()">Sluiten</button>
+          `
+        }
+      </div>
     </div>
   `);
 
@@ -120,6 +133,12 @@ function renderLb() {
     const box = document.querySelector('#modal-overlay .modal-box');
     if (box) box.style.maxWidth = '860px';
     lbInjectStijlen();
+    if (huidigId === 'lesverloop') {
+      document.querySelectorAll('[id^="lb-lv-beschr-"]').forEach(el => {
+        el.style.height = 'auto';
+        el.style.height = el.scrollHeight + 'px';
+      });
+    }
   }, 0);
 }
 
@@ -147,7 +166,22 @@ function lbInjectStijlen() {
 }
 
 // ============================================================
-// TAB INHOUD
+// WIZARD NAVIGATIE
+// ============================================================
+function lbVorigeStap() {
+  lbLeesData();
+  _lb.stap--;
+  renderLb();
+}
+
+function lbVolgendeStap() {
+  lbLeesData();
+  _lb.stap++;
+  renderLb();
+}
+
+// ============================================================
+// STAP INHOUD
 // ============================================================
 function lbRenderTab(tabId, ro) {
   const d = _lb.data;
@@ -290,35 +324,11 @@ function lbRenderTab(tabId, ro) {
 }
 
 // ============================================================
-// TAB WISSELEN
-// ============================================================
-function lbWisselTab(tabId) {
-  lbLeesData();
-  _lb.actieveTab = tabId;
-  document.getElementById('lb-tab-inhoud').innerHTML = lbRenderTab(tabId, !Auth.canEdit());
-  LB_TABS.forEach(t => {
-    const btn = document.getElementById(`lb-tab-${t.id}`);
-    if (!btn) return;
-    btn.style.borderBottomColor = t.id === tabId ? 'var(--accent)' : 'transparent';
-    btn.style.color = t.id === tabId ? 'var(--accent)' : 'var(--ink-muted)';
-  });
-  // Auto-resize lesverloop textareas na renderen
-  if (tabId === 'lesverloop') {
-    setTimeout(() => {
-      document.querySelectorAll('[id^="lb-lv-beschr-"]').forEach(el => {
-        el.style.height = 'auto';
-        el.style.height = el.scrollHeight + 'px';
-      });
-    }, 0);
-  }
-}
-
-// ============================================================
 // DATA LEZEN UIT DOM
 // ============================================================
 function lbLeesData() {
   const d = _lb.data;
-  const t = _lb.actieveTab;
+  const t = LB_STAPPEN[_lb.stap - 1]?.id;
 
   if (t === 'voorbereiding') {
     d.voorbereiding = document.getElementById('lb-voorbereiding')?.value || '';
@@ -422,7 +432,9 @@ function lbVerwijderAP(i) {
 async function lbOpslaan() {
   lbLeesData();
   const statusEl = document.getElementById('lb-opslaan-status');
+  const btn = document.getElementById('lb-opslaan-btn');
   if (statusEl) statusEl.innerHTML = `<span style="color:var(--amber)">⏳ Opslaan...</span>`;
+  if (btn) btn.disabled = true;
 
   const info = _lb.activiteitInfo || {};
   const payload = {
@@ -436,38 +448,29 @@ async function lbOpslaan() {
   };
 
   try {
-    let res;
+    let isNieuw = !_lb.id;
     if (_lb.id) {
-      res = await fetch(`/api/lesbrieven/${_lb.id}`, {
+      await fetch(`/api/lesbrieven/${_lb.id}`, {
         method: 'PUT', credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
     } else {
-      res = await fetch('/api/lesbrieven', {
+      const res = await fetch('/api/lesbrieven', {
         method: 'POST', credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
       const data = await res.json();
-      if (data.id) {
-        _lb.id = data.id;
-        // Voeg download knop toe
-        const opslaanBtn = document.getElementById('lb-opslaan-btn');
-        if (opslaanBtn && !document.getElementById('lb-dl-btn')) {
-          const btn = document.createElement('button');
-          btn.className = 'btn btn-sm';
-          btn.id = 'lb-dl-btn';
-          btn.textContent = '⬇ Download';
-          btn.onclick = lbDownload;
-          opslaanBtn.parentNode.insertBefore(btn, opslaanBtn);
-        }
-      }
+      if (data.id) _lb.id = data.id;
     }
     if (statusEl) statusEl.innerHTML = `<span style="color:var(--accent)">✓ Opgeslagen</span>`;
     setTimeout(() => { if (statusEl) statusEl.innerHTML = ''; }, 2000);
+    if (isNieuw && _lb.id) renderLb();
   } catch (e) {
     if (statusEl) statusEl.innerHTML = `<span style="color:var(--red)">Fout: ${escHtml(e.message)}</span>`;
+  } finally {
+    if (btn) btn.disabled = false;
   }
 }
 
@@ -507,7 +510,7 @@ async function lbGenereerAI() {
 
     _lb.data = { ..._lb.data, ...data.data };
     if (statusEl) statusEl.innerHTML = `<span style="color:var(--accent)">✓ AI heeft de lesbrief ingevuld. Controleer en sla op.</span>`;
-    document.getElementById('lb-tab-inhoud').innerHTML = lbRenderTab(_lb.actieveTab, false);
+    document.getElementById('lb-tab-inhoud').innerHTML = lbRenderTab(LB_STAPPEN[_lb.stap - 1].id, false);
   } catch (e) {
     const isQuota = e.message.includes('AI_QUOTA') || e.message.includes('quota');
     if (statusEl) statusEl.innerHTML = isQuota
