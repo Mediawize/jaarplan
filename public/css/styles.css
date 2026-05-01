@@ -1331,3 +1331,36 @@ input, select, textarea { font-family: var(--font); }
 }
 
 .aiw-shake { animation: aiwShake 0.35s ease; }
+
+/* ============================================================
+   WERKBOEKJE WIZARD
+   ============================================================ */
+.werkboekje-modal-box {
+  max-width: min(1180px, calc(100vw - 32px));
+  width: min(1180px, calc(100vw - 32px));
+  max-height: calc(100vh - 32px);
+}
+
+.werkboekje-modal-box textarea {
+  width: 100%;
+  min-height: 96px;
+  resize: none;
+  overflow-y: hidden;
+  line-height: 1.5;
+}
+
+.werkboekje-modal-box .form-grid {
+  grid-template-columns: 1fr 1fr;
+}
+
+@media (max-width: 800px) {
+  .werkboekje-modal-box {
+    width: calc(100vw - 16px);
+    max-width: calc(100vw - 16px);
+    padding: 18px;
+  }
+  .werkboekje-modal-box .form-grid,
+  .werkboekje-modal-box .form-grid-3 {
+    grid-template-columns: 1fr;
+  }
+}
