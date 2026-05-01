@@ -517,12 +517,8 @@ async function renderLesprofielen() {
                         ${profielen.map(p => {
                           const aantalActs = (p.weken || []).reduce((t, w) => t + (w.activiteiten?.length || 0), 0);
                           return `<div style="border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px;cursor:pointer;transition:box-shadow .15s" onclick="openProfielDetail('${p.id}')" onmouseover="this.style.boxShadow='var(--shadow)'" onmouseout="this.style.boxShadow='none'">
-                            <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
+                            <div style="margin-bottom:8px">
                               <div style="font-weight:600;font-size:14px">${escHtml(p.naam)}</div>
-                              <div style="display:flex;gap:4px">
-                                <button class="icon-btn" onclick="event.stopPropagation();openProfielModal('${p.vakId}','${p.id}')" title="Bewerken"><svg viewBox="0 0 20 20" fill="none"><path d="M14.5 3.5l2 2L7 15l-3 1 1-3 9.5-9.5z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
-                                <button class="icon-btn" onclick="event.stopPropagation();verwijderProfiel('${p.id}')" style="color:var(--red)" title="Verwijderen"><svg viewBox="0 0 20 20" fill="none"><path d="M5 5l10 10M15 5L5 15" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button>
-                              </div>
                             </div>
                             <div style="font-size:12px;color:var(--ink-muted);margin-bottom:10px">${p.aantalWeken} weken · ${aantalActs} activiteiten · ${p.urenPerWeek} uur/week</div>
                             <div style="display:flex;gap:6px;flex-wrap:wrap">
