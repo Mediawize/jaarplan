@@ -97,7 +97,8 @@ const storage = multer.diskStorage({
 const upload = multer({ storage, limits: { fileSize: 25 * 1024 * 1024 } });
 
 app.use(helmet({ contentSecurityPolicy: false }));
-app.use(express.json());
+app.use(express.json({ limit: '25mb' }));
+app.use(express.urlencoded({ extended: true, limit: '25mb' }));
 
 // ---- ROUTES ----
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'landing.html')));
@@ -1568,165 +1569,118 @@ app.post('/api/genereer-werkboekje-handmatig', requireCanEdit, async (req, res) 
 
 
 
-app.post('/api/genereer-lesprofiel-wizard', requireCanEdit, async (req, res) => {
-  const data = req.body || {};
+
+// ============================================================
+// WERKBOEKJE TEMPLATE-WIZARD — analyse + HTML opslaan
+// ============================================================
+app.post('/api/werkboekje/analyse', requireCanEdit, upload.single('bestand'), async (req, res) => {
   try {
-    const naam = String(data.naam || '').trim();
-    const vakId = String(data.vakId || '').trim();
-    const niveau = String(data.niveau || '').trim();
-    const aantalWeken = Math.max(1, Math.min(40, Number(data.aantalWeken || 8)));
-    const urenPerWeek = Math.max(1, Number(data.urenPerWeek || 3));
-    const beschrijving = String(data.beschrijving || '').trim();
-    const vak = db.getVakken().find(v => String(v.id) === vakId);
-
-    if (!naam || !vakId || !beschrijving) return res.status(400).json({ error: 'Naam, vak en beschrijving zijn verplicht.' });
-    if (!vak) return res.status(404).json({ error: 'Vak niet gevonden.' });
-
-    let syllabusContext = '';
-    let syllabusModule = null;
-    const syllabusUploadToken = String(data.syllabusUploadToken || '').trim();
-    const syllabusModuleCode = String(data.syllabusModuleCode || '').trim();
-    if (syllabusUploadToken) {
-      const uploadInfo = syllabusUploadTokens.get(syllabusUploadToken);
-      if (uploadInfo?.filePath && fs.existsSync(uploadInfo.filePath)) {
-        try {
-          const analysed = await analyseSyllabusPdf(uploadInfo.filePath);
-          const modules = analysed.modules || [];
-          syllabusModule = modules.find(m => String(m.code) === syllabusModuleCode) || null;
-          const selectedModules = syllabusModule ? [syllabusModule] : modules.slice(0, 4);
-          syllabusContext = selectedModules.map(m => {
-            const taken = (m.taken || m.tasks || m.onderdelen || []).slice(0, 25).map(t => {
-              if (typeof t === 'string') return `- ${t}`;
-              return `- ${t.code || t.syllabus || ''} ${t.omschrijving || t.naam || t.title || ''}`.trim();
-            }).join('\n');
-            return `Module ${m.code || ''} ${m.naam || ''}\n${taken}`.trim();
-          }).join('\n\n');
-          if (!syllabusContext && analysed.sourceText) syllabusContext = String(analysed.sourceText).slice(0, 6000);
-        } catch (analyseError) {
-          console.warn('Syllabuscontext voor lesprofiel-wizard kon niet worden gelezen:', analyseError.message);
-        }
-      }
+    const { titel, vak, niveau, opdracht, aiOpties } = req.body;
+    let inhoud = '';
+    if (req.file) {
+      inhoud = await extractTekstUitBestand(req.file.path, req.file.originalname);
+      if (req.file?.path && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
     }
 
-    const maakFallback = () => {
-      const weken = Array.from({ length: aantalWeken }, (_, i) => {
-        const weekNr = i + 1;
-        const laatste = weekNr === aantalWeken;
-        const eerste = weekNr === 1;
-        const theorieUren = Math.max(1, Math.min(urenPerWeek, Math.round(urenPerWeek * 0.35)));
-        return {
-          weekIndex: weekNr,
-          thema: eerste ? 'Introductie en basis' : laatste ? 'Afronding en beoordeling' : `Uitwerking stap ${weekNr - 1}`,
-          activiteiten: [
-            {
-              type: 'Theorie',
-              uren: theorieUren,
-              omschrijving: eerste ? `Introductie op ${naam}: doel, begrippen, veiligheid en aanpak.` : `Korte instructie en terugblik bij week ${weekNr} van ${naam}.`,
-              link: '', syllabus: '', bestand: null
-            },
-            {
-              type: laatste ? 'Presentatie' : 'Praktijk',
-              uren: Math.max(1, urenPerWeek - theorieUren),
-              omschrijving: laatste ? `Afronden, presenteren/controleren en reflecteren op ${naam}.` : `Praktische verwerking: leerlingen werken stap voor stap aan ${naam}.`,
-              link: '', syllabus: '', bestand: null
-            }
-          ]
-        };
-      });
-      return { naam, vakId, niveau, aantalWeken, urenPerWeek, beschrijving, weken };
+    const opties = (() => {
+      try { return JSON.parse(aiOpties || '[]'); } catch (_) { return []; }
+    })();
+
+    const fallback = {
+      titel: titel || opdracht || 'Praktijkopdracht',
+      vak: vak || 'Techniek',
+      niveau: niveau || '',
+      profieldeel: '',
+      opdrachtnummer: '1',
+      duur: '',
+      introductie: '',
+      leerdoelen: [],
+      veiligheidsregels: [
+        'Werkpak en veiligheidsschoenen aan.',
+        'Loshangende kleding vastmaken of uitdoen.',
+        'Losse haren in een staart of knot.',
+        'Gehoorbescherming verplicht bij machines.'
+      ],
+      materiaalstaat: [],
+      gereedschappen: [],
+      stappen: [
+        { titel: 'Voorbereiden', beschrijving: 'Lees de opdracht goed door en verzamel je materiaal.', fotos: 1, tip: '', letop: '', benodigdheden: [] }
+      ],
+      reflectievragen: ['Wat ging goed?', 'Wat zou je volgende keer anders doen?']
     };
 
-    const wilAI = data.aiWeekthemas || data.aiActiviteiten || data.aiBronnen || data.aiDifferentiatie || data.aiOpmerkingen;
-    if (!wilAI) return res.json({ success: true, profiel: maakFallback() });
-
-    try {
-      const ai = await chatJson({
-        maxTokens: 5000,
-        temperature: 0.25,
-        system: 'Je maakt lesprofielen voor Nederlands voortgezet onderwijs. Geef alleen geldig JSON terug, zonder markdown.',
-        user: `Maak een lesprofiel als JSON.
-
-Verplichte JSON structuur:
-{
-  "naam": string,
-  "niveau": string,
-  "aantalWeken": number,
-  "urenPerWeek": number,
-  "beschrijving": string,
-  "weken": [
-    {
-      "weekIndex": number,
-      "thema": string,
-      "activiteiten": [
-        {"type":"Theorie|Praktijk|Toets|Presentatie|Overig", "uren": number, "omschrijving": string, "link":"", "syllabus":"", "bestand": null}
-      ]
+    if (!inhoud.trim() && !opdracht && !titel) {
+      return res.json({ success: true, data: fallback, waarschuwing: 'Geen upload of opdrachttekst ontvangen. Leeg werkboekje klaargezet.' });
     }
-  ]
+
+    let data = fallback;
+    try {
+      data = await chatJson({
+        system: 'Je maakt praktijkwerkboekjes voor Nederlandse vmbo/havo techniekleerlingen. Geef uitsluitend geldig JSON terug.',
+        user: `Maak een werkboekje op basis van de upload/invoer. Het resultaat wordt in een HTML-template geplaatst.
+
+Geef ALLEEN geldig JSON terug in dit formaat:
+{
+  "titel": "korte titel",
+  "vak": "vak of profiel",
+  "niveau": "niveau/leerjaar",
+  "profieldeel": "profieldeel of module",
+  "opdrachtnummer": "1",
+  "duur": "bijv. 4 x 45 minuten",
+  "introductie": "korte leerlinggerichte uitleg",
+  "leerdoelen": ["De leerling kan ..."],
+  "veiligheidsregels": ["regel 1"],
+  "materiaalstaat": [ {"benaming":"materiaal", "aantal":"", "lengte":"", "breedte":"", "dikte":"", "soortMateriaal":""} ],
+  "gereedschappen": [ {"naam":"gereedschap", "omschrijving":"kort"} ],
+  "stappen": [ {"titel":"Stap titel", "beschrijving":"concrete instructie in leerlingtaal", "fotos": 1, "tip":"optionele tip", "letop":"optionele waarschuwing", "benodigdheden":["item"], "checklist":["controlepunt"] } ],
+  "reflectievragen": ["Wat ging goed?", "Wat zou je volgende keer anders doen?"]
 }
 
-Context:
-Naam: ${naam}
-Vak: ${vak.volledig || vak.naam}
-Niveau: ${niveau || 'alle niveaus'}
-Aantal weken: ${aantalWeken}
-Uren per week: ${urenPerWeek}
-Beschrijving/onderwerp: ${beschrijving}
-${syllabusContext ? `
-Syllabuscontext ${syllabusModule ? `(gekozen module ${syllabusModule.code || ''} ${syllabusModule.naam || ''})` : '(geanalyseerde upload)'}:
-${syllabusContext}
-` : ''}
-AI opties:
-Weekthema's maken: ${!!data.aiWeekthemas}
-Activiteiten maken: ${!!data.aiActiviteiten}
-Bronnen/materialen noemen in omschrijving: ${!!data.aiBronnen}
-Differentiatie noemen in omschrijving: ${!!data.aiDifferentiatie}
-Opmerkingen/aandachtspunten noemen in omschrijving: ${!!data.aiOpmerkingen}
-
 Regels:
-- Maak exact ${aantalWeken} weken.
-- Gebruik maximaal 3 activiteiten per week.
-- Het totaal aantal uren per week moet ongeveer ${urenPerWeek} zijn.
-- Houd de omschrijvingen kort, concreet en bruikbaar voor een docent.
-- Als opmerkingen/aandachtspunten aan staat: verwerk korte docentopmerkingen in de omschrijving, bijvoorbeeld voorbereiding, veiligheid, benodigdheden, extra aandachtspunt of klassikale tip.
-- Gebruik link altijd als lege string.
-- Gebruik bestand altijd null.
-- Als syllabuscontext is meegegeven: gebruik concrete syllabuscodes of modulecodes in het veld syllabus.
-- Gebruik syllabus als lege string als er geen concrete code bekend is.`
-      });
+- Gebruik concreet Nederlands voor leerlingen.
+- Maak 5 tot 10 logische stappen.
+- Fotos is 1, 2 of 3 afhankelijk van wat handig is.
+- Vul materiaalstaat, gereedschappen en veiligheid waar mogelijk.
+- AI-keuzes van gebruiker: ${opties.join(', ') || 'geen extra keuzes'}.
 
-      const fallback = maakFallback();
-      const weken = Array.isArray(ai.weken) ? ai.weken.slice(0, aantalWeken) : fallback.weken;
-      while (weken.length < aantalWeken) weken.push(fallback.weken[weken.length]);
-      const profiel = {
-        naam: String(ai.naam || naam),
-        vakId,
-        niveau: String(ai.niveau || niveau || ''),
-        aantalWeken,
-        urenPerWeek,
-        beschrijving: String(ai.beschrijving || beschrijving),
-        weken: weken.map((w, i) => ({
-          weekIndex: i + 1,
-          thema: String(w?.thema || fallback.weken[i].thema || `Week ${i + 1}`),
-          activiteiten: Array.isArray(w?.activiteiten) && w.activiteiten.length
-            ? w.activiteiten.slice(0, 3).map(a => ({
-                type: ['Theorie', 'Praktijk', 'Toets', 'Presentatie', 'Overig'].includes(a?.type) ? a.type : 'Praktijk',
-                uren: Number(a?.uren || 1),
-                omschrijving: String(a?.omschrijving || ''),
-                link: String(a?.link || ''),
-                syllabus: String(a?.syllabus || ''),
-                bestand: a?.bestand || null
-              }))
-            : fallback.weken[i].activiteiten
-        }))
-      };
-      return res.json({ success: true, profiel });
-    } catch (aiError) {
-      console.warn('AI lesprofiel wizard niet beschikbaar, fallback gebruikt:', aiError.message);
-      return res.json({ success: true, profiel: maakFallback(), warning: `AI niet beschikbaar: ${aiError.message}. Er is een basislesprofiel gemaakt.` });
+Invoer:
+Titel: ${titel || ''}
+Vak: ${vak || ''}
+Niveau: ${niveau || ''}
+Opdracht/opmerkingen: ${opdracht || ''}
+
+Uploadtekst:
+${String(inhoud).slice(0, 20000)}`,
+        maxTokens: 4500,
+        temperature: 0.25
+      });
+    } catch (aiErr) {
+      console.error('Werkboekje analyse AI fout:', aiErr.message || aiErr);
+      data = fallback;
+      data.introductie = inhoud ? String(inhoud).slice(0, 350) : fallback.introductie;
     }
+
+    data.titel = data.titel || titel || fallback.titel;
+    data.vak = data.vak || vak || fallback.vak;
+    data.niveau = data.niveau || niveau || fallback.niveau;
+    res.json({ success: true, data });
   } catch (e) {
-    console.error('Fout bij /api/genereer-lesprofiel-wizard:', e);
-    return res.status(500).json({ error: 'Fout bij genereren van lesprofiel', details: e.message });
+    if (req.file?.path && fs.existsSync(req.file.path)) { try { fs.unlinkSync(req.file.path); } catch (_) {} }
+    res.status(500).json({ error: 'Fout bij analyseren werkboekje: ' + e.message });
+  }
+});
+
+app.post('/api/werkboekje/save-html', requireCanEdit, async (req, res) => {
+  try {
+    const { html, titel, vak } = req.body || {};
+    if (!html || !String(html).includes('<html')) return res.status(400).json({ error: 'Geen geldige HTML ontvangen' });
+    const safeTitle = String(titel || 'werkboekje').replace(/[^a-zA-Z0-9_-]+/g, '_').slice(0, 50) || 'werkboekje';
+    const bestandsnaam = safeTitle + '_' + Date.now() + '.html';
+    fs.writeFileSync(path.join(uploadDir, bestandsnaam), String(html), 'utf8');
+    const mat = db.addMateriaal({ type: 'werkboekje', naam: titel || 'Werkboekje', bestandsnaam, vak: vak || '' });
+    res.json({ success: true, bestandsnaam, materiaalId: mat?.id, titel: titel || 'Werkboekje' });
+  } catch (e) {
+    res.status(500).json({ error: 'Fout bij opslaan werkboekje: ' + e.message });
   }
 });
 
