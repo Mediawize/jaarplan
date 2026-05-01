@@ -52,8 +52,10 @@ function resetLesprofielWizard() {
     step: 1,
     preview: null,
     warning: '',
+    upload: null,
     data: {
       naam: '', vakId: '', niveau: '', aantalWeken: 8, urenPerWeek: 3, beschrijving: '',
+      syllabusUploadToken: '', syllabusBestand: '', syllabusModules: [], syllabusModuleCode: '', syllabusPreview: '',
       aiWeekthemas: true, aiActiviteiten: true, aiBronnen: false, aiDifferentiatie: false
     }
   };
@@ -63,6 +65,11 @@ async function openLesprofielWizard() { resetLesprofielWizard(); await renderLes
 function closeLesprofielWizard() { resetLesprofielWizard(); closeModalDirect(); }
 
 function leesLesprofielWizardStap1() {
+  // Stap 1 is upload/analyse. De data wordt verwerkt in analyseerLesprofielWizardUpload().
+  if (!lesprofielWizardState) resetLesprofielWizard();
+}
+
+function leesLesprofielWizardStap2() {
   if (!lesprofielWizardState) resetLesprofielWizard();
   const d = lesprofielWizardState.data;
   d.naam = document.getElementById('lpw-naam')?.value?.trim() || '';
@@ -71,9 +78,10 @@ function leesLesprofielWizardStap1() {
   d.aantalWeken = Number(document.getElementById('lpw-weken')?.value || 0);
   d.urenPerWeek = Number(document.getElementById('lpw-uren')?.value || 0);
   d.beschrijving = document.getElementById('lpw-beschrijving')?.value?.trim() || '';
+  d.syllabusModuleCode = document.getElementById('lpw-syllabus-module')?.value || d.syllabusModuleCode || '';
 }
 
-function leesLesprofielWizardStap2() {
+function leesLesprofielWizardStap3() {
   if (!lesprofielWizardState) resetLesprofielWizard();
   const d = lesprofielWizardState.data;
   d.aiWeekthemas = !!document.getElementById('lpw-ai-weekthemas')?.checked;
@@ -87,19 +95,34 @@ async function renderLesprofielWizard() {
   const vakken = await API.getVakken();
   const d = lesprofielWizardState.data;
   const step = lesprofielWizardState.step;
-  const progress = Math.round((step / 3) * 100);
+  const progress = Math.round((step / 4) * 100);
 
   const stap1 = `
+    <div class="alert alert-info" style="margin-bottom:16px"><strong>Optioneel:</strong> upload eerst een syllabus PDF. De wizard analyseert de syllabus en neemt de gekozen module mee in de AI-generatie. Sla dit over als je zelf een onderwerp wilt invullen.</div>
+    <div class="form-grid">
+      <div class="form-field form-full">
+        <label>Syllabus PDF uploaden</label>
+        <input id="lpw-syllabus-upload" type="file" accept="application/pdf,.pdf" onchange="analyseerLesprofielWizardUpload(this)">
+        <small style="color:var(--ink-muted)">${d.syllabusBestand ? `Geanalyseerd: ${escHtml(d.syllabusBestand)}` : 'Geen upload gekozen. Je kunt gewoon doorgaan zonder syllabus.'}</small>
+      </div>
+      <div id="lpw-syllabus-status" class="form-field form-full" style="${d.syllabusBestand || d.syllabusModules?.length ? '' : 'display:none'}">
+        ${d.syllabusModules?.length ? `<div class="alert alert-success">${d.syllabusModules.length} profielmodules gevonden. Kies in de volgende stap welke module je wilt gebruiken.</div>` : ''}
+      </div>
+      ${d.syllabusPreview ? `<div class="form-field form-full"><label>Analyse-preview</label><div style="max-height:120px;overflow:auto;border:1px solid var(--border);border-radius:10px;padding:10px;font-size:12px;background:#fff;color:var(--ink-muted)">${escHtml(d.syllabusPreview)}</div></div>` : ''}
+    </div>`;
+
+  const stap2 = `
     <div class="form-grid">
       <div class="form-field form-full"><label>Naam lesprofiel *</label><input id="lpw-naam" value="${escHtml(d.naam)}" placeholder="bijv. Elektronisch dobbelspel havo 2"></div>
       <div class="form-field"><label>Vak *</label><select id="lpw-vak"><option value="">Kies vak</option>${vakken.map(v => `<option value="${v.id}" ${String(d.vakId) === String(v.id) ? 'selected' : ''}>${escHtml(v.naam)}</option>`).join('')}</select></div>
       <div class="form-field"><label>Niveau</label><select id="lpw-niveau">${['', 'BB', 'KB', 'GL', 'TL', 'Havo', 'VWO'].map(n => `<option value="${n}" ${d.niveau === n ? 'selected' : ''}>${n || 'Alle niveaus'}</option>`).join('')}</select></div>
       <div class="form-field"><label>Aantal weken *</label><input id="lpw-weken" type="number" min="1" max="40" value="${escHtml(d.aantalWeken)}"></div>
       <div class="form-field"><label>Uren per week *</label><input id="lpw-uren" type="number" min="1" max="20" value="${escHtml(d.urenPerWeek)}"></div>
+      ${d.syllabusModules?.length ? `<div class="form-field form-full"><label>Module uit syllabus</label><select id="lpw-syllabus-module"><option value="">Gebruik hele syllabus / geen specifieke module</option>${d.syllabusModules.map(m => `<option value="${escHtml(m.code)}" ${d.syllabusModuleCode === m.code ? 'selected' : ''}>Module ${escHtml(m.code)} ${escHtml(m.naam || '')} (${escHtml(m.taskCount || 0)} onderdelen)</option>`).join('')}</select></div>` : ''}
       <div class="form-field form-full"><label>Beschrijving / onderwerp *</label><textarea id="lpw-beschrijving" rows="5" placeholder="Beschrijf kort wat leerlingen moeten leren en maken.">${escHtml(d.beschrijving)}</textarea></div>
     </div>`;
 
-  const stap2 = `
+  const stap3 = `
     <div class="alert alert-info" style="margin-bottom:16px">Kies wat AI mag invullen. Daarna maak je eerst een voorbeeld; er wordt nog niets opgeslagen.</div>
     <div class="form-grid">
       ${[
@@ -111,7 +134,7 @@ async function renderLesprofielWizard() {
     </div>`;
 
   const preview = lesprofielWizardState.preview;
-  const stap3 = preview ? `
+  const stap4 = preview ? `
     ${lesprofielWizardState.warning ? `<div class="alert" style="background:var(--amber-light);color:var(--amber);margin-bottom:12px">${escHtml(lesprofielWizardState.warning)}</div>` : ''}
     <div class="alert alert-success" style="margin-bottom:16px">Voorbeeld is gemaakt. Kies <strong>Opslaan</strong> om het lesprofiel echt aan te maken.</div>
     <div class="card" style="margin-bottom:12px;padding:16px"><h3 style="margin-top:0">${escHtml(preview.naam)}</h3><div style="font-size:13px;color:var(--ink-muted);margin-bottom:8px">${escHtml(preview.niveau || 'Alle niveaus')} · ${preview.aantalWeken} weken · ${preview.urenPerWeek} uur/week</div><div style="font-size:13px">${escHtml(preview.beschrijving || '')}</div></div>
@@ -119,42 +142,78 @@ async function renderLesprofielWizard() {
       ${(preview.weken || []).map((w, i) => `<div style="padding:12px 14px;border-bottom:1px solid var(--border)"><strong>Week ${i + 1}: ${escHtml(w.thema || '')}</strong><ul style="margin:8px 0 0 18px;padding:0;font-size:13px">${(w.activiteiten || []).map(a => `<li><strong>${escHtml(a.type || 'Activiteit')}</strong> · ${escHtml(a.uren || '')} uur · ${escHtml(a.omschrijving || '')}${a.syllabus ? ` <span style="color:var(--ink-muted)">(${escHtml(a.syllabus)})</span>` : ''}</li>`).join('')}</ul></div>`).join('')}
     </div>` : `<div class="alert alert-info">Klik op <strong>Voorbeeld genereren</strong>. Er wordt nog niets opgeslagen.</div>`;
 
-  const body = step === 1 ? stap1 : step === 2 ? stap2 : stap3;
+  const body = step === 1 ? stap1 : step === 2 ? stap2 : step === 3 ? stap3 : stap4;
   const backBtn = step > 1 ? '<button class="btn" onclick="vorigeLesprofielWizardStap()">Terug</button>' : '';
-  const nextBtn = step === 1 ? '<button class="btn btn-primary" onclick="volgendeLesprofielWizardStap()">Volgende</button>' : '';
-  const generateBtn = step === 2 ? '<button class="btn btn-primary" onclick="genereerLesprofielWizardPreview()">Voorbeeld genereren</button>' : '';
-  const saveBtn = step === 3 && preview ? '<button class="btn btn-primary" onclick="slaLesprofielWizardOp()">Opslaan</button>' : '';
-  const closeText = step === 3 && preview ? 'Afsluiten zonder opslaan' : 'Sluiten';
+  const nextBtn = step < 3 ? '<button class="btn btn-primary" onclick="volgendeLesprofielWizardStap()">Volgende</button>' : '';
+  const generateBtn = step === 3 ? '<button class="btn btn-primary" onclick="genereerLesprofielWizardPreview()">Voorbeeld genereren</button>' : '';
+  const saveBtn = step === 4 && preview ? '<button class="btn btn-primary" onclick="slaLesprofielWizardOp()">Opslaan</button>' : '';
+  const closeText = step === 4 && preview ? 'Afsluiten zonder opslaan' : 'Sluiten';
 
-  openModal(`<h2>Nieuw lesprofiel maken</h2><p class="modal-sub">Wizard voor een nieuw lesprofiel. De wizard start altijd leeg en slaat pas op na jouw keuze.</p><div style="height:8px;background:#E7E1D7;border-radius:999px;margin-bottom:18px;overflow:hidden"><div style="height:100%;width:${progress}%;background:var(--accent);border-radius:999px"></div></div><div style="font-size:12px;color:var(--ink-muted);margin-bottom:12px">Stap ${step} van 3</div>${body}<div class="modal-actions"><button class="btn" onclick="closeLesprofielWizard()">${closeText}</button>${backBtn}${nextBtn}${generateBtn}${saveBtn}</div>`);
+  openModal(`<h2>Nieuw lesprofiel maken</h2><p class="modal-sub">Wizard voor een nieuw lesprofiel. De wizard start altijd leeg en slaat pas op na jouw keuze.</p><div style="height:8px;background:#E7E1D7;border-radius:999px;margin-bottom:18px;overflow:hidden"><div style="height:100%;width:${progress}%;background:var(--accent);border-radius:999px"></div></div><div style="font-size:12px;color:var(--ink-muted);margin-bottom:12px">Stap ${step} van 4</div>${body}<div class="modal-actions"><button class="btn" onclick="closeLesprofielWizard()">${closeText}</button>${backBtn}${nextBtn}${generateBtn}${saveBtn}</div>`);
+}
+
+async function analyseerLesprofielWizardUpload(input) {
+  if (!lesprofielWizardState) resetLesprofielWizard();
+  const d = lesprofielWizardState.data;
+  const status = document.getElementById('lpw-syllabus-status');
+  const file = input?.files?.[0];
+  if (!file) return;
+  d.syllabusUploadToken = '';
+  d.syllabusBestand = '';
+  d.syllabusModules = [];
+  d.syllabusModuleCode = '';
+  d.syllabusPreview = '';
+  if (status) {
+    status.style.display = 'block';
+    status.innerHTML = '<div class="alert alert-info">Syllabus wordt geanalyseerd...</div>';
+  }
+  try {
+    const data = await API.analyseSyllabus(file);
+    d.syllabusUploadToken = data.uploadToken || '';
+    d.syllabusBestand = data.bestand || file.name || '';
+    d.syllabusModules = data.modules || [];
+    d.syllabusPreview = data.preview || '';
+    if (status) status.innerHTML = `<div class="alert alert-success">${d.syllabusModules.length} profielmodules gevonden. Klik op Volgende om verder te gaan.</div>`;
+  } catch (e) {
+    if (status) status.innerHTML = `<div class="alert" style="background:var(--red-light);color:var(--red);border:1px solid rgba(176,58,46,0.2)">${escHtml(e.message)}</div>`;
+  }
 }
 
 async function volgendeLesprofielWizardStap() {
-  leesLesprofielWizardStap1();
-  const d = lesprofielWizardState.data;
-  if (!d.naam || !d.vakId || !d.beschrijving) { alert('Vul naam, vak en beschrijving in.'); return; }
-  if (!d.aantalWeken || d.aantalWeken < 1 || d.aantalWeken > 40) { alert('Aantal weken moet tussen 1 en 40 zijn.'); return; }
-  if (!d.urenPerWeek || d.urenPerWeek < 1) { alert('Uren per week is verplicht.'); return; }
-  lesprofielWizardState.step = 2;
-  await renderLesprofielWizard();
+  if (!lesprofielWizardState) resetLesprofielWizard();
+  if (lesprofielWizardState.step === 1) {
+    lesprofielWizardState.step = 2;
+    await renderLesprofielWizard();
+    return;
+  }
+  if (lesprofielWizardState.step === 2) {
+    leesLesprofielWizardStap2();
+    const d = lesprofielWizardState.data;
+    if (!d.naam || !d.vakId || !d.beschrijving) { alert('Vul naam, vak en beschrijving in.'); return; }
+    if (!d.aantalWeken || d.aantalWeken < 1 || d.aantalWeken > 40) { alert('Aantal weken moet tussen 1 en 40 zijn.'); return; }
+    if (!d.urenPerWeek || d.urenPerWeek < 1) { alert('Uren per week is verplicht.'); return; }
+    lesprofielWizardState.step = 3;
+    await renderLesprofielWizard();
+  }
 }
 
 async function vorigeLesprofielWizardStap() {
   if (!lesprofielWizardState) resetLesprofielWizard();
   if (lesprofielWizardState.step === 2) leesLesprofielWizardStap2();
+  if (lesprofielWizardState.step === 3) leesLesprofielWizardStap3();
   lesprofielWizardState.step = Math.max(1, lesprofielWizardState.step - 1);
   await renderLesprofielWizard();
 }
 
 async function genereerLesprofielWizardPreview() {
-  leesLesprofielWizardStap2();
+  leesLesprofielWizardStap3();
   const acties = document.querySelector('.modal-actions');
   if (acties) acties.insertAdjacentHTML('beforebegin', '<div id="lpw-loading" class="alert alert-info" style="margin-top:12px">Lesprofiel wordt gegenereerd...</div>');
   try {
     const res = await API.genereerLesprofielWizard(lesprofielWizardState.data);
     lesprofielWizardState.preview = res.profiel;
     lesprofielWizardState.warning = res.warning || '';
-    lesprofielWizardState.step = 3;
+    lesprofielWizardState.step = 4;
     await renderLesprofielWizard();
   } catch (e) { document.getElementById('lpw-loading')?.remove(); alert(e.message); }
 }
@@ -343,7 +402,6 @@ async function renderLesprofielen() {
         <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
           <a href="/api/lesprofiel-template" class="btn btn-sm" download>⬇ Template</a>
           <button class="btn btn-sm" onclick="openImportModal()">↑ Importeren</button>
-          <button class="btn btn-sm" onclick="openSyllabusWizard()">⚡ Uit syllabus</button>
           <button class="btn btn-sm btn-primary" onclick="openLesprofielWizard()">+ Nieuw lesprofiel</button>
         </div>
       </div>
