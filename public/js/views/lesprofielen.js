@@ -41,6 +41,136 @@ function lpKlasPastBijProfiel(klas, profiel) {
   return lpNormalizeNiveau(klas.niveau) === profielNiveau;
 }
 
+// ============================================================
+// Nieuwe lesprofiel-wizard
+// Start altijd leeg en slaat pas op na bevestiging.
+// ============================================================
+let lesprofielWizardState = null;
+
+function resetLesprofielWizard() {
+  lesprofielWizardState = {
+    step: 1,
+    preview: null,
+    warning: '',
+    data: {
+      naam: '', vakId: '', niveau: '', aantalWeken: 8, urenPerWeek: 3, beschrijving: '',
+      aiWeekthemas: true, aiActiviteiten: true, aiBronnen: false, aiDifferentiatie: false
+    }
+  };
+}
+
+async function openLesprofielWizard() { resetLesprofielWizard(); await renderLesprofielWizard(); }
+function closeLesprofielWizard() { resetLesprofielWizard(); closeModalDirect(); }
+
+function leesLesprofielWizardStap1() {
+  if (!lesprofielWizardState) resetLesprofielWizard();
+  const d = lesprofielWizardState.data;
+  d.naam = document.getElementById('lpw-naam')?.value?.trim() || '';
+  d.vakId = document.getElementById('lpw-vak')?.value || '';
+  d.niveau = document.getElementById('lpw-niveau')?.value || '';
+  d.aantalWeken = Number(document.getElementById('lpw-weken')?.value || 0);
+  d.urenPerWeek = Number(document.getElementById('lpw-uren')?.value || 0);
+  d.beschrijving = document.getElementById('lpw-beschrijving')?.value?.trim() || '';
+}
+
+function leesLesprofielWizardStap2() {
+  if (!lesprofielWizardState) resetLesprofielWizard();
+  const d = lesprofielWizardState.data;
+  d.aiWeekthemas = !!document.getElementById('lpw-ai-weekthemas')?.checked;
+  d.aiActiviteiten = !!document.getElementById('lpw-ai-activiteiten')?.checked;
+  d.aiBronnen = !!document.getElementById('lpw-ai-bronnen')?.checked;
+  d.aiDifferentiatie = !!document.getElementById('lpw-ai-differentiatie')?.checked;
+}
+
+async function renderLesprofielWizard() {
+  if (!lesprofielWizardState) resetLesprofielWizard();
+  const vakken = await API.getVakken();
+  const d = lesprofielWizardState.data;
+  const step = lesprofielWizardState.step;
+  const progress = Math.round((step / 3) * 100);
+
+  const stap1 = `
+    <div class="form-grid">
+      <div class="form-field form-full"><label>Naam lesprofiel *</label><input id="lpw-naam" value="${escHtml(d.naam)}" placeholder="bijv. Elektronisch dobbelspel havo 2"></div>
+      <div class="form-field"><label>Vak *</label><select id="lpw-vak"><option value="">Kies vak</option>${vakken.map(v => `<option value="${v.id}" ${String(d.vakId) === String(v.id) ? 'selected' : ''}>${escHtml(v.naam)}</option>`).join('')}</select></div>
+      <div class="form-field"><label>Niveau</label><select id="lpw-niveau">${['', 'BB', 'KB', 'GL', 'TL', 'Havo', 'VWO'].map(n => `<option value="${n}" ${d.niveau === n ? 'selected' : ''}>${n || 'Alle niveaus'}</option>`).join('')}</select></div>
+      <div class="form-field"><label>Aantal weken *</label><input id="lpw-weken" type="number" min="1" max="40" value="${escHtml(d.aantalWeken)}"></div>
+      <div class="form-field"><label>Uren per week *</label><input id="lpw-uren" type="number" min="1" max="20" value="${escHtml(d.urenPerWeek)}"></div>
+      <div class="form-field form-full"><label>Beschrijving / onderwerp *</label><textarea id="lpw-beschrijving" rows="5" placeholder="Beschrijf kort wat leerlingen moeten leren en maken.">${escHtml(d.beschrijving)}</textarea></div>
+    </div>`;
+
+  const stap2 = `
+    <div class="alert alert-info" style="margin-bottom:16px">Kies wat AI mag invullen. Daarna maak je eerst een voorbeeld; er wordt nog niets opgeslagen.</div>
+    <div class="form-grid">
+      ${[
+        ['lpw-ai-weekthemas','aiWeekthemas','AI weekthema’s laten maken','Per week een logisch thema op basis van onderwerp, niveau en duur.'],
+        ['lpw-ai-activiteiten','aiActiviteiten','AI activiteiten laten maken','Theorie, praktijk, toetsmomenten en presentaties verdelen over de weken.'],
+        ['lpw-ai-bronnen','aiBronnen','AI bronnen/materialen laten toevoegen','Suggesties toevoegen voor bronnen, werkbladen, video of practicum.'],
+        ['lpw-ai-differentiatie','aiDifferentiatie','AI differentiatie laten toevoegen','Extra steun/verdieping verwerken in de activiteiten.']
+      ].map(([id,key,title,sub]) => `<label class="form-field form-full" style="display:flex;gap:10px;align-items:flex-start;cursor:pointer"><input id="${id}" type="checkbox" ${d[key] ? 'checked' : ''} style="width:auto;margin-top:3px"><span><strong>${title}</strong><br><small style="color:var(--ink-muted)">${sub}</small></span></label>`).join('')}
+    </div>`;
+
+  const preview = lesprofielWizardState.preview;
+  const stap3 = preview ? `
+    ${lesprofielWizardState.warning ? `<div class="alert" style="background:var(--amber-light);color:var(--amber);margin-bottom:12px">${escHtml(lesprofielWizardState.warning)}</div>` : ''}
+    <div class="alert alert-success" style="margin-bottom:16px">Voorbeeld is gemaakt. Kies <strong>Opslaan</strong> om het lesprofiel echt aan te maken.</div>
+    <div class="card" style="margin-bottom:12px;padding:16px"><h3 style="margin-top:0">${escHtml(preview.naam)}</h3><div style="font-size:13px;color:var(--ink-muted);margin-bottom:8px">${escHtml(preview.niveau || 'Alle niveaus')} · ${preview.aantalWeken} weken · ${preview.urenPerWeek} uur/week</div><div style="font-size:13px">${escHtml(preview.beschrijving || '')}</div></div>
+    <div style="max-height:360px;overflow:auto;border:1px solid var(--border);border-radius:12px;background:#fff">
+      ${(preview.weken || []).map((w, i) => `<div style="padding:12px 14px;border-bottom:1px solid var(--border)"><strong>Week ${i + 1}: ${escHtml(w.thema || '')}</strong><ul style="margin:8px 0 0 18px;padding:0;font-size:13px">${(w.activiteiten || []).map(a => `<li><strong>${escHtml(a.type || 'Activiteit')}</strong> · ${escHtml(a.uren || '')} uur · ${escHtml(a.omschrijving || '')}${a.syllabus ? ` <span style="color:var(--ink-muted)">(${escHtml(a.syllabus)})</span>` : ''}</li>`).join('')}</ul></div>`).join('')}
+    </div>` : `<div class="alert alert-info">Klik op <strong>Voorbeeld genereren</strong>. Er wordt nog niets opgeslagen.</div>`;
+
+  const body = step === 1 ? stap1 : step === 2 ? stap2 : stap3;
+  const backBtn = step > 1 ? '<button class="btn" onclick="vorigeLesprofielWizardStap()">Terug</button>' : '';
+  const nextBtn = step === 1 ? '<button class="btn btn-primary" onclick="volgendeLesprofielWizardStap()">Volgende</button>' : '';
+  const generateBtn = step === 2 ? '<button class="btn btn-primary" onclick="genereerLesprofielWizardPreview()">Voorbeeld genereren</button>' : '';
+  const saveBtn = step === 3 && preview ? '<button class="btn btn-primary" onclick="slaLesprofielWizardOp()">Opslaan</button>' : '';
+  const closeText = step === 3 && preview ? 'Afsluiten zonder opslaan' : 'Sluiten';
+
+  openModal(`<h2>Nieuw lesprofiel maken</h2><p class="modal-sub">Wizard voor een nieuw lesprofiel. De wizard start altijd leeg en slaat pas op na jouw keuze.</p><div style="height:8px;background:#E7E1D7;border-radius:999px;margin-bottom:18px;overflow:hidden"><div style="height:100%;width:${progress}%;background:var(--accent);border-radius:999px"></div></div><div style="font-size:12px;color:var(--ink-muted);margin-bottom:12px">Stap ${step} van 3</div>${body}<div class="modal-actions"><button class="btn" onclick="closeLesprofielWizard()">${closeText}</button>${backBtn}${nextBtn}${generateBtn}${saveBtn}</div>`);
+}
+
+async function volgendeLesprofielWizardStap() {
+  leesLesprofielWizardStap1();
+  const d = lesprofielWizardState.data;
+  if (!d.naam || !d.vakId || !d.beschrijving) { alert('Vul naam, vak en beschrijving in.'); return; }
+  if (!d.aantalWeken || d.aantalWeken < 1 || d.aantalWeken > 40) { alert('Aantal weken moet tussen 1 en 40 zijn.'); return; }
+  if (!d.urenPerWeek || d.urenPerWeek < 1) { alert('Uren per week is verplicht.'); return; }
+  lesprofielWizardState.step = 2;
+  await renderLesprofielWizard();
+}
+
+async function vorigeLesprofielWizardStap() {
+  if (!lesprofielWizardState) resetLesprofielWizard();
+  if (lesprofielWizardState.step === 2) leesLesprofielWizardStap2();
+  lesprofielWizardState.step = Math.max(1, lesprofielWizardState.step - 1);
+  await renderLesprofielWizard();
+}
+
+async function genereerLesprofielWizardPreview() {
+  leesLesprofielWizardStap2();
+  const acties = document.querySelector('.modal-actions');
+  if (acties) acties.insertAdjacentHTML('beforebegin', '<div id="lpw-loading" class="alert alert-info" style="margin-top:12px">Lesprofiel wordt gegenereerd...</div>');
+  try {
+    const res = await API.genereerLesprofielWizard(lesprofielWizardState.data);
+    lesprofielWizardState.preview = res.profiel;
+    lesprofielWizardState.warning = res.warning || '';
+    lesprofielWizardState.step = 3;
+    await renderLesprofielWizard();
+  } catch (e) { document.getElementById('lpw-loading')?.remove(); alert(e.message); }
+}
+
+async function slaLesprofielWizardOp() {
+  const p = lesprofielWizardState?.preview;
+  if (!p) return;
+  try {
+    const r = await API.addLesprofiel({ naam: p.naam, vakId: p.vakId, niveau: p.niveau || '', aantalWeken: p.aantalWeken, urenPerWeek: p.urenPerWeek, beschrijving: p.beschrijving || '', weken: p.weken || [] });
+    Cache.invalidateAll();
+    closeLesprofielWizard();
+    await renderLesprofielen();
+    openProfielDetail(r.id);
+  } catch (e) { showError(e.message); }
+}
+
 
 function openSyllabusWizard() {
   syllabusWizardState.uploadToken = '';
@@ -214,14 +344,14 @@ async function renderLesprofielen() {
           <a href="/api/lesprofiel-template" class="btn btn-sm" download>⬇ Template</a>
           <button class="btn btn-sm" onclick="openImportModal()">↑ Importeren</button>
           <button class="btn btn-sm" onclick="openSyllabusWizard()">⚡ Uit syllabus</button>
-          <button class="btn btn-sm btn-primary" onclick="openProfielModal()">+ Nieuw lesprofiel</button>
+          <button class="btn btn-sm btn-primary" onclick="openLesprofielWizard()">+ Nieuw lesprofiel</button>
         </div>
       </div>
       <div class="alert alert-info" style="margin-bottom:20px">
         Een lesprofiel is een blok van meerdere weken met activiteiten per week. Koppel het aan een startweek in de jaarplanning om het automatisch in te vullen.
       </div>
       ${profielen.length === 0
-        ? `<div class="card"><div class="empty-state"><h3>Nog geen lesprofielen</h3><button class="btn btn-primary" onclick="openProfielModal()">Eerste lesprofiel aanmaken</button></div></div>`
+        ? `<div class="card"><div class="empty-state"><h3>Nog geen lesprofielen</h3><button class="btn btn-primary" onclick="openLesprofielWizard()">Eerste lesprofiel aanmaken</button></div></div>`
         : vakken.map(vak => {
             const vp = perVak[vak.id] || [];
             if (!vp.length) return '';
