@@ -951,6 +951,10 @@ async function openToetsUpload() {
         <input id="ts-vak" placeholder="bijv. Aardrijkskunde" value="">
       </div>
       <div class="form-field">
+        <label>Hoofdstuk / onderwerp</label>
+        <input id="ts-hoofdstuk" placeholder="bijv. Hoofdstuk 3 – Klimaat" value="">
+      </div>
+      <div class="form-field">
         <label>Niveau</label>
         <input id="ts-niveau" placeholder="bijv. VMBO-GL en TL" value="VMBO-GL en TL">
       </div>
@@ -976,7 +980,8 @@ async function openToetsUpload() {
     <div class="modal-actions">
       <button class="btn" onclick="openToetsGenerator()">← Terug</button>
       ${Auth.isAdmin() ? `<button class="btn" onclick="closeModalDirect();openInstellingenModal()">⚙️ Instellingen</button>` : ''}
-      <button class="btn btn-primary" onclick="doGenererenToets()">📝 Genereren</button>
+      <button class="btn" onclick="doGenererenToets()">📝 Direct genereren</button>
+      <button class="btn btn-primary" onclick="doAnalyseToets()">🔍 Analyseren &amp; bewerken</button>
     </div>
   `);
 }
@@ -1029,6 +1034,46 @@ async function doGenererenToets() {
   }
 }
 
+async function doAnalyseToets() {
+  const bestandInput = document.getElementById('ts-bestand');
+  const vak = document.getElementById('ts-vak')?.value.trim() || '';
+  const niveau = document.getElementById('ts-niveau')?.value.trim() || 'VMBO-GL en TL';
+  const hoofdstuk = document.getElementById('ts-hoofdstuk')?.value.trim() || '';
+  const aantalVragen = document.getElementById('ts-vragen').value;
+  const result = document.getElementById('ts-result');
+
+  if (!bestandInput.files[0]) { result.innerHTML = `<span style="color:var(--red)">Kies eerst een bestand.</span>`; return; }
+  if (!vak) { result.innerHTML = `<span style="color:var(--red)">Vul het vak in.</span>`; return; }
+  result.innerHTML = `<span style="color:var(--amber)">⏳ AI analyseert lesmateriaal... (20-40 sec)</span>`;
+
+  const fd = new FormData();
+  fd.append('bestand', bestandInput.files[0]);
+  fd.append('documentSoort', document.getElementById('ts-docsoort')?.value || 'Toets');
+  fd.append('vak', vak);
+  fd.append('niveau', niveau);
+  fd.append('hoofdstuk', hoofdstuk);
+  fd.append('aantalVragen', aantalVragen);
+
+  try {
+    const res = await fetch('/api/analyse-toets', { method: 'POST', body: fd });
+    const json = await res.json();
+    if (!json.success) throw new Error(json.error || 'Onbekende fout');
+
+    // Laad resultaat in wizard
+    Object.assign(_toetsWizard.data, json.data);
+    _toetsWizard.stap = 1;
+    _twAiAdvies = {};
+    closeModalDirect();
+    renderToetsWizardStap();
+  } catch (e) {
+    const msg = e.message || '';
+    const isQuota = msg.includes('AI_QUOTA') || msg.includes('429') || msg.includes('quota');
+    result.innerHTML = isQuota
+      ? `<div style="padding:12px;background:#FEF3C7;border:1px solid #D97706;border-radius:6px;font-size:13px;color:#92400E">AI quota bereikt. Probeer het later of kies Nieuw aanmaken.</div>`
+      : `<span style="color:var(--red)">Fout: ${escHtml(msg)}</span>`;
+  }
+}
+
 // ============================================================
 // TOETS WIZARD — handmatig aanmaken (5 stappen)
 // ============================================================
@@ -1036,11 +1081,12 @@ const _toetsWizard = {
   stap: 1,
   data: {
     documentSoort: 'Toets', vak: '', niveauLabel: 'VMBO-GL en TL', jaar: new Date().getFullYear().toString(),
+    hoofdstuk: '',
     tijdvak: 'tijdvak 1', datum: '', tijd: '13.30 - 15.30 uur',
     code: '', aantalPaginas: '',
     secties: [{
       titel: '',
-      bronnen: [{ nummer: 1, ondertitel: '', tekst: '' }],
+      bronnen: [{ nummer: 1, ondertitel: '', tekst: '', figuurBase64: null, figuurType: null }],
       vragen: [
         { type: 'open', punten: 1, context: 'Lees bron 1.', vraag: '', antwoordRegels: 3 },
         { type: 'meerkeuze', punten: 1, context: 'Bekijk bron 1.', vraag: '', opties: [
@@ -1051,6 +1097,7 @@ const _toetsWizard = {
     }]
   }
 };
+let _twAiAdvies = {};
 
 function openToetsWizard() {
   _toetsWizard.stap = 1;
@@ -1080,6 +1127,10 @@ function renderToetsWizardStap() {
         <div class="form-field">
           <label>Vak *</label>
           <input id="tw-vak" placeholder="bijv. Aardrijkskunde" value="${escHtml(_toetsWizard.data.vak)}">
+        </div>
+        <div class="form-field">
+          <label>Hoofdstuk / onderwerp</label>
+          <input id="tw-hoofdstuk" placeholder="bijv. Hoofdstuk 3 – Klimaat" value="${escHtml(_toetsWizard.data.hoofdstuk||'')}">
         </div>
         <div class="form-field">
           <label>Niveau</label>
@@ -1130,6 +1181,16 @@ function renderToetsWizardStap() {
               <label style="font-size:12px">Brontekst (gebruik Enter voor nieuwe regels)</label>
               <textarea id="tw-bron-tekst-${si}-${bi}" rows="4" style="width:100%;padding:8px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:12px;resize:vertical">${escHtml(bron.tekst)}</textarea>
             </div>
+            <div class="form-field" style="margin-bottom:0">
+              <label style="font-size:12px">Figuur / afbeelding (optioneel)</label>
+              ${bron.figuurBase64
+                ? `<div style="display:flex;align-items:center;gap:10px;margin-top:4px">
+                     <img src="${bron.figuurBase64}" style="max-height:60px;max-width:120px;border:1px solid var(--border);border-radius:4px" alt="figuur">
+                     <button onclick="twVerwijderFiguur(${si},${bi})" style="font-size:12px;color:var(--red);border:none;background:none;cursor:pointer">Verwijder figuur</button>
+                   </div>`
+                : `<input type="file" accept="image/*" style="font-size:12px" onchange="twLaadFiguur(${si},${bi},this)">`
+              }
+            </div>
           </div>
         `).join('')}
         <button class="btn btn-sm" onclick="twVoegBronToe(${si})">+ Bron toevoegen</button>
@@ -1153,13 +1214,20 @@ function renderToetsWizardStap() {
                 <option value="meerkeuze" ${v.type==='meerkeuze'?'selected':''}>Meerkeuze</option>
               </select>
               <select id="tw-v-punten-${si}-${vi}" style="font-size:12px;padding:4px 8px">
-                <option value="1" ${(v.punten||1)===1?'selected':''}>1 punt</option>
-                <option value="2" ${(v.punten||1)===2?'selected':''}>2 punten</option>
+                ${[1,2,3,4,5,6].map(n => `<option value="${n}" ${(v.punten||1)===n?'selected':''}>${n} punt${n>1?'en':''}</option>`).join('')}
               </select>
               <input id="tw-v-ctx-${si}-${vi}" value="${escHtml(v.context||'')}" placeholder="bijv. Lees bron 1." style="flex:1;min-width:120px;font-size:12px;padding:4px 8px;border:1px solid var(--border);border-radius:4px">
               ${sectie.vragen.length > 1 ? `<button onclick="twVerwijderVraag(${si},${vi})" style="color:var(--red);border:none;background:none;cursor:pointer;font-size:14px">✕</button>` : ''}
             </div>
             <textarea id="tw-v-vraag-${si}-${vi}" rows="2" placeholder="${v.type==='meerkeuze'?'Vraagstelling (bijv. Welke uitspraak is juist?)':'Vraagstelling hier invullen...'}" style="width:100%;padding:8px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:12px;resize:vertical;margin-bottom:6px">${escHtml(v.vraag||'')}</textarea>
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+              <button onclick="twAiAdviseerVraag(${si},${vi})" class="btn btn-sm" style="font-size:11px">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2a10 10 0 1 0 10 10"/><path d="M12 8v4l3 3"/></svg>
+                AI-advies
+              </button>
+              <span id="tw-ai-status-${si}-${vi}" style="font-size:11px;color:var(--ink-muted)"></span>
+            </div>
+            <div id="tw-ai-advies-${si}-${vi}" style="display:none;background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px;margin-bottom:8px;font-size:12px"></div>
             ${v.type === 'meerkeuze' ? `
               <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
                 ${(v.opties||[{letter:'A',tekst:''},{letter:'B',tekst:''},{letter:'C',tekst:''},{letter:'D',tekst:''}]).map((opt,oi) => `
@@ -1244,6 +1312,7 @@ function twSlaOp() {
   if (s === 1) {
     _toetsWizard.data.documentSoort = document.getElementById('tw-docsoort')?.value || 'Toets';
     _toetsWizard.data.vak = document.getElementById('tw-vak')?.value.trim() || '';
+    _toetsWizard.data.hoofdstuk = document.getElementById('tw-hoofdstuk')?.value.trim() || '';
     _toetsWizard.data.niveauLabel = document.getElementById('tw-niveau')?.value.trim() || '';
     _toetsWizard.data.jaar = document.getElementById('tw-jaar')?.value.trim() || '';
     _toetsWizard.data.datum = document.getElementById('tw-datum')?.value.trim() || '';
@@ -1290,7 +1359,7 @@ function twWijzigVraagType(si, vi, type) {
 function twVoegBronToe(si) {
   twSlaOp();
   const sectie = _toetsWizard.data.secties[si];
-  sectie.bronnen.push({ nummer: sectie.bronnen.length + 1, ondertitel: '', tekst: '' });
+  sectie.bronnen.push({ nummer: sectie.bronnen.length + 1, ondertitel: '', tekst: '', figuurBase64: null, figuurType: null });
   renderToetsWizardStap();
 }
 function twVerwijderBron(si, bi) {
@@ -1303,7 +1372,7 @@ function twVoegSectieToe() {
   twSlaOp();
   const n = _toetsWizard.data.secties.reduce((t, s) => t + s.bronnen.length, 0);
   _toetsWizard.data.secties.push({
-    titel: '', bronnen: [{ nummer: n + 1, ondertitel: '', tekst: '' }],
+    titel: '', bronnen: [{ nummer: n + 1, ondertitel: '', tekst: '', figuurBase64: null, figuurType: null }],
     vragen: [{ type: 'open', punten: 1, context: '', vraag: '', antwoordRegels: 3 }]
   });
   renderToetsWizardStap();
@@ -1319,6 +1388,104 @@ function twVerwijderVraag(si, vi) {
   twSlaOp();
   _toetsWizard.data.secties[si].vragen.splice(vi, 1);
   renderToetsWizardStap();
+}
+
+function twLaadFiguur(si, bi, input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    twSlaOp();
+    _toetsWizard.data.secties[si].bronnen[bi].figuurBase64 = e.target.result;
+    _toetsWizard.data.secties[si].bronnen[bi].figuurType = file.type;
+    renderToetsWizardStap();
+  };
+  reader.readAsDataURL(file);
+}
+
+function twVerwijderFiguur(si, bi) {
+  twSlaOp();
+  _toetsWizard.data.secties[si].bronnen[bi].figuurBase64 = null;
+  _toetsWizard.data.secties[si].bronnen[bi].figuurType = null;
+  renderToetsWizardStap();
+}
+
+async function twAiAdviseerVraag(si, vi) {
+  twSlaOp();
+  const statusEl = document.getElementById(`tw-ai-status-${si}-${vi}`);
+  const adviesEl = document.getElementById(`tw-ai-advies-${si}-${vi}`);
+  if (!statusEl || !adviesEl) return;
+
+  const v = _toetsWizard.data.secties[si]?.vragen[vi];
+  if (!v || !v.vraag.trim()) {
+    statusEl.textContent = 'Vul eerst een vraagstelling in.';
+    return;
+  }
+
+  statusEl.textContent = '⏳ AI advies laden...';
+  adviesEl.style.display = 'none';
+
+  const ctx = {
+    vak: _toetsWizard.data.vak,
+    niveau: _toetsWizard.data.niveauLabel,
+    hoofdstuk: _toetsWizard.data.hoofdstuk,
+    vraagType: v.type,
+    punten: v.punten,
+    context: v.context,
+    vraag: v.vraag,
+    opties: v.opties || null,
+    antwoordRegels: v.antwoordRegels || null,
+  };
+
+  try {
+    const res = await fetch('/api/ai/wizard-stap', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({
+        type: 'toets-vraag',
+        stapId: `vraag-${si}-${vi}`,
+        systeemPrompt: `Je bent een ervaren docent die toetsvragen beoordeelt en verbetert voor ${_toetsWizard.data.vak || 'het vak'} op ${_toetsWizard.data.niveauLabel || 'VMBO'}-niveau. Geef concreet advies om de vraag te verbeteren: taalfouten, duidelijkheid, niveau-aansluiting. Geef ook een verbeterde versie van de vraag.`,
+        userPrompt: `Beoordeel deze toetsvraag en geef verbeteradvies:\n\n${JSON.stringify(ctx, null, 2)}`,
+        context: ctx,
+      }),
+    });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+
+    _twAiAdvies[`${si}-${vi}`] = data.suggestie;
+    const sug = data.suggestie;
+    const adviesTekst = sug.advies || sug.feedback || sug.verbetering || JSON.stringify(sug);
+    const verbeterd = sug.vraag || sug.verbeterdVraag || null;
+
+    adviesEl.innerHTML = `
+      <div style="font-weight:600;margin-bottom:4px;color:var(--accent)">AI-advies:</div>
+      <div style="margin-bottom:8px">${escHtml(adviesTekst)}</div>
+      ${verbeterd ? `
+        <div style="font-weight:600;margin-bottom:4px">Verbeterde vraag:</div>
+        <div style="background:var(--surface);border:1px solid var(--border-2);border-radius:4px;padding:8px;margin-bottom:8px;font-style:italic">${escHtml(verbeterd)}</div>
+        <button onclick="twNeemAdviesOver(${si},${vi})" class="btn btn-sm btn-primary" style="font-size:11px">Advies overnemen</button>
+      ` : ''}
+    `;
+    adviesEl.style.display = 'block';
+    statusEl.textContent = '✓ AI-advies klaar';
+  } catch (e) {
+    statusEl.textContent = 'AI kon geen advies genereren.';
+    console.warn('AI vraag advies fout:', e.message);
+  }
+}
+
+function twNeemAdviesOver(si, vi) {
+  const sug = _twAiAdvies[`${si}-${vi}`];
+  if (!sug) return;
+  const verbeterd = sug.vraag || sug.verbeterdVraag;
+  if (!verbeterd) return;
+  const el = document.getElementById(`tw-v-vraag-${si}-${vi}`);
+  if (el) { el.value = verbeterd; _toetsWizard.data.secties[si].vragen[vi].vraag = verbeterd; }
+  const adviesEl = document.getElementById(`tw-ai-advies-${si}-${vi}`);
+  if (adviesEl) adviesEl.style.display = 'none';
+  const statusEl = document.getElementById(`tw-ai-status-${si}-${vi}`);
+  if (statusEl) statusEl.textContent = '✓ Overgenomen';
 }
 
 async function twGenereer() {
