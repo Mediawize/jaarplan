@@ -618,6 +618,52 @@ app.get('/api/instellingen', requireAuth, (req, res) => {
   res.json({ schoolnaam, logoBestand });
 });
 
+// ── AI Wizard endpoints ────────────────────────────────────
+app.post('/api/ai/wizard-stap', requireAuth, async (req, res) => {
+  try {
+    const { type, stapId, systeemPrompt, userPrompt, context } = req.body;
+    if (!type || !stapId) return res.status(400).json({ error: 'type en stapId zijn verplicht' });
+
+    const voorkeuren = db.getAiVoorkeuren(type, stapId);
+    let fewShotText = '';
+    if (voorkeuren.length > 0) {
+      fewShotText = '\n\nEERDERE KEUZES VAN DEZE DOCENT (leer hiervan en pas stijl aan):\n';
+      voorkeuren.forEach(v => {
+        try {
+          fewShotText += `Context: ${v.invoer || '{}'}\nGekozen resultaat: ${v.resultaat || '{}'}\n\n`;
+        } catch (_) {}
+      });
+    }
+
+    const data = await chatJson({
+      system: (systeemPrompt || '') + fewShotText,
+      user: userPrompt || JSON.stringify(context || {}),
+      maxTokens: 1200,
+      temperature: 0.3,
+    });
+
+    res.json({ suggestie: data });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/api/ai/wizard-voorkeur', requireAuth, (req, res) => {
+  try {
+    const { type, stapId, invoer, resultaat } = req.body;
+    if (!type || !stapId) return res.status(400).json({ error: 'type en stapId zijn verplicht' });
+    db.addAiVoorkeur({
+      type,
+      stapId,
+      invoer: typeof invoer === 'string' ? invoer : JSON.stringify(invoer || {}),
+      resultaat: typeof resultaat === 'string' ? resultaat : JSON.stringify(resultaat || {}),
+    });
+    res.json({ success: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.post('/api/admin/cleanup-profielen', requireAdmin, (req, res) => {
   const raw = db.db;
   const lbR = raw.prepare("DELETE FROM lesbrieven WHERE profielId NOT IN (SELECT id FROM lesprofielen)").run();
