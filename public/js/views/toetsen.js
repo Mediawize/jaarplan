@@ -437,10 +437,10 @@ async function doGenererenWerkboekje() {
     const isQuota = msg.includes('429') || msg.includes('quota') || msg.includes('insufficient');
     if (isQuota) {
       result.innerHTML = `<div style="padding:12px;background:#FEF3C7;border:1px solid #D97706;border-radius:6px;font-size:13px;color:#92400E">
-        AI quota bereikt. Je OpenAI tegoed is op.<br>
+        Claude AI is tijdelijk niet beschikbaar (limiet bereikt).<br>
         <span style="font-size:12px;margin-top:6px;display:block">
-          Klik op Terug en kies Nieuw aanmaken om zonder AI een werkboekje te maken,
-          of verleng je tegoed via platform.openai.com.
+          Klik op Terug en kies Nieuw aanmaken om handmatig een werkboekje te maken,
+          of probeer het over enkele minuten opnieuw.
         </span>
       </div>`;
     } else {
@@ -452,16 +452,15 @@ async function doGenererenWerkboekje() {
 // ============================================================
 // NIEUW WERKBOEKJE — STAPPEN-WIZARD (zonder AI)
 // ============================================================
-const _wbWizard = {
-  stap: 1,
-  data: {
+function _wbWizardDefaults() {
+  return {
     vak: '', profieldeel: '', opdrachtnummer: '1', duur: '',
     titel: '', leerdoelen: ['', '', ''],
     introductie: '',
     veiligheidsregels: ['Je werkpak en werkschoenen aantrekken.', 'Loshangende kleding is verboden.', 'Losse haren in een staart of knot.', 'Gehoorbescherming is verplicht bij machines.'],
     materiaalstaat: [
-      { nummer: 1, benaming: '', lengte: '', breedte: '', dikte: '18', soortHout: 'Multiplex' },
-      { nummer: 2, benaming: '', lengte: '', breedte: '', dikte: '18', soortHout: 'Multiplex' },
+      { nummer: 1, aantal: '', benaming: '', lengte: '', breedte: '', dikte: '18', soortHout: 'Multiplex' },
+      { nummer: 2, aantal: '', benaming: '', lengte: '', breedte: '', dikte: '18', soortHout: 'Multiplex' },
     ],
     machines: ['', ''],
     secties: [
@@ -471,11 +470,17 @@ const _wbWizard = {
         { stap: '', type: 'foto', afbeeldingBase64: null, afbeeldingType: null }
       ]}
     ]
-  }
+  };
+}
+
+const _wbWizard = {
+  stap: 1,
+  data: _wbWizardDefaults()
 };
 
 function openWerkboekjeWizard() {
   _wbWizard.stap = 1;
+  _wbWizard.data = _wbWizardDefaults();
   renderWizardStap();
 }
 
@@ -538,6 +543,7 @@ function renderWizardStap() {
             <thead>
               <tr style="background:var(--surface-2)">
                 <th style="padding:6px 8px;text-align:left;font-size:12px;border:1px solid var(--border)">Nr.</th>
+                <th style="padding:6px 8px;text-align:left;font-size:12px;border:1px solid var(--border)">Aantal</th>
                 <th style="padding:6px 8px;text-align:left;font-size:12px;border:1px solid var(--border)">Benaming</th>
                 <th style="padding:6px 8px;text-align:left;font-size:12px;border:1px solid var(--border)">Lengte</th>
                 <th style="padding:6px 8px;text-align:left;font-size:12px;border:1px solid var(--border)">Breedte</th>
@@ -550,6 +556,7 @@ function renderWizardStap() {
               ${_wbWizard.data.materiaalstaat.map((r, i) => `
                 <tr>
                   <td style="padding:4px 6px;border:1px solid var(--border);font-size:12px;color:var(--ink-muted)">${r.nummer}</td>
+                  <td style="padding:2px 4px;border:1px solid var(--border)"><input id="wz-mat-ant-${i}" value="${escHtml(r.aantal||'')}" placeholder="st." style="width:40px;border:none;font-size:13px;background:transparent"></td>
                   <td style="padding:2px 4px;border:1px solid var(--border)"><input id="wz-mat-ben-${i}" value="${escHtml(r.benaming)}" placeholder="Naam onderdeel" style="width:100%;border:none;font-size:13px;background:transparent"></td>
                   <td style="padding:2px 4px;border:1px solid var(--border)"><input id="wz-mat-len-${i}" value="${escHtml(r.lengte)}" placeholder="mm" style="width:60px;border:none;font-size:13px;background:transparent"></td>
                   <td style="padding:2px 4px;border:1px solid var(--border)"><input id="wz-mat-br-${i}" value="${escHtml(r.breedte)}" placeholder="mm" style="width:60px;border:none;font-size:13px;background:transparent"></td>
@@ -734,6 +741,7 @@ function wizardSlaStapOp() {
   } else if (s === 3) {
     _wbWizard.data.materiaalstaat = _wbWizard.data.materiaalstaat.map((r, i) => ({
       nummer: r.nummer,
+      aantal: document.getElementById(`wz-mat-ant-${i}`)?.value.trim() || '',
       benaming: document.getElementById(`wz-mat-ben-${i}`)?.value.trim() || '',
       lengte: document.getElementById(`wz-mat-len-${i}`)?.value.trim() || '',
       breedte: document.getElementById(`wz-mat-br-${i}`)?.value.trim() || '',
@@ -771,7 +779,7 @@ function wizardVoegDoelToe() {
 function wizardVoegMateriaalToe() {
   wizardSlaStapOp();
   const n = _wbWizard.data.materiaalstaat.length + 1;
-  _wbWizard.data.materiaalstaat.push({ nummer: n, benaming: '', lengte: '', breedte: '', dikte: '18', soortHout: 'Multiplex' });
+  _wbWizard.data.materiaalstaat.push({ nummer: n, aantal: '', benaming: '', lengte: '', breedte: '', dikte: '18', soortHout: 'Multiplex' });
   renderWizardStap();
 }
 function wizardVerwijderMateriaal(i) {

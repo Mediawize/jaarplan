@@ -1370,7 +1370,7 @@ async function bouwWerkboekjeDocxVast({ schoolnaam, logoBestand, data }) {
     k.push(new Paragraph({ spacing: { before: 100, after: 0 }, children: [] }));
     const kolW = [540, 580, 2200, 1080, 1080, 900, 3200];
     const kopRij = new TableRow({ tableHeader: true, children: ['Nr.','Aantal','Benaming','Lengte','Breedte','Dikte','Soort hout'].map((t, i) => new TableCell({ borders: { top: RAND, bottom: RAND, left: RAND, right: RAND }, shading: { fill: GROEN_DIM, type: ShadingType.CLEAR }, margins: { top: 60, bottom: 60, left: 80, right: 80 }, width: { size: kolW[i], type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: t, font: 'Arial', size: 20, bold: true, color: GROEN })] })] })) });
-    const dataRijen = data.materiaalstaat.map(r => new TableRow({ children: [String(r.nummer||''), '', String(r.benaming||''), String(r.lengte||''), String(r.breedte||''), String(r.dikte||''), String(r.soortHout||'')].map((cel, i) => new TableCell({ borders: { top: RAND_DUN, bottom: RAND_DUN, left: RAND_DUN, right: RAND_DUN }, margins: { top: 60, bottom: 60, left: 80, right: 80 }, width: { size: kolW[i], type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: cel, font: 'Arial', size: 20, color: TEKST })] })] })) }));
+    const dataRijen = data.materiaalstaat.map(r => new TableRow({ children: [String(r.nummer||''), String(r.aantal||''), String(r.benaming||''), String(r.lengte||''), String(r.breedte||''), String(r.dikte||''), String(r.soortHout||'')].map((cel, i) => new TableCell({ borders: { top: RAND_DUN, bottom: RAND_DUN, left: RAND_DUN, right: RAND_DUN }, margins: { top: 60, bottom: 60, left: 80, right: 80 }, width: { size: kolW[i], type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: cel, font: 'Arial', size: 20, color: TEKST })] })] })) }));
     k.push(new Table({ width: { size: 9580, type: WidthType.DXA }, columnWidths: kolW, rows: [kopRij, ...dataRijen] }));
     k.push(new Paragraph({ spacing: { before: 360, after: 0 }, children: [] }));
   }
@@ -1396,7 +1396,8 @@ async function bouwWerkboekjeDocxVast({ schoolnaam, logoBestand, data }) {
     k.push(new Paragraph({ spacing: { before: 300, after: 0 }, children: [] }));
   }
 
-  k.push(balkTabel('Stappenplan'));
+  const heeftStappen = (data.secties || []).some(s => (s.stappen || []).length > 0);
+  if (heeftStappen) k.push(balkTabel('Stappenplan'));
   for (const [i, sectie] of (data.secties || []).entries()) {
     if (sectie.titel) k.push(new Paragraph({ spacing: { before: 360, after: 140 }, border: { bottom: { style: BorderStyle.SINGLE, size: 4, color: GROEN, space: 4 } }, children: [new TextRun({ text: 'Opdracht ' + (i+1) + '  \u2014  ' + sectie.titel, font: 'Arial', size: 28, bold: true, color: GROEN })] }));
     if (sectie.benodigdheden?.length) k.push(new Paragraph({ spacing: { before: 60, after: 100 }, children: [new TextRun({ text: 'Benodigdheden:  ', font: 'Arial', size: 22, bold: true }), new TextRun({ text: sectie.benodigdheden.join('   \u00b7   '), font: 'Arial', size: 22, color: TEKST })] }));
@@ -1634,7 +1635,8 @@ app.post('/api/genereer-werkboekje-handmatig', requireCanEdit, async (req, res) 
     const logoBestand = db.getInstelling('logoBestand') || null;
     const data = req.body;
     if (!data || !data.titel) return res.status(400).json({ error: 'Titel is verplicht' });
-    data.secties = (data.secties || []).map(s => ({ ...s, stappen: (s.stappen || []).filter(p => p.stap && p.stap.trim()) })).filter(s => s.titel || s.stappen.length);
+    data.machines = (data.machines || []).filter(m => m && m.trim());
+    data.secties = (data.secties || []).map(s => ({ ...s, stappen: (s.stappen || []).filter(p => p.type === 'tekening' || (p.stap && p.stap.trim())) })).filter(s => s.titel || s.stappen.length);
     const docxBuffer = await bouwWerkboekjeDocxVast({ schoolnaam, logoBestand, data });
     const bestandsnaam = 'werkboekje_' + Date.now() + '.docx';
     fs.writeFileSync(path.join(uploadDir, bestandsnaam), docxBuffer);
