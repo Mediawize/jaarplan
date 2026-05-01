@@ -119,6 +119,7 @@ const API = {
     return this._fetchForm('/api/analyse-syllabus', formData);
   },
   async genereerLesprofielUitSyllabus(data) { return this._fetch('/api/genereer-lesprofiel-uit-syllabus', { method: 'POST', body: data }); },
+  async genereerLesprofielWizard(data) { return this._fetch('/api/genereer-lesprofiel-wizard', { method: 'POST', body: data }); },
 
   // LESBRIEVEN
   async getLesbrieven(profielId, weekIdx, actIdx) {
