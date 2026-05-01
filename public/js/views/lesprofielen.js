@@ -56,7 +56,7 @@ function resetLesprofielWizard() {
     data: {
       naam: '', vakId: '', niveau: '', aantalWeken: 8, urenPerWeek: 3, beschrijving: '',
       syllabusUploadToken: '', syllabusBestand: '', syllabusModules: [], syllabusModuleCode: '', syllabusPreview: '',
-      aiWeekthemas: true, aiActiviteiten: true, aiBronnen: false, aiDifferentiatie: false
+      aiWeekthemas: true, aiActiviteiten: true, aiBronnen: false, aiDifferentiatie: false, aiOpmerkingen: false
     }
   };
 }
@@ -67,6 +67,8 @@ function closeLesprofielWizard() { resetLesprofielWizard(); closeModalDirect(); 
 function leesLesprofielWizardStap1() {
   // Stap 1 is upload/analyse. De data wordt verwerkt in analyseerLesprofielWizardUpload().
   if (!lesprofielWizardState) resetLesprofielWizard();
+  const startOpmerkingen = document.getElementById('lpw-ai-opmerkingen-start');
+  if (startOpmerkingen) lesprofielWizardState.data.aiOpmerkingen = !!startOpmerkingen.checked;
 }
 
 function leesLesprofielWizardStap2() {
@@ -88,6 +90,7 @@ function leesLesprofielWizardStap3() {
   d.aiActiviteiten = !!document.getElementById('lpw-ai-activiteiten')?.checked;
   d.aiBronnen = !!document.getElementById('lpw-ai-bronnen')?.checked;
   d.aiDifferentiatie = !!document.getElementById('lpw-ai-differentiatie')?.checked;
+  d.aiOpmerkingen = !!document.getElementById('lpw-ai-opmerkingen')?.checked;
 }
 
 async function renderLesprofielWizard() {
@@ -109,6 +112,10 @@ async function renderLesprofielWizard() {
         ${d.syllabusModules?.length ? `<div class="alert alert-success">${d.syllabusModules.length} profielmodules gevonden. Kies in de volgende stap welke module je wilt gebruiken.</div>` : ''}
       </div>
       ${d.syllabusPreview ? `<div class="form-field form-full"><label>Analyse-preview</label><div style="max-height:120px;overflow:auto;border:1px solid var(--border);border-radius:10px;padding:10px;font-size:12px;background:#fff;color:var(--ink-muted)">${escHtml(d.syllabusPreview)}</div></div>` : ''}
+      <label class="form-field form-full" style="display:flex;gap:10px;align-items:flex-start;cursor:pointer">
+        <input id="lpw-ai-opmerkingen-start" type="checkbox" ${d.aiOpmerkingen ? 'checked' : ''} onchange="lesprofielWizardState.data.aiOpmerkingen=this.checked" style="width:auto;margin-top:3px">
+        <span><strong>AI opmerkingen/aandachtspunten laten toevoegen</strong><br><small style="color:var(--ink-muted)">AI verwerkt korte docentopmerkingen, zoals voorbereiding, veiligheid, benodigdheden of aandachtspunten. Deze keuze kun je later nog aanpassen.</small></span>
+      </label>
     </div>`;
 
   const stap2 = `
@@ -123,14 +130,15 @@ async function renderLesprofielWizard() {
     </div>`;
 
   const stap3 = `
-    <div class="alert alert-info" style="margin-bottom:16px">Kies wat AI mag invullen. Daarna maak je eerst een voorbeeld; er wordt nog niets opgeslagen.</div>
+    <div class="alert alert-info" style="margin-bottom:16px"><strong>Meerdere keuzes aanvinken mag.</strong> Elke keuze voegt iets extra's toe aan hetzelfde lesprofiel. Laat je alles uit, dan maakt de wizard alleen een eenvoudige basisindeling.</div>
     <div class="form-grid">
       ${[
-        ['lpw-ai-weekthemas','aiWeekthemas','AI weekthema’s laten maken','Per week een logisch thema op basis van onderwerp, niveau en duur.'],
-        ['lpw-ai-activiteiten','aiActiviteiten','AI activiteiten laten maken','Theorie, praktijk, toetsmomenten en presentaties verdelen over de weken.'],
-        ['lpw-ai-bronnen','aiBronnen','AI bronnen/materialen laten toevoegen','Suggesties toevoegen voor bronnen, werkbladen, video of practicum.'],
-        ['lpw-ai-differentiatie','aiDifferentiatie','AI differentiatie laten toevoegen','Extra steun/verdieping verwerken in de activiteiten.']
-      ].map(([id,key,title,sub]) => `<label class="form-field form-full" style="display:flex;gap:10px;align-items:flex-start;cursor:pointer"><input id="${id}" type="checkbox" ${d[key] ? 'checked' : ''} style="width:auto;margin-top:3px"><span><strong>${title}</strong><br><small style="color:var(--ink-muted)">${sub}</small></span></label>`).join('')}
+        ['lpw-ai-weekthemas','aiWeekthemas','1. Weekthema’s','AI maakt per week een duidelijke titel/thema. Dit is de basisstructuur.'],
+        ['lpw-ai-activiteiten','aiActiviteiten','2. Activiteiten','AI vult theorie, praktijk, toetsmomenten en presentaties per week in.'],
+        ['lpw-ai-bronnen','aiBronnen','3. Bronnen/materialen','AI noemt suggesties voor bronnen, werkbladen, video’s of practicum-materiaal.'],
+        ['lpw-ai-differentiatie','aiDifferentiatie','4. Differentiatie','AI voegt steun/verdieping toe voor verschillende niveaus.'],
+        ['lpw-ai-opmerkingen','aiOpmerkingen','5. Opmerkingen/aandachtspunten','AI verwerkt korte docentopmerkingen, voorbereiding, veiligheid of aandachtspunten.']
+      ].map(([id,key,title,sub]) => `<label class="form-field form-full" style="display:flex;gap:10px;align-items:flex-start;cursor:pointer;border:1px solid var(--border);border-radius:12px;padding:12px;background:#fff"><input id="${id}" type="checkbox" ${d[key] ? 'checked' : ''} style="width:auto;margin-top:3px"><span><strong>${title}</strong><br><small style="color:var(--ink-muted)">${sub}</small></span></label>`).join('')}
     </div>`;
 
   const preview = lesprofielWizardState.preview;
@@ -182,6 +190,7 @@ async function analyseerLesprofielWizardUpload(input) {
 async function volgendeLesprofielWizardStap() {
   if (!lesprofielWizardState) resetLesprofielWizard();
   if (lesprofielWizardState.step === 1) {
+    leesLesprofielWizardStap1();
     lesprofielWizardState.step = 2;
     await renderLesprofielWizard();
     return;
