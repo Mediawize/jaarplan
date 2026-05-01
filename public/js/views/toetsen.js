@@ -986,6 +986,41 @@ async function openToetsUpload() {
   `);
 }
 
+function twResultaatKnoppen(data, context = 'wizard') {
+  const titel = escHtml(data.titel || 'Toets');
+  const bestandsnaam = escHtml(data.bestandsnaam || '');
+  const materiaalId = escHtml(data.materiaalId || '');
+  return `
+    <div class="alert alert-info" style="background:var(--accent-dim);border:1px solid rgba(45,90,61,0.2);color:var(--accent-text)">
+      ✓ Klaar: <strong>${titel}</strong><br>
+      <a href="/uploads/${bestandsnaam}" download="${bestandsnaam}"
+         style="color:var(--accent);font-weight:600;display:inline-block;margin-top:6px">
+        Toets downloaden (.docx)
+      </a>
+      <div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;margin-top:12px">
+        <button class="btn" onclick="twSluitZonderOpslaan('${materiaalId}')">Afsluiten zonder opslaan</button>
+        <button class="btn btn-primary" onclick="twOpslaanEnSluiten('${context}')">Opslaan</button>
+      </div>
+    </div>`;
+}
+
+async function twSluitZonderOpslaan(materiaalId) {
+  try {
+    if (materiaalId) await API.deleteMateriaal(materiaalId);
+  } catch (e) {
+    console.warn('Tijdelijke toets kon niet worden verwijderd:', e.message);
+  }
+  resetToetsWizard();
+  closeModalDirect();
+  renderToetsen();
+}
+
+function twOpslaanEnSluiten(context = 'wizard') {
+  resetToetsWizard();
+  closeModalDirect();
+  renderToetsen();
+}
+
 async function doGenererenToets() {
   const bestandInput = document.getElementById('ts-bestand');
   const vak = document.getElementById('ts-vak')?.value.trim() || '';
@@ -1014,15 +1049,7 @@ async function doGenererenToets() {
     const res = await fetch('/api/genereer-toets', { method: 'POST', body: fd });
     const data = await res.json();
     if (!data.success) throw new Error(data.error || 'Onbekende fout');
-    result.innerHTML = `
-      <div class="alert alert-info" style="background:var(--accent-dim);border:1px solid rgba(45,90,61,0.2);color:var(--accent-text)">
-        Klaar: <strong>${escHtml(data.titel)}</strong><br>
-        <a href="/uploads/${escHtml(data.bestandsnaam)}" download="${escHtml(data.bestandsnaam)}"
-           style="color:var(--accent);font-weight:600;display:inline-block;margin-top:6px">
-          Toets downloaden (.docx)
-        </a>
-      </div>`;
-    renderToetsen();
+    result.innerHTML = twResultaatKnoppen(data, 'upload');
   } catch (e) {
     const msg = e.message || '';
     const isQuota = msg.includes('429') || msg.includes('quota') || msg.includes('AI_QUOTA') || msg.includes('insufficient');
@@ -1059,10 +1086,10 @@ async function doAnalyseToets() {
     const json = await res.json();
     if (!json.success) throw new Error(json.error || 'Onbekende fout');
 
-    // Laad resultaat in wizard
-    Object.assign(_toetsWizard.data, json.data);
+    // Laad analyse in een schone wizard, zodat oude upload-/wizardgegevens nooit blijven hangen.
+    resetToetsWizard();
+    _toetsWizard.data = Object.assign(maakLegeToetsWizardData(), json.data || {});
     _toetsWizard.stap = 1;
-    _twAiAdvies = {};
     closeModalDirect();
     renderToetsWizardStap();
   } catch (e) {
@@ -1077,13 +1104,18 @@ async function doAnalyseToets() {
 // ============================================================
 // TOETS WIZARD — handmatig aanmaken (5 stappen)
 // ============================================================
-const _toetsWizard = {
-  stap: 1,
-  data: {
-    documentSoort: 'Toets', vak: '', niveauLabel: 'VMBO-GL en TL', jaar: new Date().getFullYear().toString(),
+function maakLegeToetsWizardData() {
+  return {
+    documentSoort: 'Toets',
+    vak: '',
+    niveauLabel: 'VMBO-GL en TL',
+    jaar: new Date().getFullYear().toString(),
     hoofdstuk: '',
-    tijdvak: 'tijdvak 1', datum: '', tijd: '13.30 - 15.30 uur',
-    code: '', aantalPaginas: '',
+    tijdvak: 'tijdvak 1',
+    datum: '',
+    tijd: '13.30 - 15.30 uur',
+    code: '',
+    aantalPaginas: '',
     secties: [{
       titel: '',
       bronnen: [{ nummer: 1, ondertitel: '', tekst: '', figuurBase64: null, figuurType: null }],
@@ -1095,12 +1127,23 @@ const _toetsWizard = {
         ]}
       ]
     }]
-  }
+  };
+}
+
+const _toetsWizard = {
+  stap: 1,
+  data: maakLegeToetsWizardData()
 };
 let _twAiAdvies = {};
 
-function openToetsWizard() {
+function resetToetsWizard() {
   _toetsWizard.stap = 1;
+  _toetsWizard.data = maakLegeToetsWizardData();
+  _twAiAdvies = {};
+}
+
+function openToetsWizard() {
+  resetToetsWizard();
   renderToetsWizardStap();
 }
 
@@ -1500,15 +1543,7 @@ async function twGenereer() {
     });
     const data = await res.json();
     if (!data.success) throw new Error(data.error || 'Onbekende fout');
-    result.innerHTML = `
-      <div class="alert alert-info" style="background:var(--accent-dim);border:1px solid rgba(45,90,61,0.2);color:var(--accent-text)">
-        Klaar: <strong>${escHtml(data.titel)}</strong><br>
-        <a href="/uploads/${escHtml(data.bestandsnaam)}" download="${escHtml(data.bestandsnaam)}"
-           style="color:var(--accent);font-weight:600;display:inline-block;margin-top:6px">
-          Toets downloaden (.docx)
-        </a>
-      </div>`;
-    renderToetsen();
+    result.innerHTML = twResultaatKnoppen(data, 'wizard');
   } catch (e) {
     result.innerHTML = `<span style="color:var(--red)">Fout: ${escHtml(e.message)}</span>`;
   }
