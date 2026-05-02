@@ -299,7 +299,7 @@ app.delete('/api/vakken/:id', requireAdmin, (req, res) => { db.deleteVak(req.par
 // ============================================================
 app.get('/api/klassen', requireAuth, (req, res) => {
   const u = req.session.user;
-  res.json(db.getKlassen(u.rol === 'docent' ? u.id : null));
+  res.json(db.getKlassen(u.rol === 'docent' ? (u.vakken || []) : null));
 });
 app.post('/api/klassen', requireCanEdit, (req, res) => res.json(db.addKlas(req.body)));
 app.put('/api/klassen/:id', requireCanEdit, (req, res) => { db.updateKlas(req.params.id, req.body); res.json({ success: true }); });
@@ -1179,6 +1179,7 @@ app.post('/api/genereer-toets', requireCanEdit, upload.single('bestand'), async 
     const logoBestand = db.getInstelling('logoBestand') || null;
     const { titel, aantalVragen, vak, niveau, documentSoort } = req.body;
     const nVragen = parseInt(aantalVragen) || 10;
+    const maxPunten = nVragen;
     const inhoud = await extractTekstUitBestand(req.file.path, req.file.originalname);
     if (req.file?.path && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
 
@@ -2007,8 +2008,7 @@ app.get('/api/lesbrieven/:id/download', requireAuth, async (req, res) => {
   const lb = db.getLesbrief(req.params.id);
   if (!lb) return res.status(404).json({ error: 'Niet gevonden' });
   try {
-    const instellingen = db.getInstellingen ? db.getInstellingen() : {};
-    const schoolnaam = instellingen.schoolnaam || '';
+    const schoolnaam = db.getInstelling('schoolnaam') || '';
     const docxBuffer = await bouwLesbriefDocx(lb, schoolnaam);
     const naam = (lb.activiteit_naam || lb.activiteitNaam || 'lesbrief').replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 40);
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
