@@ -5,6 +5,7 @@
 require('dotenv').config();
 const express = require('express');
 const session = require('express-session');
+const BetterSqlite3Store = require('better-sqlite3-session-store')(session);
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
@@ -113,7 +114,9 @@ app.get('/reset-wachtwoord', (req, res) => res.sendFile(path.join(__dirname, 'pu
 
 app.use(express.static(path.join(__dirname, 'public')));
 app.use('/uploads', express.static(uploadDir));
+const sessionDb = require('better-sqlite3')(path.join(__dirname, 'db', 'sessions.db'));
 app.use(session({
+  store: new BetterSqlite3Store({ client: sessionDb, expired: { clear: true, intervalMs: 15 * 60 * 1000 } }),
   secret: process.env.SESSION_SECRET || 'jaarplan-fallback-secret-change-me',
   resave: false,
   saveUninitialized: false,
