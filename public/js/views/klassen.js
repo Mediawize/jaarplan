@@ -8,11 +8,11 @@ async function renderKlassen() {
     document.getElementById('view-klassen').innerHTML = `
       <div class="page-header">
         <div class="page-header-left"><h1>Klassen</h1></div>
-        ${!readonly?`<button class="btn btn-primary" onclick="openKlasModal()">+ Klas toevoegen</button>`:''}
+        ${Auth.isAdmin()?`<button class="btn btn-primary" onclick="openKlasModal()">+ Klas toevoegen</button>`:''}
       </div>
       ${readonly?`<div class="readonly-notice"><svg width="16" height="16" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="8" stroke="currentColor" stroke-width="1.5"/><path d="M10 6v4M10 14h.01" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>Leesmodus</div>`:''}
       ${klassen.length===0
-        ? `<div class="empty-state"><h3>Geen klassen</h3>${!readonly?`<button class="btn btn-primary" onclick="openKlasModal()">Eerste klas aanmaken</button>`:''}</div>`
+        ? `<div class="empty-state"><h3>Geen klassen</h3>${Auth.isAdmin()?`<button class="btn btn-primary" onclick="openKlasModal()">Eerste klas aanmaken</button>`:''}</div>`
         : `<div class="klas-grid">
           ${klassen.map(k => {
             const vak = vakken.find(v=>v.id===k.vakId);

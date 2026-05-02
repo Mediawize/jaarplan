@@ -299,9 +299,9 @@ app.delete('/api/vakken/:id', requireAdmin, (req, res) => { db.deleteVak(req.par
 // ============================================================
 app.get('/api/klassen', requireAuth, (req, res) => {
   const u = req.session.user;
-  res.json(db.getKlassen(u.rol === 'docent' ? (u.vakken || []) : null));
+  res.json(db.getKlassen(u.rol === 'docent' ? u.id : null));
 });
-app.post('/api/klassen', requireCanEdit, (req, res) => res.json(db.addKlas(req.body)));
+app.post('/api/klassen', requireAdmin, (req, res) => res.json(db.addKlas(req.body)));
 app.put('/api/klassen/:id', requireCanEdit, (req, res) => { db.updateKlas(req.params.id, req.body); res.json({ success: true }); });
 app.delete('/api/klassen/:id', requireCanEdit, (req, res) => { db.deleteKlas(req.params.id); res.json({ success: true }); });
 
