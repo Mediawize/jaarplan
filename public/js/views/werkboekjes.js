@@ -260,14 +260,37 @@ function wbStapStappenHtml() {
       <div style="display:flex;justify-content:space-between;gap:8px"><strong>Onderdeel ${si+1}</strong>${d.secties.length>1?`<button class="btn btn-sm" onclick="wbVerwijderSectie(${si})">Verwijderen</button>`:''}</div>
       <div class="form-field"><label>Titel onderdeel</label><input id="wb-sec-titel-${si}" value="${wbEsc(sec.titel)}"></div>
       <div class="form-field"><label>Benodigdheden (komma gescheiden)</label><input id="wb-sec-ben-${si}" value="${wbEsc((sec.benodigdheden||[]).join(', '))}"></div>
-      ${(sec.stappen||[]).map((st,pi)=>`<div style="border:1px solid var(--border);border-radius:8px;padding:8px;margin-bottom:8px;background:var(--surface)">
-        <div style="display:flex;gap:8px;align-items:center;margin-bottom:6px"><strong style="color:var(--accent)">Stap ${pi+1}</strong><select id="wb-stap-type-${si}-${pi}"><option value="foto" ${(st.type||'foto')==='foto'?'selected':''}>Foto + tekst</option><option value="tekening" ${st.type==='tekening'?'selected':''}>Tekening/groot beeld</option></select><button class="btn btn-sm" style="margin-left:auto" onclick="wbVerwijderStap(${si},${pi})">✕</button></div>
-        <textarea id="wb-stap-tekst-${si}-${pi}" maxlength="500" rows="3" style="width:100%;padding:8px;border:1.5px solid var(--border);border-radius:var(--radius-sm)" placeholder="Beschrijf de stap concreet">${wbEsc(st.stap)}</textarea>
-        <input id="wb-stap-tip-${si}-${pi}" value="${wbEsc(st.tip)}" placeholder="Tip of let-op tekst" style="margin-top:6px;width:100%">
-        <div style="margin-top:6px;display:flex;gap:8px;align-items:center;flex-wrap:wrap"><input type="file" accept="image/*" onchange="wbLaadStapAfbeelding(${si},${pi},this)">${st.afbeeldingBase64?'<span style="color:var(--accent);font-size:12px">✓ afbeelding geladen</span>':''}<input id="wb-stap-bijschrift-${si}-${pi}" value="${wbEsc(st.bijschrift)}" placeholder="Bijschrift" style="flex:1;min-width:160px"></div>
-        <button class="btn btn-sm" style="margin-top:6px;${wbDisabledStyle()}" ${wbDisabledAttr()} onclick="wbVraagAiSuggestie('stap:${si}:${pi}')">AI verbeter deze stap</button>
+      ${(sec.stappen||[]).map((st,pi)=>{
+        const isTekening = (st.type||'foto') === 'tekening';
+        return `<div style="border:1px solid ${isTekening?'var(--amber)':'var(--border)'};border-radius:8px;padding:8px;margin-bottom:8px;background:${isTekening?'var(--amber-dim, #fffbf0)':'var(--surface)'}">
+        <div style="display:flex;gap:8px;align-items:center;margin-bottom:6px">
+          <strong style="color:var(--accent)">Stap ${pi+1}</strong>
+          <select id="wb-stap-type-${si}-${pi}" onchange="wbSlaStapOp();wbRender()">
+            <option value="foto" ${!isTekening?'selected':''}>📷 Foto + tekst</option>
+            <option value="tekening" ${isTekening?'selected':''}>✏️ Tekening (hele pagina)</option>
+          </select>
+          <button class="btn btn-sm" style="margin-left:auto" onclick="wbVerwijderStap(${si},${pi})">✕</button>
+        </div>
+        ${isTekening
+          ? `<div style="background:white;border:1.5px dashed var(--amber,#f59f00);border-radius:6px;padding:12px;text-align:center;color:var(--ink-muted);font-size:12px;margin-bottom:6px">
+               ✏️ <strong>Volledige tekenpagina</strong> — leerling tekent hier zelf in het werkboekje
+             </div>
+             <input id="wb-stap-tekst-${si}-${pi}" value="${wbEsc(st.stap)}" maxlength="200"
+               placeholder="Opdracht boven de tekenpagina (optioneel)"
+               style="width:100%;padding:6px 8px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:13px">`
+          : `<textarea id="wb-stap-tekst-${si}-${pi}" maxlength="500" rows="3"
+               style="width:100%;padding:8px;border:1.5px solid var(--border);border-radius:var(--radius-sm)"
+               placeholder="Beschrijf de stap concreet">${wbEsc(st.stap)}</textarea>
+             <input id="wb-stap-tip-${si}-${pi}" value="${wbEsc(st.tip)}" placeholder="Tip of let-op tekst" style="margin-top:6px;width:100%">
+             <div style="margin-top:6px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+               <input type="file" accept="image/*" onchange="wbLaadStapAfbeelding(${si},${pi},this)">
+               ${st.afbeeldingBase64?'<span style="color:var(--accent);font-size:12px">✓ afbeelding geladen</span>':''}
+               <input id="wb-stap-bijschrift-${si}-${pi}" value="${wbEsc(st.bijschrift)}" placeholder="Bijschrift" style="flex:1;min-width:160px">
+             </div>`
+        }
+        ${!isTekening?`<button class="btn btn-sm" style="margin-top:6px;${wbDisabledStyle()}" ${wbDisabledAttr()} onclick="wbVraagAiSuggestie('stap:${si}:${pi}')">AI verbeter deze stap</button>`:''}
         <div id="wb-ai-stap-${si}-${pi}">${wbVoorstelHtml(`stap:${si}:${pi}`)}</div>
-      </div>`).join('')}
+      </div>`;}).join('')}
       <button class="btn btn-sm" onclick="wbVoegStapToe(${si})">+ Stap</button>
       <button class="btn btn-sm" style="margin-left:6px;${wbDisabledStyle()}" ${wbDisabledAttr()} onclick="wbVraagAiSuggestie('sectie:${si}')">AI voorstel stappen voor dit onderdeel</button>
       <div id="wb-ai-sectie-${si}">${wbVoorstelHtml(`sectie:${si}`)}</div>
