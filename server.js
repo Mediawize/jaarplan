@@ -389,7 +389,11 @@ app.post('/api/opdrachten/:id/opmerking', requireCanEdit, (req, res) => {
 // ============================================================
 // LESPROFIELEN
 // ============================================================
-app.get('/api/lesprofielen', requireAuth, (req, res) => res.json(db.getLesprofielen()));
+app.get('/api/lesprofielen', requireAuth, (req, res) => {
+  const u = req.session.user;
+  const vakken = u.rol === 'docent' ? (u.vakken || []) : null;
+  res.json(db.getLesprofielen(vakken));
+});
 app.post('/api/lesprofielen', requireCanEdit, (req, res) => {
   const r = db.addLesprofiel({ ...req.body, docentId: req.session.user.id });
   res.json(r);

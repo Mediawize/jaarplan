@@ -505,7 +505,11 @@ module.exports = {
   deleteOpdracht(id) { Q.delOpdracht.run(id); },
   deleteOpdrachtenByKlas(klasId) { Q.delOpdrachtenByKlas.run(klasId); },
 
-  getLesprofielen() { return Q.getLesprofielen.all().map(p => ({ ...p, weken: parseJSON(p.weken), niveau: p.niveau || '' })); },
+  getLesprofielen(vakken = null) {
+    const alle = Q.getLesprofielen.all().map(p => ({ ...p, weken: parseJSON(p.weken), niveau: p.niveau || '' }));
+    if (!vakken || !vakken.length) return alle;
+    return alle.filter(p => vakken.includes(p.vakId));
+  },
   getLesprofiel(id) { const p = Q.getLesprofiel.get(id); return p ? { ...p, weken: parseJSON(p.weken), niveau: p.niveau || '' } : null; },
   addLesprofiel(d) {
     const id = genId();
