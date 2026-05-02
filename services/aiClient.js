@@ -27,7 +27,11 @@ async function chatJson({ system, user, prompt, systemPrompt, maxTokens = 3000, 
   // Wissel naar 'claude-sonnet-4-6' voor betere kwaliteit
   const usedModel = model || process.env.ANTHROPIC_MODEL || 'claude-haiku-4-5-20251001';
   const finalSystem = systemPrompt || system || '';
-  const finalUser = prompt || user || '';
+  const finalUser = (prompt || user || '').trim();
+
+  if (!finalUser) {
+    throw new Error('Lege gebruikersprompt — geef een userPrompt of context mee.');
+  }
 
   const body = {
     model: usedModel,
