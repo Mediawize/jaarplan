@@ -665,10 +665,10 @@ module.exports = {
     return u;
   },
 
-  // getKlassen met optionele vakken-filter (voor docenten)
-  getKlassen(vakken = null) {
+  // getKlassen met optionele docent-filter
+  getKlassen(docentId = null) {
     const alle = Q.getKlassen.all().map(k => ({ ...k, docenten: parseJSON(k.docenten), niveau: k.niveau || '' }));
-    if (!vakken || !vakken.length) return alle;
-    return alle.filter(k => vakken.includes(k.vakId));
+    if (!docentId) return alle;
+    return alle.filter(k => (k.docenten || []).includes(docentId));
   },
 };
