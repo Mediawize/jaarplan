@@ -53,12 +53,39 @@ function wbReset() {
     aiVoorstellen: {},
     laatsteHtml: '',
     laatsteBestand: null,
+    wbId: null,
+    profielId: null,
+    weekIdx: null,
+    actIdx: null,
+    activiteitInfo: null,
     data: wbLegeData()
   };
 }
 
 function openWerkboekjeWizard() {
   wbReset();
+  wbRender();
+}
+
+async function openWerkboekjeVoorActiviteit(profielId, weekIdx, actIdx, activiteitInfo) {
+  wbReset();
+  _wbState.profielId = profielId;
+  _wbState.weekIdx = weekIdx;
+  _wbState.actIdx = actIdx;
+  _wbState.activiteitInfo = activiteitInfo || {};
+  _wbState.stap = 2;
+  try {
+    const res = await fetch(`/api/werkboekjes?profielId=${profielId}&weekIdx=${weekIdx}&actIdx=${actIdx}`, { credentials: 'same-origin' });
+    const lijst = await res.json();
+    if (lijst && lijst.length > 0) {
+      _wbState.wbId = lijst[0].id;
+      _wbState.data = wbNormaliseerData({ ...wbLegeData(), ...lijst[0].data });
+    } else {
+      const info = activiteitInfo || {};
+      _wbState.data.vak = info.vak || '';
+      _wbState.data.niveau = info.niveau || '';
+    }
+  } catch { /* start leeg */ }
   wbRender();
 }
 
@@ -486,11 +513,34 @@ async function wbOpslaan() {
   if (result) result.innerHTML = `<span style="color:var(--amber)">⏳ Werkboekje wordt opgeslagen...</span>`;
   _wbState.busy = true;
   try {
-    const res = await fetch('/api/genereer-werkboekje-handmatig', { method:'POST', credentials:'same-origin', headers:{'Content-Type':'application/json'}, body:JSON.stringify(_wbState.data) });
-    const data = await wbJsonOfThrow(res);
-    _wbState.laatsteBestand = data.bestandsnaam;
-    _wbState.busy = false;
-    if (result) result.innerHTML = `<div class="alert alert-info">Klaar: <strong>${wbEsc(data.titel)}</strong><br><a href="/uploads/${wbEsc(data.bestandsnaam)}" download="${wbEsc(data.bestandsnaam)}" style="color:var(--accent);font-weight:600">Download Word-bestand</a> · <a href="#" onclick="wbDownloadPdf();return false" style="color:var(--accent);font-weight:600">Download PDF</a><br><button class="btn btn-sm" style="margin-top:8px" onclick="wbKoppelAanLesprofiel('${wbEsc(data.bestandsnaam)}','${wbEsc(_wbState.data.vak||'')}')">📓 Koppel aan lesprofiel</button></div>`;
+    if (_wbState.profielId != null) {
+      // Lesprofiel-modus: opslaan in werkboekjes-tabel
+      const info = _wbState.activiteitInfo || {};
+      const payload = {
+        profielId: _wbState.profielId,
+        weekIdx: _wbState.weekIdx,
+        actIdx: _wbState.actIdx,
+        activiteitNaam: info.omschrijving || info.naam || '',
+        activiteitType: info.type || '',
+        activiteitUren: info.uren || 1,
+        data: _wbState.data,
+      };
+      if (_wbState.wbId) {
+        await fetch(`/api/werkboekjes/${_wbState.wbId}`, { method:'PUT', credentials:'same-origin', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload) });
+      } else {
+        const res = await fetch('/api/werkboekjes', { method:'POST', credentials:'same-origin', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload) });
+        const wb = await wbJsonOfThrow(res);
+        _wbState.wbId = wb.id;
+      }
+      _wbState.busy = false;
+      if (result) result.innerHTML = `<div class="alert alert-info"><strong>${wbEsc(_wbState.data.titel||'Werkboekje')}</strong> opgeslagen. <a href="#" onclick="wbDownloadPdf();return false" style="color:var(--accent);font-weight:600">Download PDF</a></div>`;
+    } else {
+      // Standalone: opslaan als materiaal
+      const res = await fetch('/api/genereer-werkboekje-handmatig', { method:'POST', credentials:'same-origin', headers:{'Content-Type':'application/json'}, body:JSON.stringify(_wbState.data) });
+      const data = await wbJsonOfThrow(res);
+      _wbState.busy = false;
+      if (result) result.innerHTML = `<div class="alert alert-info">Klaar: <strong>${wbEsc(data.titel)}</strong><br><a href="#" onclick="wbDownloadPdf();return false" style="color:var(--accent);font-weight:600">Download PDF</a></div>`;
+    }
   } catch(e) { _wbState.busy=false; if(result) result.innerHTML=`<span style="color:var(--red)">Fout: ${wbEsc(e.message)}</span>`; }
 }
 
@@ -675,65 +725,3 @@ async function wbBouwHtml(data) {
   </body></html>`;
 }
 
-async function wbKoppelAanLesprofiel(bestandsnaam, vak) {
-  const profielen = await (await fetch('/api/lesprofielen', { credentials: 'same-origin' })).json();
-  const gefilterd = vak ? profielen.filter(p => !p.vakId || p.vak === vak || (p.vakNaam||'').toLowerCase().includes(vak.toLowerCase())) : profielen;
-  const lijst = gefilterd.length ? gefilterd : profielen;
-
-  function renderKoppelStap1() {
-    openModal(`
-      <h2>📓 Werkboekje koppelen aan lesprofiel</h2>
-      <p class="modal-sub">Kies het lesprofiel en de activiteit waar dit werkboekje bij hoort.</p>
-      <div class="form-field"><label>Lesprofiel</label>
-        <select id="wbk-profiel" style="width:100%;padding:8px;border:1.5px solid var(--border);border-radius:var(--radius-sm)">
-          <option value="">— Kies lesprofiel —</option>
-          ${lijst.map(p => `<option value="${wbEsc(p.id)}">${wbEsc(p.naam||p.id)} ${p.vak?'('+wbEsc(p.vak)+')':''}</option>`).join('')}
-        </select>
-      </div>
-      <div id="wbk-weken-wrapper"></div>
-      <div class="modal-actions">
-        <button class="btn" onclick="closeModalDirect()">Annuleren</button>
-        <button class="btn btn-primary" onclick="wbKoppelOpslaan('${wbEsc(bestandsnaam)}')">Koppelen</button>
-      </div>
-    `);
-    document.getElementById('wbk-profiel').addEventListener('change', async function() {
-      const pid = this.value;
-      if (!pid) { document.getElementById('wbk-weken-wrapper').innerHTML = ''; return; }
-      const p = profielen.find(x => x.id === pid);
-      if (!p?.weken?.length) return;
-      const opties = p.weken.flatMap((w, wi) =>
-        (w.activiteiten||[]).map((a, ai) => `<option value="${wi}_${ai}">Week ${wi+1}${w.thema?' – '+w.thema:''}: ${wbEsc(a.omschrijving||a.type||'Activiteit '+(ai+1))}</option>`)
-      ).join('');
-      document.getElementById('wbk-weken-wrapper').innerHTML = `
-        <div class="form-field" style="margin-top:10px"><label>Activiteit</label>
-          <select id="wbk-activiteit" style="width:100%;padding:8px;border:1.5px solid var(--border);border-radius:var(--radius-sm)">
-            <option value="">— Kies activiteit —</option>${opties}
-          </select>
-        </div>`;
-    });
-  }
-
-  renderKoppelStap1();
-}
-
-async function wbKoppelOpslaan(bestandsnaam) {
-  const profielId = document.getElementById('wbk-profiel')?.value;
-  const actVal = document.getElementById('wbk-activiteit')?.value;
-  if (!profielId || !actVal) { alert('Kies een lesprofiel en activiteit.'); return; }
-  const [weekIdx, actIdx] = actVal.split('_').map(Number);
-  try {
-    const profielen = await (await fetch('/api/lesprofielen', { credentials: 'same-origin' })).json();
-    const p = profielen.find(x => x.id === profielId);
-    if (!p) return;
-    const weken = JSON.parse(JSON.stringify(p.weken || []));
-    if (weken[weekIdx]?.activiteiten?.[actIdx]) {
-      weken[weekIdx].activiteiten[actIdx].werkboekBestand = bestandsnaam;
-    }
-    await fetch(`/api/lesprofielen/${profielId}`, { method: 'PUT', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ weken }) });
-    closeModalDirect();
-    const res = document.getElementById('wb-save-result');
-    if (res) res.innerHTML += `<div style="color:var(--accent);margin-top:6px">✓ Gekoppeld aan lesprofiel</div>`;
-  } catch (e) {
-    alert('Koppelen mislukt: ' + e.message);
-  }
-}

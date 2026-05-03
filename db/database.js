@@ -275,6 +275,24 @@ function migreer() {
     console.log('Migratie: materialen tabel aangemaakt');
   }
 
+  // Werkboekjes tabel
+  const wbTabel = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='werkboekjes'").get();
+  if (!wbTabel) {
+    db.exec(`CREATE TABLE werkboekjes (
+      id TEXT PRIMARY KEY,
+      profielId TEXT NOT NULL,
+      weekIdx INTEGER NOT NULL,
+      actIdx INTEGER NOT NULL,
+      activiteitNaam TEXT DEFAULT '',
+      activiteitType TEXT DEFAULT '',
+      activiteitUren REAL DEFAULT 1,
+      data TEXT DEFAULT '{}',
+      bijgewerkt TEXT DEFAULT (datetime('now')),
+      UNIQUE(profielId, weekIdx, actIdx)
+    )`);
+    console.log('Migratie: werkboekjes tabel aangemaakt');
+  }
+
   // Schoon verwijzingen op naar verwijderde lesprofielen
   db.exec(`UPDATE opdrachten SET profielId=NULL WHERE profielId IS NOT NULL AND profielId NOT IN (SELECT id FROM lesprofielen)`);
   db.exec(`DELETE FROM lesbrieven WHERE profielId IS NOT NULL AND profielId NOT IN (SELECT id FROM lesprofielen)`);
@@ -378,6 +396,13 @@ const Q = {
   insLesbrief: db.prepare('INSERT INTO lesbrieven (id,profielId,weekIdx,actIdx,activiteitNaam,activiteitType,activiteitUren,voorbereiding,benodigdheden,lesverloop,stappenplan,aandachtspunten,differentiatie,opmerkingen) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)'),
   updLesbrief: db.prepare("UPDATE lesbrieven SET activiteitNaam=?,activiteitType=?,activiteitUren=?,voorbereiding=?,benodigdheden=?,lesverloop=?,stappenplan=?,aandachtspunten=?,differentiatie=?,opmerkingen=?,bijgewerkt=datetime('now') WHERE id=?"),
   delLesbrief: db.prepare('DELETE FROM lesbrieven WHERE id=?'),
+
+  // Werkboekjes
+  getWerkboekjeBySleutel: db.prepare('SELECT * FROM werkboekjes WHERE profielId=? AND weekIdx=? AND actIdx=?'),
+  getWerkboekje: db.prepare('SELECT * FROM werkboekjes WHERE id=?'),
+  insWerkboekje: db.prepare('INSERT INTO werkboekjes (id,profielId,weekIdx,actIdx,activiteitNaam,activiteitType,activiteitUren,data) VALUES (?,?,?,?,?,?,?,?)'),
+  updWerkboekje: db.prepare("UPDATE werkboekjes SET activiteitNaam=?,activiteitType=?,activiteitUren=?,data=?,bijgewerkt=datetime('now') WHERE id=?"),
+  delWerkboekje: db.prepare('DELETE FROM werkboekjes WHERE id=?'),
 
   getMaterialen: db.prepare('SELECT * FROM materialen ORDER BY aangemaakt DESC'),
   getMaterialenByType: db.prepare('SELECT * FROM materialen WHERE type=? ORDER BY aangemaakt DESC'),
@@ -584,6 +609,29 @@ module.exports = {
     );
   },
   deleteLesbrief(id) { Q.delLesbrief.run(id); },
+
+  // ============================================================
+  // WERKBOEKJES
+  // ============================================================
+  getWerkboekje(id) {
+    const w = Q.getWerkboekje.get(id);
+    return w ? { ...w, data: parseJSON(w.data, {}) } : null;
+  },
+  getWerkboekjeBySleutel(profielId, weekIdx, actIdx) {
+    const w = Q.getWerkboekjeBySleutel.get(profielId, weekIdx, actIdx);
+    return w ? { ...w, data: parseJSON(w.data, {}) } : null;
+  },
+  addWerkboekje(d) {
+    const id = genId();
+    Q.insWerkboekje.run(id, d.profielId, d.weekIdx, d.actIdx, d.activiteitNaam || '', d.activiteitType || '', d.activiteitUren || 1, JSON.stringify(d.data || {}));
+    return this.getWerkboekje(id);
+  },
+  updateWerkboekje(id, d) {
+    const w = this.getWerkboekje(id);
+    if (!w) return;
+    Q.updWerkboekje.run(d.activiteitNaam ?? w.activiteitNaam, d.activiteitType ?? w.activiteitType, d.activiteitUren ?? w.activiteitUren, JSON.stringify(d.data ?? w.data), id);
+  },
+  deleteWerkboekje(id) { Q.delWerkboekje.run(id); },
 
   // ============================================================
   // MATERIALEN

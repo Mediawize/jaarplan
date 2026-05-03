@@ -1686,6 +1686,33 @@ app.delete('/api/lesbrieven/:id', requireCanEdit, (req, res) => {
   res.json({ success: true });
 });
 
+// ============================================================
+// WERKBOEKJES
+// ============================================================
+app.get('/api/werkboekjes', requireAuth, (req, res) => {
+  const { profielId, weekIdx, actIdx } = req.query;
+  if (profielId && weekIdx != null && actIdx != null) {
+    const wb = db.getWerkboekjeBySleutel(profielId, parseInt(weekIdx), parseInt(actIdx));
+    return res.json(wb ? [wb] : []);
+  }
+  res.json([]);
+});
+
+app.post('/api/werkboekjes', requireCanEdit, (req, res) => {
+  const wb = db.addWerkboekje(req.body);
+  res.json(wb);
+});
+
+app.put('/api/werkboekjes/:id', requireCanEdit, (req, res) => {
+  db.updateWerkboekje(req.params.id, req.body);
+  res.json({ success: true });
+});
+
+app.delete('/api/werkboekjes/:id', requireCanEdit, (req, res) => {
+  db.deleteWerkboekje(req.params.id);
+  res.json({ success: true });
+});
+
 app.post('/api/lesbrieven/genereer', requireCanEdit, async (req, res) => {
   const { activiteitNaam, activiteitType, activiteitUren, profielNaam, weekThema, syllabuscodes } = req.body;
   try {
