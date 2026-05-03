@@ -219,7 +219,7 @@ function lbRenderTab(tabId, ro) {
        { fase: 'Verwerking',  minuten: 30, beschrijving: '' },
        { fase: 'Afsluiting',  minuten: 5,  beschrijving: '' }];
     const totaal = fases.reduce((t, f) => t + (parseInt(f.minuten) || 0), 0);
-    const beschikbaar = _lb.activiteitInfo?.uren ? Math.round(_lb.activiteitInfo.uren * 60) : null;
+    const beschikbaar = _lb.activiteitInfo?.uren ? Math.round(_lb.activiteitInfo.uren * 45) : null;
     return `
       <div style="font-size:13px;color:var(--ink-muted);margin-bottom:12px">
         Totaal: <strong>${totaal} minuten</strong>
