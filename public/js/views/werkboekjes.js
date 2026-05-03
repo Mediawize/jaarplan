@@ -532,11 +532,26 @@ async function wbOpslaan() {
         const wb = await wbJsonOfThrow(res);
         _wbState.wbId = wb.id;
       }
+      const html = _wbState?.laatsteHtml || await wbBouwHtml(_wbState.data);
+      const pdfRes = await fetch('/api/werkboekjes/pdf-materiaal', {
+        method:'POST',
+        credentials:'same-origin',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({
+          titel: _wbState.data.titel || 'Werkboekje',
+          vak: _wbState.data.vak || '',
+          html
+        })
+      });
+      const pdfData = await wbJsonOfThrow(pdfRes);
+      _wbState.laatsteBestand = pdfData.bestandsnaam;
+      await wbKoppelBestandAanLesprofiel(pdfData.bestandsnaam);
       _wbState.busy = false;
-      if (result) result.innerHTML = `<div class="alert alert-info"><strong>${wbEsc(_wbState.data.titel||'Werkboekje')}</strong> opgeslagen. <a href="#" onclick="wbDownloadPdf();return false" style="color:var(--accent);font-weight:600">Download PDF</a><button class="btn btn-sm" style="margin-left:10px" onclick="wbAnnuleer()">Sluiten</button></div>`;
+      if (result) result.innerHTML = `<div class="alert alert-info"><strong>${wbEsc(_wbState.data.titel||'Werkboekje')}</strong> opgeslagen. <a href="/uploads/${wbEsc(pdfData.bestandsnaam)}" download="${wbEsc(pdfData.bestandsnaam)}" style="color:var(--accent);font-weight:600">Download opgeslagen PDF</a><button class="btn btn-sm" style="margin-left:10px" onclick="wbAnnuleer()">Sluiten</button></div>`;
+      if (typeof openProfielDetail === 'function') setTimeout(() => openProfielDetail(_wbState.profielId), 400);
     } else {
       // Standalone: PDF opslaan als materiaal, zodat hij zichtbaar wordt bij Toetsen & Materialen
-      const pdfBase64 = await wbMaakPdfBase64();
+      const html = _wbState?.laatsteHtml || await wbBouwHtml(_wbState.data);
       const res = await fetch('/api/werkboekjes/pdf-materiaal', {
         method:'POST',
         credentials:'same-origin',
@@ -544,7 +559,7 @@ async function wbOpslaan() {
         body:JSON.stringify({
           titel: _wbState.data.titel || 'Werkboekje',
           vak: _wbState.data.vak || '',
-          pdfBase64
+          html
         })
       });
       const data = await wbJsonOfThrow(res);
@@ -557,54 +572,43 @@ async function wbOpslaan() {
 }
 
 
-async function wbMaakPdfBase64() {
-  if (typeof html2pdf === 'undefined') {
-    throw new Error('PDF module niet geladen. Controleer of html2pdf.js in index.html staat.');
-  }
-  const html = _wbState?.laatsteHtml || await wbBouwHtml(_wbState.data);
-  const doc = new DOMParser().parseFromString(html, 'text/html');
-  const wrap = document.createElement('div');
-  wrap.style.position = 'absolute';
-  wrap.style.left = '-10000px';
-  wrap.style.top = '0';
-  wrap.style.width = '210mm';
-  wrap.style.minHeight = '297mm';
-  wrap.style.background = '#ffffff';
-  wrap.style.zIndex = '0';
-  wrap.style.opacity = '1';
-  wrap.innerHTML = (doc.head ? doc.head.innerHTML : '') + (doc.body ? doc.body.innerHTML : html);
-  document.body.appendChild(wrap);
-  await new Promise(resolve => setTimeout(resolve, 500));
-  try {
-    const opt = {
-      margin: 0,
-      filename: 'werkboekje.pdf',
-      image: { type: 'jpeg', quality: 1 },
-      html2canvas: { scale: 2, useCORS: true, allowTaint: true, backgroundColor: '#ffffff', scrollX: 0, scrollY: 0, windowWidth: wrap.scrollWidth },
-      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-      pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
-    };
-    const blob = await html2pdf().set(opt).from(wrap).outputPdf('blob');
-    return await new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(String(reader.result).split(',').pop());
-      reader.onerror = () => reject(new Error('PDF kon niet gelezen worden'));
-      reader.readAsDataURL(blob);
-    });
-  } finally {
-    wrap.remove();
-  }
-}
-
 async function wbDownloadPdf() {
-  const html = _wbState?.laatsteHtml || await wbBouwHtml(_wbState.data);
-  const w = window.open('', '_blank');
-  if (!w) { alert('Popup geblokkeerd. Sta popups toe om PDF te maken.'); return; }
-  w.document.open();
-  w.document.write(html + `<script>window.onload=function(){setTimeout(function(){window.print();},300)}<\/script>`);
-  w.document.close();
+  try {
+    const html = _wbState?.laatsteHtml || await wbBouwHtml(_wbState.data);
+    const res = await fetch('/api/werkboekjes/pdf-download', {
+      method:'POST',
+      credentials:'same-origin',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({ titel: _wbState?.data?.titel || 'Werkboekje', html })
+    });
+    if (!res.ok) {
+      let msg = 'PDF maken mislukt';
+      try { const j = await res.json(); msg = j.error || msg; } catch {}
+      throw new Error(msg);
+    }
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${(_wbState?.data?.titel || 'werkboekje').replace(/[^a-z0-9_-]+/gi,'_')}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1500);
+  } catch (e) {
+    alert(e.message || 'PDF maken mislukt');
+  }
 }
 
+async function wbKoppelBestandAanLesprofiel(bestandsnaam) {
+  if (!_wbState || _wbState.profielId == null || !bestandsnaam || typeof API === 'undefined') return;
+  const profielen = await API.getLesprofielen();
+  const p = profielen.find(x => x.id === _wbState.profielId);
+  if (!p || !p.weken?.[_wbState.weekIdx]?.activiteiten?.[_wbState.actIdx]) return;
+  p.weken[_wbState.weekIdx].activiteiten[_wbState.actIdx].bestand = bestandsnaam;
+  await API.updateLesprofiel(p.id, { weken: p.weken });
+  if (window._lpActInfo) delete window._lpActInfo[`${p.id}_${_wbState.weekIdx}_${_wbState.actIdx}`];
+}
 async function wbJsonOfThrow(res) {
   const txt = await res.text();
   let data;
