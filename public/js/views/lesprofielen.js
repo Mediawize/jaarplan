@@ -725,13 +725,18 @@ function renderActiviteitenHTML(p, weekIdx) {
         <td>
           ${a.link ? `<a href="${escHtml(a.link)}" class="text-link" target="_blank">${escHtml(a.link.length > 35 ? a.link.slice(0, 35) + '…' : a.link)}</a>` : ''}
           ${a.bestand ? `<span class="badge badge-amber" style="font-size:11px">📄 ${escHtml(a.bestand)}</span>` : ''}
-          ${!a.link && !a.bestand ? '<span style="color:#A8A29E">—</span>' : ''}
+          ${a.werkboekBestand ? `<a href="/uploads/${escHtml(a.werkboekBestand)}" target="_blank" class="badge badge-green" style="font-size:11px;text-decoration:none">📓 ${escHtml(a.werkboekBestand)}</a>` : ''}
+          ${!a.link && !a.bestand && !a.werkboekBestand ? '<span style="color:#A8A29E">—</span>' : ''}
         </td>
         <td>
           <div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap">
             <button class="btn btn-sm" style="font-size:11px;padding:3px 7px;white-space:nowrap"
               onclick="openLesbrief('${p.id}',${weekIdx},${ai},_lpActInfo['${p.id}_${weekIdx}_${ai}'])">
               📋 Lesbrief
+            </button>
+            <button class="btn btn-sm" style="font-size:11px;padding:3px 7px;white-space:nowrap"
+              onclick="openWerkboekjeWizard()">
+              📓 Werkboekje
             </button>
             <button class="icon-btn" onclick="bewerkActiviteit('${p.id}',${weekIdx},${ai})" title="Bewerken">
               <svg viewBox="0 0 20 20" fill="none"><path d="M14.5 3.5l2 2L7 15l-3 1 1-3 9.5-9.5z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -763,7 +768,8 @@ function bewerkActiviteit(profielId, weekIdx, actIdx) {
         <div class="form-field form-full"><label>Omschrijving</label><input id="act-omschrijving" value="${escHtml(a.omschrijving || '')}"></div>
         <div class="form-field form-full"><label>Link</label><input id="act-link" type="url" placeholder="https://..." value="${escHtml(a.link || '')}"></div>
         <div class="form-field form-full"><label>Syllabuscodes</label><input id="act-syllabus" placeholder="bijv. PIE-1.1" value="${escHtml(a.syllabus || '')}"></div>
-        <div class="form-field form-full"><label>Bestandsnaam</label><input id="act-bestand" placeholder="bijv. toets_p1.pdf" value="${escHtml(a.bestand || '')}"></div>
+        <div class="form-field form-full"><label>Toets bestandsnaam</label><input id="act-bestand" placeholder="bijv. toets_p1.pdf" value="${escHtml(a.bestand || '')}"></div>
+        <div class="form-field form-full"><label>Werkboekje bestandsnaam</label><input id="act-werkboek" placeholder="bijv. werkboekje_1234.docx" value="${escHtml(a.werkboekBestand || '')}"></div>
       </div>
       <div class="modal-actions">
         <button class="btn" onclick="closeModalDirect()">Annuleren</button>
@@ -780,10 +786,11 @@ async function slaActiviteitBewerkingOp(profielId, weekIdx, actIdx) {
   const link = document.getElementById('act-link').value.trim();
   const syllabus = document.getElementById('act-syllabus').value.trim();
   const bestand = document.getElementById('act-bestand').value.trim();
+  const werkboekBestand = document.getElementById('act-werkboek').value.trim();
   const profielen = await API.getLesprofielen();
   const p = profielen.find(x => x.id === profielId);
   if (!p) return;
-  p.weken[weekIdx].activiteiten[actIdx] = { type, uren, omschrijving, link, syllabus, bestand: bestand || null };
+  p.weken[weekIdx].activiteiten[actIdx] = { type, uren, omschrijving, link, syllabus, bestand: bestand || null, werkboekBestand: werkboekBestand || null };
   await API.updateLesprofiel(profielId, { weken: p.weken });
   closeModalDirect();
   const bijgewerkt = (await API.getLesprofielen()).find(x => x.id === profielId);
@@ -812,7 +819,8 @@ function openActiviteitModal(profielId, weekIdx) {
       <div class="form-field form-full"><label>Omschrijving</label><input id="act-omschrijving" placeholder="bijv. Uitleg businessmodel canvas"></div>
       <div class="form-field form-full"><label>Link</label><input id="act-link" type="url" placeholder="https://..."></div>
       <div class="form-field form-full"><label>Syllabuscodes</label><input id="act-syllabus" placeholder="bijv. PIE-1.1"></div>
-      <div class="form-field form-full"><label>Bestandsnaam (na uploaden)</label><input id="act-bestand" placeholder="bijv. toets_p1.pdf"></div>
+      <div class="form-field form-full"><label>Toets bestandsnaam</label><input id="act-bestand" placeholder="bijv. toets_p1.pdf"></div>
+      <div class="form-field form-full"><label>Werkboekje bestandsnaam</label><input id="act-werkboek" placeholder="bijv. werkboekje_1234.docx"></div>
     </div>
     <div class="modal-actions">
       <button class="btn" onclick="closeModalDirect()">Annuleren</button>
@@ -828,11 +836,12 @@ async function slaActiviteitOp(profielId, weekIdx) {
   const link = document.getElementById('act-link').value.trim();
   const syllabus = document.getElementById('act-syllabus').value.trim();
   const bestand = document.getElementById('act-bestand').value.trim();
+  const werkboekBestand = document.getElementById('act-werkboek').value.trim();
   const profielen = await API.getLesprofielen();
   const p = profielen.find(x => x.id === profielId);
   if (!p) return;
   p.weken[weekIdx].activiteiten = p.weken[weekIdx].activiteiten || [];
-  p.weken[weekIdx].activiteiten.push({ type, uren, omschrijving, link, syllabus, bestand: bestand || null });
+  p.weken[weekIdx].activiteiten.push({ type, uren, omschrijving, link, syllabus, bestand: bestand || null, werkboekBestand: werkboekBestand || null });
   await API.updateLesprofiel(profielId, { weken: p.weken });
   closeModalDirect();
   const container = document.getElementById(`activiteiten-week-${profielId}-${weekIdx}`);
@@ -951,7 +960,7 @@ async function slaKoppelingOp(profielId) {
         type: act.type,
         uren: act.uren,
         syllabuscodes: lpFormatSyllabusCode(act.syllabus || '', vak),
-        werkboekLink: '',
+        werkboekLink: act.werkboekBestand ? `/uploads/${act.werkboekBestand}` : '',
         beschrijving: pw.thema
           ? `${pw.thema} — Uit lesprofiel: ${p.naam} (week ${i + 1} van ${p.aantalWeken})`
           : `Uit lesprofiel: ${p.naam} (week ${i + 1} van ${p.aantalWeken})`,

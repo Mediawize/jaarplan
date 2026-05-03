@@ -86,7 +86,7 @@ function renderLb() {
           <h2 style="margin:0 0 4px;font-size:18px">📄 Lesbrief — stap ${s} van ${totaal}: ${huidigLabel}</h2>
           <div style="font-size:13px;color:var(--ink-muted)">
             ${info.type ? `<span style="background:var(--accent-dim);color:var(--accent);border-radius:4px;padding:1px 7px;font-size:12px;font-weight:600;margin-right:6px">${escHtml(info.type)}</span>` : ''}
-            ${escHtml(info.omschrijving || info.naam || '')}${info.uren ? ` · ${info.uren} uur` : ''}
+            ${escHtml(info.omschrijving || info.naam || '')}${info.uren ? ` · ${info.uren} lesuren (45 min)` : ''}
           </div>
         </div>
         <div style="display:flex;gap:6px;align-items:center;flex-shrink:0">
