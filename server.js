@@ -114,6 +114,43 @@ app.get('/reset-wachtwoord', (req, res) => res.sendFile(path.join(__dirname, 'pu
 
 app.use(express.static(path.join(__dirname, 'public')));
 app.use('/uploads', express.static(uploadDir));
+
+async function maakPdfMetPlaywright(html) {
+  if (!html || typeof html !== 'string') throw new Error('HTML ontbreekt');
+  let chromium;
+  try {
+    ({ chromium } = require('playwright'));
+  } catch (e) {
+    throw new Error('Playwright is niet geïnstalleerd. Voer uit: npm install && npx playwright install chromium');
+  }
+
+  const browser = await chromium.launch({
+    headless: true,
+    args: ['--no-sandbox', '--disable-setuid-sandbox']
+  });
+  try {
+    const page = await browser.newPage({ viewport: { width: 1240, height: 1754 } });
+    await page.setContent(html, { waitUntil: 'networkidle' });
+    await page.emulateMedia({ media: 'print' });
+    return await page.pdf({
+      format: 'A4',
+      printBackground: true,
+      preferCSSPageSize: true,
+      margin: { top: '0mm', right: '0mm', bottom: '0mm', left: '0mm' }
+    });
+  } finally {
+    await browser.close();
+  }
+}
+
+function veiligeBestandsnaam(naam) {
+  return String(naam || 'werkboekje')
+    .toLowerCase()
+    .replace(/[^a-z0-9_-]+/gi, '_')
+    .replace(/^_+|_+$/g, '')
+    .slice(0, 60) || 'werkboekje';
+}
+
 const sessionDb = require('better-sqlite3')(path.join(__dirname, 'db', 'sessions.db'));
 app.use(session({
   store: new BetterSqlite3Store({ client: sessionDb, expired: { clear: true, intervalMs: 15 * 60 * 1000 } }),
@@ -1663,28 +1700,45 @@ app.post('/api/genereer-werkboekje-handmatig', requireCanEdit, async (req, res) 
 // ============================================================
 app.post('/api/werkboekjes/pdf-materiaal', requireCanEdit, async (req, res) => {
   try {
-    const { titel, vak, pdfBase64 } = req.body || {};
+    const { titel, vak, html } = req.body || {};
     if (!titel || !String(titel).trim()) {
       return res.status(400).json({ error: 'Titel is verplicht' });
     }
-    if (!pdfBase64 || typeof pdfBase64 !== 'string') {
-      return res.status(400).json({ error: 'PDF ontbreekt' });
+    if (!html || typeof html !== 'string') {
+      return res.status(400).json({ error: 'HTML voor PDF ontbreekt' });
     }
 
-    const cleanBase64 = pdfBase64.includes(',') ? pdfBase64.split(',').pop() : pdfBase64;
-    const pdfBuffer = Buffer.from(cleanBase64, 'base64');
-    if (!pdfBuffer.length || pdfBuffer.length < 100) {
-      return res.status(400).json({ error: 'PDF-bestand is leeg of ongeldig' });
+    const pdfBuffer = await maakPdfMetPlaywright(html);
+    if (!pdfBuffer.length || pdfBuffer.length < 1000) {
+      return res.status(500).json({ error: 'PDF-bestand is leeg of ongeldig' });
     }
-
-    const bestandsnaam = 'werkboekje_' + Date.now() + '.pdf';
-    fs.writeFileSync(path.join(uploadDir, bestandsnaam), pdfBuffer);
 
     const naam = String(titel).trim() || 'Werkboekje';
+    const bestandsnaam = `${veiligeBestandsnaam(naam)}_${Date.now()}.pdf`;
+    fs.writeFileSync(path.join(uploadDir, bestandsnaam), pdfBuffer);
+
     const mat = db.addMateriaal({ type: 'werkboekje', naam, bestandsnaam, vak: vak || '' });
-    res.json({ success: true, bestandsnaam, titel: naam, materiaalId: mat?.id });
+    res.json({ success: true, bestandsnaam, titel: naam, materiaalId: mat?.id, url: `/uploads/${bestandsnaam}` });
   } catch (e) {
+    console.error('Fout bij opslaan werkboekje PDF:', e);
     res.status(500).json({ error: 'Fout bij opslaan PDF: ' + e.message });
+  }
+});
+
+app.post('/api/werkboekjes/pdf-download', requireCanEdit, async (req, res) => {
+  try {
+    const { titel, html } = req.body || {};
+    if (!html || typeof html !== 'string') {
+      return res.status(400).json({ error: 'HTML voor PDF ontbreekt' });
+    }
+    const pdfBuffer = await maakPdfMetPlaywright(html);
+    const filename = `${veiligeBestandsnaam(titel || 'werkboekje')}.pdf`;
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.send(pdfBuffer);
+  } catch (e) {
+    console.error('Fout bij downloaden werkboekje PDF:', e);
+    res.status(500).json({ error: 'Fout bij maken PDF: ' + e.message });
   }
 });
 
