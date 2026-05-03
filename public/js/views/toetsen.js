@@ -686,7 +686,7 @@ function renderWizardStap() {
           <div><span style="color:var(--ink-muted)">Stappen totaal:</span> ${aantalStappen}</div>
         </div>
       </div>
-      <div style="font-size:13px;color:var(--ink-muted)">Controleer het overzicht en klik op <strong>Werkboekje aanmaken</strong> om het .docx bestand te genereren.</div>
+      <div style="font-size:13px;color:var(--ink-muted)">Controleer het overzicht en klik op <strong>Werkboekje maken</strong>. Het werkboekje wordt als PDF opgeslagen bij Toetsen & Materialen.</div>
     `;
   }
 
@@ -903,11 +903,13 @@ async function wizardGenereer() {
     if (!data.success) throw new Error(data.error || 'Onbekende fout');
     result.innerHTML = `
       <div class="alert alert-info" style="background:var(--accent-dim);border:1px solid rgba(45,90,61,0.2);color:var(--accent-text)">
-        ✓ <strong>${escHtml(data.titel)}</strong> is klaar!<br>
-        <a href="/uploads/${escHtml(data.bestandsnaam)}" download="${escHtml(data.bestandsnaam)}"
-           style="color:var(--accent);font-weight:600;display:inline-block;margin-top:6px">
-          ⬇ Werkboekje downloaden (.docx)
+        ✓ <strong>${escHtml(data.titel)}</strong> is opgeslagen als PDF bij Toetsen & Materialen.<br>
+        <a href="/uploads/${escHtml(data.pdfBestandsnaam || data.bestandsnaam)}" download="${escHtml(data.pdfBestandsnaam || data.bestandsnaam)}"
+           style="color:var(--accent);font-weight:600;display:inline-block;margin-top:6px;margin-right:12px">
+          ⬇ PDF downloaden
         </a>
+        ${data.docxBestandsnaam ? `<a href="/uploads/${escHtml(data.docxBestandsnaam)}" download="${escHtml(data.docxBestandsnaam)}" style="color:var(--accent);font-weight:600;display:inline-block;margin-top:6px;margin-right:12px">⬇ DOCX downloaden</a>` : ''}
+        <button class="btn" onclick="closeModalDirect()" style="margin-top:10px">Sluiten</button>
       </div>`;
   } catch (e) {
     result.innerHTML = `<span style="color:var(--red)">Fout: ${escHtml(e.message)}</span>`;
