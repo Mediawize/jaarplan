@@ -173,6 +173,123 @@ function veiligeBestandsnaam(naam) {
     .slice(0, 60) || 'werkboekje';
 }
 
+
+function escHtmlPdf(v) {
+  return String(v == null ? '' : v)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function schoonWerkboekjeData(data = {}) {
+  const d = { ...(data || {}) };
+  d.vak = String(d.vak || '').trim();
+  d.profieldeel = String(d.profieldeel || '').trim();
+  d.opdrachtnummer = String(d.opdrachtnummer || '1').trim();
+  d.duur = String(d.duur || '').trim();
+  d.titel = String(d.titel || 'Werkboekje').trim();
+  d.introductie = String(d.introductie || '').trim();
+  d.leerdoelen = (d.leerdoelen || []).map(x => String(x || '').trim()).filter(Boolean).slice(0, 4);
+  d.veiligheidsregels = (d.veiligheidsregels || []).map(x => String(x || '').trim()).filter(Boolean).slice(0, 8);
+  d.machines = (d.machines || []).map(x => typeof x === 'string' ? x : (x?.naam || x?.omschrijving || '')).map(x => String(x || '').trim()).filter(Boolean).slice(0, 20);
+  d.materiaalstaat = (d.materiaalstaat || []).map((r, i) => ({
+    nummer: r?.nummer || i + 1,
+    aantal: String(r?.aantal || '').trim(),
+    benaming: String(r?.benaming || '').trim(),
+    lengte: String(r?.lengte || '').trim(),
+    breedte: String(r?.breedte || '').trim(),
+    dikte: String(r?.dikte || '').trim(),
+    soortHout: String(r?.soortHout || '').trim()
+  })).filter(r => r.benaming || r.aantal || r.lengte || r.breedte || r.dikte || r.soortHout).slice(0, 40);
+  d.secties = (d.secties || []).map((s, si) => ({
+    titel: String(s?.titel || `Opdracht ${si + 1}`).trim(),
+    benodigdheden: Array.isArray(s?.benodigdheden) ? s.benodigdheden.map(b => String(b || '').trim()).filter(Boolean) : [],
+    stappen: (s?.stappen || []).map(st => ({
+      stap: String(st?.stap || '').trim().slice(0, 500),
+      type: st?.type || 'foto',
+      afbeeldingBase64: st?.afbeeldingBase64 || null,
+      afbeeldingType: st?.afbeeldingType || null
+    })).filter(st => st.type === 'tekening' || st.stap || st.afbeeldingBase64)
+  })).filter(s => s.titel || s.stappen.length).slice(0, 10);
+  return d;
+}
+
+function bouwWerkboekjeHtmlVoorPdf({ schoolnaam = '', logoBestand = null, data = {} }) {
+  const d = schoonWerkboekjeData(data);
+  const logoUrl = logoBestand ? `file://${path.join(uploadDir, logoBestand).replace(/\\/g, '/')}` : '';
+  const materiaalRijen = d.materiaalstaat.map(r => `
+    <tr>
+      <td>${escHtmlPdf(r.nummer)}</td><td>${escHtmlPdf(r.aantal)}</td><td>${escHtmlPdf(r.benaming)}</td>
+      <td>${escHtmlPdf(r.lengte)}</td><td>${escHtmlPdf(r.breedte)}</td><td>${escHtmlPdf(r.dikte)}</td><td>${escHtmlPdf(r.soortHout)}</td>
+    </tr>`).join('');
+  const stappenHtml = d.secties.map((sectie, si) => `
+    <section class="block">
+      <h2>Opdracht ${si + 1}${sectie.titel ? ' — ' + escHtmlPdf(sectie.titel) : ''}</h2>
+      ${sectie.benodigdheden.length ? `<p><strong>Benodigdheden:</strong> ${sectie.benodigdheden.map(escHtmlPdf).join(' · ')}</p>` : ''}
+      ${sectie.stappen.map((stap, pi) => {
+        const img = stap.afbeeldingBase64 ? `<img class="stap-img" src="${stap.afbeeldingBase64}">` : `<div class="placeholder">Afbeelding invoegen</div>`;
+        if (stap.type === 'tekening') {
+          return `<div class="page-break stap"><h3>Stap ${pi + 1}</h3>${stap.stap ? `<p>${escHtmlPdf(stap.stap)}</p>` : ''}<div class="tekenvak">${img}</div></div>`;
+        }
+        return `<div class="stap"><h3>Stap ${pi + 1}</h3>${stap.stap ? `<p>${escHtmlPdf(stap.stap)}</p>` : ''}${img}</div>`;
+      }).join('')}
+    </section>`).join('');
+  const controle = d.secties.flatMap(s => s.stappen || []).map((st, i) => `<li><span class="check">☐</span> Stap ${i + 1}${st.stap ? ': ' + escHtmlPdf(st.stap) : ''}</li>`).join('');
+
+  return `<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<title>${escHtmlPdf(d.titel)}</title>
+<style>
+  @page { size: A4; margin: 14mm; }
+  * { box-sizing: border-box; }
+  body { font-family: Arial, sans-serif; color: #2f2a25; margin: 0; font-size: 12.5pt; line-height: 1.35; }
+  header { border-bottom: 3px solid #2D5A3D; padding-bottom: 8px; margin-bottom: 22px; display:flex; align-items:center; justify-content:space-between; }
+  header img { max-height: 44px; max-width: 120px; object-fit: contain; }
+  .school { color:#2D5A3D; font-weight: 700; font-size: 14pt; }
+  h1 { color:#1A3A26; font-size: 22pt; margin: 10px 0 8px; border-bottom: 4px solid #2D5A3D; padding-bottom: 8px; }
+  h2 { background:#2D5A3D; color:white; padding: 8px 10px; font-size: 15pt; margin: 20px 0 10px; break-after: avoid; }
+  h3 { background:#E8F3EC; color:#2D5A3D; padding: 7px 9px; font-size: 13pt; margin: 14px 0 7px; break-after: avoid; }
+  .meta { border:1px solid #D1D5DB; padding: 9px; margin: 14px 0 18px; display:grid; grid-template-columns: 1fr 1fr; gap: 6px 14px; }
+  .naamregel { border:1px solid #D1D5DB; padding: 10px; margin: 20px 0; }
+  ul { margin-top: 6px; } li { margin: 5px 0; }
+  table { width:100%; border-collapse: collapse; margin: 8px 0 18px; font-size: 10.5pt; }
+  th { background:#E8F3EC; color:#2D5A3D; text-align:left; }
+  th,td { border:1px solid #D1D5DB; padding: 5px 6px; vertical-align: top; }
+  .block { break-inside: auto; }
+  .stap { margin-bottom: 14px; break-inside: avoid; }
+  .stap-img { max-width: 88mm; max-height: 65mm; border:1px solid #D1D5DB; object-fit: contain; display:block; margin-top: 6px; }
+  .placeholder { width: 88mm; height: 52mm; border:1px dashed #9CA3AF; color:#777; display:flex; align-items:center; justify-content:center; margin-top: 6px; font-style: italic; }
+  .tekenvak { min-height: 190mm; border:1px solid #D1D5DB; display:flex; align-items:center; justify-content:center; }
+  .page-break { break-before: page; }
+  .check { font-size: 15pt; margin-right: 8px; }
+  footer { position: fixed; bottom: -8mm; left:0; right:0; border-top:1px solid #D1D5DB; padding-top:4px; font-size:9pt; color:#666; }
+</style>
+</head>
+<body>
+<header>${logoUrl ? `<img src="${logoUrl}">` : `<div class="school">${escHtmlPdf(schoolnaam || 'JaarPlan')}</div>`}<div>${escHtmlPdf(d.vak || 'Werkboekje')}</div></header>
+<h1>Opdracht ${escHtmlPdf(d.opdrachtnummer || '1')}: ${escHtmlPdf(d.titel.replace(/^Werkboekje:\s*/i, ''))}</h1>
+<div class="meta">
+  ${d.vak ? `<div><strong>Vak:</strong> ${escHtmlPdf(d.vak)}</div>` : ''}
+  ${d.profieldeel ? `<div><strong>Profieldeel:</strong> ${escHtmlPdf(d.profieldeel)}</div>` : ''}
+  ${d.duur ? `<div><strong>Duur:</strong> ${escHtmlPdf(d.duur)}</div>` : ''}
+</div>
+<div class="naamregel"><strong>Naam:</strong> ________________________________ &nbsp;&nbsp; <strong>Klas:</strong> ____________ &nbsp;&nbsp; <strong>Datum:</strong> ____________</div>
+${d.leerdoelen.length ? `<h2>Leerdoelen</h2><ul>${d.leerdoelen.map(x => `<li>${escHtmlPdf(x)}</li>`).join('')}</ul>` : ''}
+${d.introductie ? `<h2>Introductie</h2><p><em>${escHtmlPdf(d.introductie)}</em></p>` : ''}
+${d.materiaalstaat.length ? `<h2>Materiaalstaat</h2><table><thead><tr><th>Nr.</th><th>Aantal</th><th>Benaming</th><th>Lengte</th><th>Breedte</th><th>Dikte</th><th>Soort</th></tr></thead><tbody>${materiaalRijen}</tbody></table>` : ''}
+${d.veiligheidsregels.length ? `<h2>Voorbereiding</h2><p><strong>In de praktijk is het verplicht om:</strong></p><ul>${d.veiligheidsregels.map(x => `<li>${escHtmlPdf(x)}</li>`).join('')}</ul>` : ''}
+${d.machines.length ? `<h2>Machines en gereedschappen</h2><ul>${d.machines.map(x => `<li>${escHtmlPdf(x)}</li>`).join('')}</ul>` : ''}
+${stappenHtml}
+${controle ? `<h2>Controlelijst</h2><ul>${controle}</ul>` : ''}
+<footer>${escHtmlPdf(d.titel)} — JaarPlan</footer>
+</body>
+</html>`;
+}
+
 const sessionDb = require('better-sqlite3')(path.join(__dirname, 'db', 'sessions.db'));
 app.use(session({
   store: new BetterSqlite3Store({ client: sessionDb, expired: { clear: true, intervalMs: 15 * 60 * 1000 } }),
@@ -1700,17 +1817,46 @@ app.post('/api/genereer-werkboekje-handmatig', requireCanEdit, async (req, res) 
   try {
     const schoolnaam  = db.getInstelling('schoolnaam')  || '';
     const logoBestand = db.getInstelling('logoBestand') || null;
-    const data = req.body;
+    const data = schoonWerkboekjeData(req.body || {});
     if (!data || !data.titel) return res.status(400).json({ error: 'Titel is verplicht' });
-    data.machines = (data.machines || []).filter(m => m && ((typeof m === 'string' && m.trim()) || (typeof m === 'object' && (m.naam || m.omschrijving || m.afbeeldingBase64))));
-    data.secties = (data.secties || []).map(s => ({ ...s, stappen: (s.stappen || []).filter(p => p.type === 'tekening' || (p.stap && p.stap.trim())) })).filter(s => s.titel || s.stappen.length);
+
+    console.log('Werkboekje wizard opslaan geraakt:', {
+      titel: data.titel,
+      stappen: (data.secties || []).reduce((t, s) => t + (s.stappen || []).length, 0)
+    });
+
+    // DOCX blijft beschikbaar als extra download, maar het dashboardmateriaal wordt nu de PDF.
+    const timestamp = Date.now();
     const docxBuffer = await bouwWerkboekjeDocxVast({ schoolnaam, logoBestand, data });
-    const bestandsnaam = 'werkboekje_' + Date.now() + '.docx';
-    fs.writeFileSync(path.join(uploadDir, bestandsnaam), docxBuffer);
+    const docxBestandsnaam = 'werkboekje_' + timestamp + '.docx';
+    fs.writeFileSync(path.join(uploadDir, docxBestandsnaam), docxBuffer);
+
+    const html = bouwWerkboekjeHtmlVoorPdf({ schoolnaam, logoBestand, data });
+    const pdfBuffer = await maakPdfMetPlaywright(html);
+    if (!pdfBuffer.length || pdfBuffer.length < 1000) {
+      throw new Error('PDF-bestand is leeg of ongeldig');
+    }
+
+    const pdfBestandsnaam = veiligeBestandsnaam(data.titel || 'werkboekje') + '_' + timestamp + '.pdf';
+    fs.writeFileSync(path.join(uploadDir, pdfBestandsnaam), pdfBuffer);
+    fs.writeFileSync(path.join(uploadDir, pdfBestandsnaam.replace(/\.pdf$/i, '.html')), html, 'utf8');
+
     const naam = data.titel || 'Werkboekje';
-    const mat = db.addMateriaal({ type: 'werkboekje', naam, bestandsnaam, vak: data.vak || '' });
-    res.json({ success: true, bestandsnaam, titel: naam, materiaalId: mat?.id });
+    const mat = db.addMateriaal({ type: 'werkboekje', naam, bestandsnaam: pdfBestandsnaam, vak: data.vak || '' });
+    console.log('Werkboekje wizard PDF opgeslagen:', pdfBestandsnaam);
+
+    res.json({
+      success: true,
+      bestandsnaam: pdfBestandsnaam,
+      pdfBestandsnaam,
+      docxBestandsnaam,
+      titel: naam,
+      materiaalId: mat?.id,
+      url: `/uploads/${pdfBestandsnaam}`,
+      docxUrl: `/uploads/${docxBestandsnaam}`
+    });
   } catch (e) {
+    console.error('Werkboekje wizard fout:', e);
     res.status(500).json({ error: 'Fout bij aanmaken: ' + e.message });
   }
 });
