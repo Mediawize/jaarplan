@@ -533,7 +533,7 @@ async function wbOpslaan() {
         _wbState.wbId = wb.id;
       }
       _wbState.busy = false;
-      if (result) result.innerHTML = `<div class="alert alert-info"><strong>${wbEsc(_wbState.data.titel||'Werkboekje')}</strong> opgeslagen. <a href="#" onclick="wbDownloadPdf();return false" style="color:var(--accent);font-weight:600">Download PDF</a></div>`;
+      if (result) result.innerHTML = `<div class="alert alert-info"><strong>${wbEsc(_wbState.data.titel||'Werkboekje')}</strong> opgeslagen. <a href="#" onclick="wbDownloadPdf();return false" style="color:var(--accent);font-weight:600">Download PDF</a><button class="btn btn-sm" style="margin-left:10px" onclick="wbAnnuleer()">Sluiten</button></div>`;
     } else {
       // Standalone: PDF opslaan als materiaal, zodat hij zichtbaar wordt bij Toetsen & Materialen
       const pdfBase64 = await wbMaakPdfBase64();
@@ -550,7 +550,7 @@ async function wbOpslaan() {
       const data = await wbJsonOfThrow(res);
       _wbState.laatsteBestand = data.bestandsnaam;
       _wbState.busy = false;
-      if (result) result.innerHTML = `<div class="alert alert-info">Klaar: <strong>${wbEsc(data.titel)}</strong><br>Opgeslagen bij Toetsen & Materialen. <a href="/uploads/${wbEsc(data.bestandsnaam)}" download="${wbEsc(data.bestandsnaam)}" style="color:var(--accent);font-weight:600">Download opgeslagen PDF</a></div>`;
+      if (result) result.innerHTML = `<div class="alert alert-info">Klaar: <strong>${wbEsc(data.titel)}</strong><br>Opgeslagen bij Toetsen & Materialen. <a href="/uploads/${wbEsc(data.bestandsnaam)}" download="${wbEsc(data.bestandsnaam)}" style="color:var(--accent);font-weight:600">Download opgeslagen PDF</a><button class="btn btn-sm" style="margin-left:10px" onclick="wbAnnuleer()">Sluiten</button></div>`;
       if (typeof renderToetsen === 'function') setTimeout(() => renderToetsen(), 400);
     }
   } catch(e) { _wbState.busy=false; if(result) result.innerHTML=`<span style="color:var(--red)">Fout: ${wbEsc(e.message)}</span>`; }
@@ -565,13 +565,13 @@ async function wbMaakPdfBase64() {
   const doc = new DOMParser().parseFromString(html, 'text/html');
   const wrap = document.createElement('div');
   wrap.style.position = 'absolute';
-  wrap.style.left = '0';
+  wrap.style.left = '-10000px';
   wrap.style.top = '0';
   wrap.style.width = '210mm';
   wrap.style.minHeight = '297mm';
   wrap.style.background = '#ffffff';
-  wrap.style.zIndex = '-1';
-  wrap.style.opacity = '0.01';
+  wrap.style.zIndex = '0';
+  wrap.style.opacity = '1';
   wrap.innerHTML = (doc.head ? doc.head.innerHTML : '') + (doc.body ? doc.body.innerHTML : html);
   document.body.appendChild(wrap);
   await new Promise(resolve => setTimeout(resolve, 500));

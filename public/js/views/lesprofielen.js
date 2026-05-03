@@ -589,6 +589,8 @@ async function slaProfielOp(profielId) {
 }
 
 async function openProfielDetail(profielId) {
+  if (typeof closeSidebar === 'function') closeSidebar();
+  document.getElementById('profiel-detail-overlay')?.remove();
   const [profielen, vakken, klassen, alleOpd] = await Promise.all([
     API.getLesprofielen(), API.getVakken(), API.getKlassen(), API.getOpdrachten()
   ]);
@@ -733,11 +735,11 @@ function renderActiviteitenHTML(p, weekIdx) {
               onclick="openLesbrief('${p.id}',${weekIdx},${ai},_lpActInfo['${p.id}_${weekIdx}_${ai}'])">
               📋 Lesbrief
             </button>
-            <button class="icon-btn" onclick="bewerkActiviteit('${p.id}',${weekIdx},${ai})" title="Bewerken">
-              <svg viewBox="0 0 20 20" fill="none"><path d="M14.5 3.5l2 2L7 15l-3 1 1-3 9.5-9.5z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            </button>
             <button class="icon-btn" onclick="verwijderActiviteit('${p.id}',${weekIdx},${ai})" style="color:#DC2626" title="Verwijderen">
               <svg viewBox="0 0 20 20" fill="none"><path d="M5 5l10 10M15 5L5 15" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+            </button>
+            <button class="icon-btn" onclick="bewerkActiviteit('${p.id}',${weekIdx},${ai})" title="Bewerken">
+              <svg viewBox="0 0 20 20" fill="none"><path d="M14.5 3.5l2 2L7 15l-3 1 1-3 9.5-9.5z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
             </button>
           </div>
         </td>
