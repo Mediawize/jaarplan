@@ -371,16 +371,65 @@ async function wbVraagAiSuggestie(stapId) {
   wbSlaStapOp();
   wbSetBusy(true, 'AI maakt een voorstel. Je huidige tekst blijft staan.');
   try {
-    const context = { stapId, data:_wbState.data };
-    let userPrompt = 'Maak een praktisch voorstel voor dit onderdeel van een Nederlands techniek-werkboekje. Geef alleen JSON terug.';
-    if (stapId === 'leerdoelen') userPrompt = 'Maak 3 tot 4 concrete leerdoelen. JSON: {"leerdoelen":["..."]}';
-    if (stapId === 'introductie') userPrompt = 'Verbeter of maak een korte leerlinggerichte introductie. JSON: {"introductie":"..."}';
-    if (stapId === 'materiaalstaat') userPrompt = 'Maak of verbeter de materiaalstaat. JSON: {"materiaalstaat":[{"benaming":"","aantal":"","lengte":"","breedte":"","dikte":"","soortHout":""}]}';
-    if (stapId === 'veiligheid') userPrompt = 'Maak passende veiligheidsregels. JSON: {"veiligheidsregels":["..."]}';
-    if (stapId === 'machines') userPrompt = 'Maak passende gereedschappen en machines. JSON: {"machines":[{"naam":"","omschrijving":""}]}';
-    if (stapId.startsWith('stap:')) userPrompt = 'Verbeter alleen deze staptekst en geef eventueel een tip. JSON: {"stap":"...","tip":"..."}';
-    if (stapId.startsWith('sectie:')) userPrompt = 'Maak concrete stappen voor dit onderdeel. JSON: {"stappen":[{"stap":"...","tip":""}]}';
-    const res = await fetch('/api/ai/wizard-stap', { method:'POST', credentials:'same-origin', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ type:'werkboekje', stapId, systeemPrompt:'Je helpt een docent techniek met werkboekjes. Schrijf kort, praktisch en leerlinggericht. Overschrijf niets; lever voorstellen.', userPrompt, context }) });
+    const d = _wbState.data;
+    const basis = `Werkboekje: "${d.titel||'onbekend'}" | Vak: ${d.vak||'techniek'} | Niveau: ${d.niveau||''} | Wat wordt er gemaakt: ${d.introductie||d.titel||''}`;
+
+    let userPrompt = '';
+
+    if (stapId === 'leerdoelen') {
+      userPrompt = `${basis}
+Al ingevulde leerdoelen: ${(d.leerdoelen||[]).filter(Boolean).join('; ') || 'nog geen'}
+Maak 3-4 concrete leerdoelen die passen bij dit onderwerp en wat er gemaakt wordt. JSON: {"leerdoelen":["..."]}`;
+    }
+    else if (stapId === 'introductie') {
+      userPrompt = `${basis}
+Al ingevulde introductie: "${d.introductie||''}"
+Verbeter of schrijf een korte leerlinggerichte introductie die uitlegt wat er gemaakt wordt en waarom. JSON: {"introductie":"..."}`;
+    }
+    else if (stapId === 'materiaalstaat') {
+      const bestaand = (d.materiaalstaat||[]).filter(r=>r.benaming).map(r=>r.benaming).join(', ');
+      userPrompt = `${basis}
+Al ingevuld materiaal: ${bestaand||'nog geen'}
+Maak een passende materiaalstaat voor dit product. JSON: {"materiaalstaat":[{"benaming":"","aantal":"","lengte":"","breedte":"","dikte":"","soortHout":""}]}`;
+    }
+    else if (stapId === 'veiligheid') {
+      const machines = (d.machines||[]).filter(m=>m.naam).map(m=>m.naam).join(', ');
+      userPrompt = `${basis}
+Gebruikte gereedschappen/machines: ${machines||'onbekend'}
+Maak passende veiligheidsregels voor dit werkboekje. JSON: {"veiligheidsregels":["..."]}`;
+    }
+    else if (stapId === 'machines') {
+      userPrompt = `${basis}
+Al ingevulde stappen: ${(d.secties||[]).flatMap(s=>s.stappen||[]).map(s=>s.stap).filter(Boolean).join('; ')||'nog geen'}
+Welke gereedschappen en machines zijn nodig voor dit product? JSON: {"machines":[{"naam":"","omschrijving":""}]}`;
+    }
+    else if (stapId.startsWith('stap:')) {
+      const [,si,pi] = stapId.split(':').map((x,i)=>i?Number(x):x);
+      const sec = d.secties?.[si];
+      const st = sec?.stappen?.[pi];
+      const anderStappen = (sec?.stappen||[]).filter((_,i)=>i!==pi).map(s=>s.stap).filter(Boolean).join('; ');
+      userPrompt = `${basis}
+Onderdeel: "${sec?.titel||''}"
+Huidige staptekst: "${st?.stap||''}"
+Andere stappen in dit onderdeel: ${anderStappen||'geen'}
+Verbeter de staptekst zodat die concreet en leerlinggericht is. Geef eventueel een tip. JSON: {"stap":"...","tip":"..."}`;
+    }
+    else if (stapId.startsWith('sectie:')) {
+      const si = Number(stapId.split(':')[1]);
+      const sec = d.secties?.[si];
+      const andereSecs = (d.secties||[]).filter((_,i)=>i!==si).map(s=>s.titel).filter(Boolean).join(', ');
+      userPrompt = `${basis}
+Dit onderdeel: "${sec?.titel||''}"
+Andere onderdelen in het werkboekje: ${andereSecs||'geen'}
+Al ingevulde stappen: ${(sec?.stappen||[]).map(s=>s.stap).filter(Boolean).join('; ')||'nog geen'}
+Maak concrete stappen voor dit onderdeel die logisch aansluiten op het geheel. JSON: {"stappen":[{"stap":"...","tip":""}]}`;
+    }
+    else {
+      userPrompt = `${basis}\nMaak een praktisch voorstel voor dit onderdeel. Geef alleen JSON terug.`;
+    }
+
+    const context = { stapId, data: d };
+    const res = await fetch('/api/ai/wizard-stap', { method:'POST', credentials:'same-origin', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ type:'werkboekje', stapId, systeemPrompt:'Je helpt een docent techniek met het invullen van een werkboekje. Schrijf kort, praktisch en leerlinggericht in het Nederlands. Geef ALLEEN geldige JSON terug, geen uitleg erbuiten.', userPrompt, context }) });
     const data = await wbJsonOfThrow(res);
     _wbState.aiVoorstellen[stapId] = data.suggestie || data;
     wbSetBusy(false, '');
