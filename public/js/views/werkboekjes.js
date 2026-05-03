@@ -535,13 +535,59 @@ async function wbOpslaan() {
       _wbState.busy = false;
       if (result) result.innerHTML = `<div class="alert alert-info"><strong>${wbEsc(_wbState.data.titel||'Werkboekje')}</strong> opgeslagen. <a href="#" onclick="wbDownloadPdf();return false" style="color:var(--accent);font-weight:600">Download PDF</a></div>`;
     } else {
-      // Standalone: opslaan als materiaal
-      const res = await fetch('/api/genereer-werkboekje-handmatig', { method:'POST', credentials:'same-origin', headers:{'Content-Type':'application/json'}, body:JSON.stringify(_wbState.data) });
+      // Standalone: PDF opslaan als materiaal, zodat hij zichtbaar wordt bij Toetsen & Materialen
+      const pdfBase64 = await wbMaakPdfBase64();
+      const res = await fetch('/api/werkboekjes/pdf-materiaal', {
+        method:'POST',
+        credentials:'same-origin',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({
+          titel: _wbState.data.titel || 'Werkboekje',
+          vak: _wbState.data.vak || '',
+          pdfBase64
+        })
+      });
       const data = await wbJsonOfThrow(res);
+      _wbState.laatsteBestand = data.bestandsnaam;
       _wbState.busy = false;
-      if (result) result.innerHTML = `<div class="alert alert-info">Klaar: <strong>${wbEsc(data.titel)}</strong><br><a href="#" onclick="wbDownloadPdf();return false" style="color:var(--accent);font-weight:600">Download PDF</a></div>`;
+      if (result) result.innerHTML = `<div class="alert alert-info">Klaar: <strong>${wbEsc(data.titel)}</strong><br>Opgeslagen bij Toetsen & Materialen. <a href="/uploads/${wbEsc(data.bestandsnaam)}" download="${wbEsc(data.bestandsnaam)}" style="color:var(--accent);font-weight:600">Download opgeslagen PDF</a></div>`;
+      if (typeof renderToetsen === 'function') setTimeout(() => renderToetsen(), 400);
     }
   } catch(e) { _wbState.busy=false; if(result) result.innerHTML=`<span style="color:var(--red)">Fout: ${wbEsc(e.message)}</span>`; }
+}
+
+
+async function wbMaakPdfBase64() {
+  if (typeof html2pdf === 'undefined') {
+    throw new Error('PDF module niet geladen. Controleer of html2pdf.js in index.html staat.');
+  }
+  const html = _wbState?.laatsteHtml || await wbBouwHtml(_wbState.data);
+  const wrap = document.createElement('div');
+  wrap.style.position = 'fixed';
+  wrap.style.left = '-10000px';
+  wrap.style.top = '0';
+  wrap.style.width = '210mm';
+  wrap.innerHTML = html;
+  document.body.appendChild(wrap);
+  try {
+    const opt = {
+      margin: 0,
+      filename: 'werkboekje.pdf',
+      image: { type: 'jpeg', quality: 0.98 },
+      html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff' },
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+      pagebreak: { mode: ['css', 'legacy'] }
+    };
+    const blob = await html2pdf().set(opt).from(wrap).outputPdf('blob');
+    return await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result).split(',').pop());
+      reader.onerror = () => reject(new Error('PDF kon niet gelezen worden'));
+      reader.readAsDataURL(blob);
+    });
+  } finally {
+    wrap.remove();
+  }
 }
 
 async function wbDownloadPdf() {
