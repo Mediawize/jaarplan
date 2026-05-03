@@ -507,6 +507,25 @@ async function wbMaakVoorbeeld() {
   setTimeout(()=>{ const f=document.getElementById('wb-preview-frame'); if(f) f.srcdoc=_wbState.laatsteHtml; },50);
 }
 
+
+function wbHaalPreviewHtmlOp() {
+  const frame = document.getElementById('wb-preview-frame');
+  try {
+    const doc = frame && (frame.contentDocument || frame.contentWindow?.document);
+    const html = doc && doc.documentElement ? '<!DOCTYPE html>
+' + doc.documentElement.outerHTML : '';
+    if (html && html.length > 500) return html;
+  } catch (e) {}
+  return _wbState?.laatsteHtml || '';
+}
+
+async function wbGeefPdfHtml() {
+  let html = wbHaalPreviewHtmlOp();
+  if (!html || html.length < 500) html = await wbBouwHtml(_wbState.data);
+  _wbState.laatsteHtml = html;
+  return html;
+}
+
 async function wbOpslaan() {
   if (_wbState.busy) return;
   const result = document.getElementById('wb-save-result');
@@ -532,7 +551,7 @@ async function wbOpslaan() {
         const wb = await wbJsonOfThrow(res);
         _wbState.wbId = wb.id;
       }
-      const html = _wbState?.laatsteHtml || await wbBouwHtml(_wbState.data);
+      const html = await wbGeefPdfHtml();
       const pdfRes = await fetch('/api/werkboekjes/pdf-materiaal', {
         method:'POST',
         credentials:'same-origin',
@@ -551,7 +570,7 @@ async function wbOpslaan() {
       if (typeof openProfielDetail === 'function') setTimeout(() => openProfielDetail(_wbState.profielId), 400);
     } else {
       // Standalone: PDF opslaan als materiaal, zodat hij zichtbaar wordt bij Toetsen & Materialen
-      const html = _wbState?.laatsteHtml || await wbBouwHtml(_wbState.data);
+      const html = await wbGeefPdfHtml();
       const res = await fetch('/api/werkboekjes/pdf-materiaal', {
         method:'POST',
         credentials:'same-origin',
@@ -574,7 +593,7 @@ async function wbOpslaan() {
 
 async function wbDownloadPdf() {
   try {
-    const html = _wbState?.laatsteHtml || await wbBouwHtml(_wbState.data);
+    const html = await wbGeefPdfHtml();
     const res = await fetch('/api/werkboekjes/pdf-download', {
       method:'POST',
       credentials:'same-origin',
