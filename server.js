@@ -115,8 +115,11 @@ app.get('/reset-wachtwoord', (req, res) => res.sendFile(path.join(__dirname, 'pu
 app.use(express.static(path.join(__dirname, 'public')));
 app.use('/uploads', express.static(uploadDir));
 
-async function maakPdfMetPlaywright(html) {
+async function maakPdfMetPlaywright(html, opties = {}) {
   if (!html || typeof html !== 'string') throw new Error('HTML ontbreekt');
+  const htmlLengte = Buffer.byteLength(html, 'utf8');
+  if (htmlLengte < 500) throw new Error(`HTML is te kort (${htmlLengte} bytes). Waarschijnlijk stuurt de frontend een lege preview.`);
+
   let chromium;
   try {
     ({ chromium } = require('playwright'));
@@ -128,16 +131,35 @@ async function maakPdfMetPlaywright(html) {
     headless: true,
     args: ['--no-sandbox', '--disable-setuid-sandbox']
   });
+
   try {
-    const page = await browser.newPage({ viewport: { width: 1240, height: 1754 } });
-    await page.setContent(html, { waitUntil: 'networkidle' });
-    await page.emulateMedia({ media: 'print' });
-    return await page.pdf({
+    const page = await browser.newPage({ viewport: { width: 1240, height: 1754 }, deviceScaleFactor: 1 });
+    page.on('pageerror', err => console.error('Werkboekje PDF pageerror:', err.message));
+    page.on('console', msg => {
+      if (msg.type() === 'error') console.error('Werkboekje PDF console:', msg.text());
+    });
+
+    await page.setContent(html, { waitUntil: 'load', timeout: 30000 });
+    await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
+    await page.waitForTimeout(500);
+    await page.emulateMedia({ media: 'screen' });
+
+    const bodyText = (await page.locator('body').innerText({ timeout: 5000 }).catch(() => '')).trim();
+    console.log(`Werkboekje PDF: html=${htmlLengte} bytes, tekst=${bodyText.length} tekens`);
+    if (bodyText.length < 20) {
+      const debugNaam = `debug_werkboekje_leeg_${Date.now()}.html`;
+      fs.writeFileSync(path.join(uploadDir, debugNaam), html, 'utf8');
+      throw new Error(`Preview bevat bijna geen tekst. Debug HTML opgeslagen als uploads/${debugNaam}`);
+    }
+
+    const pdfBuffer = await page.pdf({
       format: 'A4',
       printBackground: true,
       preferCSSPageSize: true,
       margin: { top: '0mm', right: '0mm', bottom: '0mm', left: '0mm' }
     });
+    console.log(`Werkboekje PDF gemaakt: ${pdfBuffer.length} bytes`);
+    return pdfBuffer;
   } finally {
     await browser.close();
   }
@@ -1708,6 +1730,8 @@ app.post('/api/werkboekjes/pdf-materiaal', requireCanEdit, async (req, res) => {
       return res.status(400).json({ error: 'HTML voor PDF ontbreekt' });
     }
 
+    console.log('Werkboekje PDF opslaan route geraakt:', { titel, vak, htmlBytes: Buffer.byteLength(html || '', 'utf8') });
+    console.log('Werkboekje PDF download route geraakt:', { titel, htmlBytes: Buffer.byteLength(html || '', 'utf8') });
     const pdfBuffer = await maakPdfMetPlaywright(html);
     if (!pdfBuffer.length || pdfBuffer.length < 1000) {
       return res.status(500).json({ error: 'PDF-bestand is leeg of ongeldig' });
@@ -1716,6 +1740,8 @@ app.post('/api/werkboekjes/pdf-materiaal', requireCanEdit, async (req, res) => {
     const naam = String(titel).trim() || 'Werkboekje';
     const bestandsnaam = `${veiligeBestandsnaam(naam)}_${Date.now()}.pdf`;
     fs.writeFileSync(path.join(uploadDir, bestandsnaam), pdfBuffer);
+    fs.writeFileSync(path.join(uploadDir, bestandsnaam.replace(/\.pdf$/i, '.html')), html, 'utf8');
+    console.log('Werkboekje PDF opgeslagen:', bestandsnaam);
 
     const mat = db.addMateriaal({ type: 'werkboekje', naam, bestandsnaam, vak: vak || '' });
     res.json({ success: true, bestandsnaam, titel: naam, materiaalId: mat?.id, url: `/uploads/${bestandsnaam}` });
