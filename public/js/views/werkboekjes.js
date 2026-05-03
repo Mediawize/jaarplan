@@ -512,8 +512,7 @@ function wbHaalPreviewHtmlOp() {
   const frame = document.getElementById('wb-preview-frame');
   try {
     const doc = frame && (frame.contentDocument || frame.contentWindow?.document);
-    const html = doc && doc.documentElement ? '<!DOCTYPE html>
-' + doc.documentElement.outerHTML : '';
+    const html = doc && doc.documentElement ? '<!DOCTYPE html>\n' + doc.documentElement.outerHTML : '';
     if (html && html.length > 500) return html;
   } catch (e) {}
   return _wbState?.laatsteHtml || '';
