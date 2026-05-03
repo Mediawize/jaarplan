@@ -490,7 +490,7 @@ async function wbOpslaan() {
     const data = await wbJsonOfThrow(res);
     _wbState.laatsteBestand = data.bestandsnaam;
     _wbState.busy = false;
-    if (result) result.innerHTML = `<div class="alert alert-info">Klaar: <strong>${wbEsc(data.titel)}</strong><br><a href="/uploads/${wbEsc(data.bestandsnaam)}" download="${wbEsc(data.bestandsnaam)}" style="color:var(--accent);font-weight:600">Download Word-bestand</a> · <a href="#" onclick="wbDownloadPdf();return false" style="color:var(--accent);font-weight:600">Download PDF</a></div>`;
+    if (result) result.innerHTML = `<div class="alert alert-info">Klaar: <strong>${wbEsc(data.titel)}</strong><br><a href="/uploads/${wbEsc(data.bestandsnaam)}" download="${wbEsc(data.bestandsnaam)}" style="color:var(--accent);font-weight:600">Download Word-bestand</a> · <a href="#" onclick="wbDownloadPdf();return false" style="color:var(--accent);font-weight:600">Download PDF</a><br><button class="btn btn-sm" style="margin-top:8px" onclick="wbKoppelAanLesprofiel('${wbEsc(data.bestandsnaam)}','${wbEsc(_wbState.data.vak||'')}')">📓 Koppel aan lesprofiel</button></div>`;
   } catch(e) { _wbState.busy=false; if(result) result.innerHTML=`<span style="color:var(--red)">Fout: ${wbEsc(e.message)}</span>`; }
 }
 
@@ -673,4 +673,67 @@ async function wbBouwHtml(data) {
   ${cover}
   <div class="pagina">${secties.join('\n')}</div>
   </body></html>`;
+}
+
+async function wbKoppelAanLesprofiel(bestandsnaam, vak) {
+  const profielen = await (await fetch('/api/lesprofielen', { credentials: 'same-origin' })).json();
+  const gefilterd = vak ? profielen.filter(p => !p.vakId || p.vak === vak || (p.vakNaam||'').toLowerCase().includes(vak.toLowerCase())) : profielen;
+  const lijst = gefilterd.length ? gefilterd : profielen;
+
+  function renderKoppelStap1() {
+    openModal(`
+      <h2>📓 Werkboekje koppelen aan lesprofiel</h2>
+      <p class="modal-sub">Kies het lesprofiel en de activiteit waar dit werkboekje bij hoort.</p>
+      <div class="form-field"><label>Lesprofiel</label>
+        <select id="wbk-profiel" style="width:100%;padding:8px;border:1.5px solid var(--border);border-radius:var(--radius-sm)">
+          <option value="">— Kies lesprofiel —</option>
+          ${lijst.map(p => `<option value="${wbEsc(p.id)}">${wbEsc(p.naam||p.id)} ${p.vak?'('+wbEsc(p.vak)+')':''}</option>`).join('')}
+        </select>
+      </div>
+      <div id="wbk-weken-wrapper"></div>
+      <div class="modal-actions">
+        <button class="btn" onclick="closeModalDirect()">Annuleren</button>
+        <button class="btn btn-primary" onclick="wbKoppelOpslaan('${wbEsc(bestandsnaam)}')">Koppelen</button>
+      </div>
+    `);
+    document.getElementById('wbk-profiel').addEventListener('change', async function() {
+      const pid = this.value;
+      if (!pid) { document.getElementById('wbk-weken-wrapper').innerHTML = ''; return; }
+      const p = profielen.find(x => x.id === pid);
+      if (!p?.weken?.length) return;
+      const opties = p.weken.flatMap((w, wi) =>
+        (w.activiteiten||[]).map((a, ai) => `<option value="${wi}_${ai}">Week ${wi+1}${w.thema?' – '+w.thema:''}: ${wbEsc(a.omschrijving||a.type||'Activiteit '+(ai+1))}</option>`)
+      ).join('');
+      document.getElementById('wbk-weken-wrapper').innerHTML = `
+        <div class="form-field" style="margin-top:10px"><label>Activiteit</label>
+          <select id="wbk-activiteit" style="width:100%;padding:8px;border:1.5px solid var(--border);border-radius:var(--radius-sm)">
+            <option value="">— Kies activiteit —</option>${opties}
+          </select>
+        </div>`;
+    });
+  }
+
+  renderKoppelStap1();
+}
+
+async function wbKoppelOpslaan(bestandsnaam) {
+  const profielId = document.getElementById('wbk-profiel')?.value;
+  const actVal = document.getElementById('wbk-activiteit')?.value;
+  if (!profielId || !actVal) { alert('Kies een lesprofiel en activiteit.'); return; }
+  const [weekIdx, actIdx] = actVal.split('_').map(Number);
+  try {
+    const profielen = await (await fetch('/api/lesprofielen', { credentials: 'same-origin' })).json();
+    const p = profielen.find(x => x.id === profielId);
+    if (!p) return;
+    const weken = JSON.parse(JSON.stringify(p.weken || []));
+    if (weken[weekIdx]?.activiteiten?.[actIdx]) {
+      weken[weekIdx].activiteiten[actIdx].werkboekBestand = bestandsnaam;
+    }
+    await fetch(`/api/lesprofielen/${profielId}`, { method: 'PUT', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ weken }) });
+    closeModalDirect();
+    const res = document.getElementById('wb-save-result');
+    if (res) res.innerHTML += `<div style="color:var(--accent);margin-top:6px">✓ Gekoppeld aan lesprofiel</div>`;
+  } catch (e) {
+    alert('Koppelen mislukt: ' + e.message);
+  }
 }
