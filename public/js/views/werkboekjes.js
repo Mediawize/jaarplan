@@ -10,7 +10,7 @@ let _wbTemplateCss = null;
 async function wbLaadTemplateCss() {
   if (_wbTemplateCss !== null) return _wbTemplateCss;
   try {
-    const r = await fetch('/templates/werkboekje_template.html');
+    const r = await fetch('/templates/werkboekje_template_v2.html');
     const html = await r.text();
     const m = html.match(/<style>([\s\S]*?)<\/style>/);
     _wbTemplateCss = m ? m[1] : '';
@@ -285,7 +285,7 @@ function wbStapStappenHtml() {
         </div>
         ${isTekening
           ? `<div style="background:white;border:1.5px dashed var(--amber,#f59f00);border-radius:6px;padding:12px;text-align:center;color:var(--ink-muted);font-size:12px;margin-bottom:6px">
-               ✏️ <strong>Volledige tekenpagina</strong> — leerling tekent hier zelf in het werkboekje
+               📐 <strong>Tekenvak (ruitjes, A4-liggend)</strong> — leerling tekent hier met naam/datum/klas balk
              </div>
              <input id="wb-stap-tekst-${si}-${pi}" value="${wbEsc(st.stap)}" maxlength="200"
                placeholder="Opdracht boven de tekenpagina (optioneel)"
@@ -533,13 +533,22 @@ async function wbBouwHtml(data) {
     sec.stappen.map(st => {
       stapNr++;
       if ((st.type||'foto') === 'tekening') {
-        return `<div class="tekening-pagina">
-          <div class="tekening-header">
-            <div class="stap-cirkel">${stapNr}</div>
-            <h3 style="margin:0;font-size:15px;color:var(--donkerblauw)">${wbEsc(sec.titel||'Tekening')} ${stapNr}</h3>
+        return `<div class="stap">
+          <div class="stap-nummering"><div class="stap-cirkel">${stapNr}</div></div>
+          <div class="stap-kaart">
+            <h3>${wbEsc(sec.titel||'Tekening')} ${stapNr}</h3>
+            ${st.stap?`<p>${wbEsc(st.stap)}</p>`:''}
+            <div class="tekenvak-wrapper">
+              <div class="tekenvak-label">Teken hier</div>
+              <div class="tekenvak ruitjes a4-liggend heeft-titelbalk">
+                <div class="tekenvak-titelbalk">
+                  <div class="tekenvak-titelbalk-veld"><span>Naam</span><div class="invul-lijn-klein"></div></div>
+                  <div class="tekenvak-titelbalk-veld"><span>Datum</span><div class="invul-lijn-klein"></div></div>
+                  <div class="tekenvak-titelbalk-veld"><span>Klas</span><div class="invul-lijn-klein"></div></div>
+                </div>
+              </div>
+            </div>
           </div>
-          ${st.stap?`<p style="color:var(--tekst-zacht);font-size:13px;margin:0 0 12px">${wbEsc(st.stap)}</p>`:''}
-          <div class="tekening-vlak"><span>✏️ Teken hier</span></div>
         </div>`;
       }
       const fotoSvg = `<svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21,15 16,10 5,21"/></svg>`;
@@ -581,10 +590,7 @@ async function wbBouwHtml(data) {
     *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important}
     @page{size:A4;margin:0}
     ${css}
-    .tekening-pagina{page-break-before:always;break-before:page;min-height:100vh;padding:40px 32px;display:flex;flex-direction:column}
-    .tekening-header{display:flex;align-items:center;gap:12px;margin-bottom:12px}
-    .tekening-vlak{flex:1;min-height:500px;border:2px dashed var(--geel);border-radius:var(--radius);background:var(--geel-licht);display:flex;align-items:center;justify-content:center;color:#b38600;font-size:18px;font-weight:600}
-    @media print{.tekening-pagina{min-height:100vh;padding:24px}.tekening-vlak{min-height:600px}}
+    .tekenvak.heeft-titelbalk{padding-bottom:44px}
   </style></head><body>
   ${cover}
   <div class="pagina">${secties.join('\n')}</div>
