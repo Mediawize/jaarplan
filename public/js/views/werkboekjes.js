@@ -562,21 +562,27 @@ async function wbMaakPdfBase64() {
     throw new Error('PDF module niet geladen. Controleer of html2pdf.js in index.html staat.');
   }
   const html = _wbState?.laatsteHtml || await wbBouwHtml(_wbState.data);
+  const doc = new DOMParser().parseFromString(html, 'text/html');
   const wrap = document.createElement('div');
-  wrap.style.position = 'fixed';
-  wrap.style.left = '-10000px';
+  wrap.style.position = 'absolute';
+  wrap.style.left = '0';
   wrap.style.top = '0';
   wrap.style.width = '210mm';
-  wrap.innerHTML = html;
+  wrap.style.minHeight = '297mm';
+  wrap.style.background = '#ffffff';
+  wrap.style.zIndex = '-1';
+  wrap.style.opacity = '0.01';
+  wrap.innerHTML = (doc.head ? doc.head.innerHTML : '') + (doc.body ? doc.body.innerHTML : html);
   document.body.appendChild(wrap);
+  await new Promise(resolve => setTimeout(resolve, 500));
   try {
     const opt = {
       margin: 0,
       filename: 'werkboekje.pdf',
-      image: { type: 'jpeg', quality: 0.98 },
-      html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff' },
+      image: { type: 'jpeg', quality: 1 },
+      html2canvas: { scale: 2, useCORS: true, allowTaint: true, backgroundColor: '#ffffff', scrollX: 0, scrollY: 0, windowWidth: wrap.scrollWidth },
       jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-      pagebreak: { mode: ['css', 'legacy'] }
+      pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
     };
     const blob = await html2pdf().set(opt).from(wrap).outputPdf('blob');
     return await new Promise((resolve, reject) => {

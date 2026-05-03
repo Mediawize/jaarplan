@@ -28,7 +28,7 @@ async function renderToetsen() {
             ${m.vak ? `<div style="font-size:11px;color:var(--ink-muted)">${escHtml(m.vak)}</div>` : ''}
           </div>
           <div style="font-size:12px;color:var(--ink-muted);white-space:nowrap">${datum}</div>
-          <a href="/uploads/${escHtml(m.bestandsnaam)}" download="${escHtml(m.bestandsnaam)}"
+          <a href="/uploads/${encodeURIComponent(m.bestandsnaam)}" target="_blank" download="${escHtml(m.bestandsnaam)}"
              class="btn btn-sm">⬇ Download</a>
           ${!readonly ? `<button class="btn btn-sm" onclick="matKoppelAanActiviteit('${m.id}','${escHtml(m.naam)}','${escHtml(m.bestandsnaam)}')">Koppelen</button>` : ''}
           ${!readonly ? `<button class="btn btn-sm" style="color:var(--red)" onclick="matVerwijder('${m.id}')">Verwijderen</button>` : ''}

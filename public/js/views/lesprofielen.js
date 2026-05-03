@@ -724,7 +724,7 @@ function renderActiviteitenHTML(p, weekIdx) {
         <td style="font-size:12px;color:#78716C">${escHtml(a.syllabus || '—')}</td>
         <td>
           ${a.link ? `<a href="${escHtml(a.link)}" class="text-link" target="_blank">${escHtml(a.link.length > 35 ? a.link.slice(0, 35) + '…' : a.link)}</a>` : ''}
-          ${a.bestand ? `<span class="badge badge-amber" style="font-size:11px">📄 ${escHtml(a.bestand)}</span>` : ''}
+          ${a.bestand ? `<a href="/uploads/${encodeURIComponent(a.bestand)}" download="${escHtml(a.bestand)}" class="badge badge-amber" style="font-size:11px;text-decoration:none">📄 ${escHtml(a.bestand)}</a>` : ''}
           ${!a.link && !a.bestand ? '<span style="color:#A8A29E">—</span>' : ''}
         </td>
         <td>
@@ -732,10 +732,6 @@ function renderActiviteitenHTML(p, weekIdx) {
             <button class="btn btn-sm" style="font-size:11px;padding:3px 7px;white-space:nowrap"
               onclick="openLesbrief('${p.id}',${weekIdx},${ai},_lpActInfo['${p.id}_${weekIdx}_${ai}'])">
               📋 Lesbrief
-            </button>
-            <button class="btn btn-sm" style="font-size:11px;padding:3px 7px;white-space:nowrap"
-              onclick="openWerkboekjeVoorActiviteit('${p.id}',${weekIdx},${ai},_lpActInfo['${p.id}_${weekIdx}_${ai}'])">
-              📓 Werkboekje
             </button>
             <button class="icon-btn" onclick="bewerkActiviteit('${p.id}',${weekIdx},${ai})" title="Bewerken">
               <svg viewBox="0 0 20 20" fill="none"><path d="M14.5 3.5l2 2L7 15l-3 1 1-3 9.5-9.5z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
