@@ -1643,7 +1643,7 @@ app.post('/api/genereer-werkboekje-handmatig', requireCanEdit, async (req, res) 
     const logoBestand = db.getInstelling('logoBestand') || null;
     const data = req.body;
     if (!data || !data.titel) return res.status(400).json({ error: 'Titel is verplicht' });
-    data.machines = (data.machines || []).filter(m => m && m.trim());
+    data.machines = (data.machines || []).filter(m => m && ((typeof m === 'string' && m.trim()) || (typeof m === 'object' && (m.naam || m.omschrijving || m.afbeeldingBase64))));
     data.secties = (data.secties || []).map(s => ({ ...s, stappen: (s.stappen || []).filter(p => p.type === 'tekening' || (p.stap && p.stap.trim())) })).filter(s => s.titel || s.stappen.length);
     const docxBuffer = await bouwWerkboekjeDocxVast({ schoolnaam, logoBestand, data });
     const bestandsnaam = 'werkboekje_' + Date.now() + '.docx';
@@ -1656,6 +1656,37 @@ app.post('/api/genereer-werkboekje-handmatig', requireCanEdit, async (req, res) 
   }
 });
 
+
+
+// ============================================================
+// WERKBOEKJE PDF OPSLAAN ALS MATERIAAL
+// ============================================================
+app.post('/api/werkboekjes/pdf-materiaal', requireCanEdit, async (req, res) => {
+  try {
+    const { titel, vak, pdfBase64 } = req.body || {};
+    if (!titel || !String(titel).trim()) {
+      return res.status(400).json({ error: 'Titel is verplicht' });
+    }
+    if (!pdfBase64 || typeof pdfBase64 !== 'string') {
+      return res.status(400).json({ error: 'PDF ontbreekt' });
+    }
+
+    const cleanBase64 = pdfBase64.includes(',') ? pdfBase64.split(',').pop() : pdfBase64;
+    const pdfBuffer = Buffer.from(cleanBase64, 'base64');
+    if (!pdfBuffer.length || pdfBuffer.length < 100) {
+      return res.status(400).json({ error: 'PDF-bestand is leeg of ongeldig' });
+    }
+
+    const bestandsnaam = 'werkboekje_' + Date.now() + '.pdf';
+    fs.writeFileSync(path.join(uploadDir, bestandsnaam), pdfBuffer);
+
+    const naam = String(titel).trim() || 'Werkboekje';
+    const mat = db.addMateriaal({ type: 'werkboekje', naam, bestandsnaam, vak: vak || '' });
+    res.json({ success: true, bestandsnaam, titel: naam, materiaalId: mat?.id });
+  } catch (e) {
+    res.status(500).json({ error: 'Fout bij opslaan PDF: ' + e.message });
+  }
+});
 
 // ============================================================
 // LESBRIEVEN — CRUD + AI genereren
