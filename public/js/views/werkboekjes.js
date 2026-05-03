@@ -5,6 +5,18 @@
 // ============================================================
 
 let _wbState = null;
+let _wbTemplateCss = null;
+
+async function wbLaadTemplateCss() {
+  if (_wbTemplateCss !== null) return _wbTemplateCss;
+  try {
+    const r = await fetch('/templates/werkboekje_template.html');
+    const html = await r.text();
+    const m = html.match(/<style>([\s\S]*?)<\/style>/);
+    _wbTemplateCss = m ? m[1] : '';
+  } catch { _wbTemplateCss = ''; }
+  return _wbTemplateCss;
+}
 
 function wbLegeData() {
   return {
@@ -388,7 +400,7 @@ function wbGebruikAiVoorstel(stapId) {
 async function wbMaakVoorbeeld() {
   if (_wbState.busy) return;
   wbSlaStapOp();
-  _wbState.laatsteHtml = wbBouwHtml(_wbState.data);
+  _wbState.laatsteHtml = await wbBouwHtml(_wbState.data);
   wbOpenModal(`
     <h2>Voorbeeld werkboekje</h2>
     <p class="modal-sub">Controleer het voorbeeld. Je kunt terug om aan te passen. Opslaan maakt het bestand aan; PDF gebruikt dezelfde volledige layout.</p>
@@ -418,8 +430,8 @@ async function wbOpslaan() {
   } catch(e) { _wbState.busy=false; if(result) result.innerHTML=`<span style="color:var(--red)">Fout: ${wbEsc(e.message)}</span>`; }
 }
 
-function wbDownloadPdf() {
-  const html = _wbState?.laatsteHtml || wbBouwHtml(_wbState.data);
+async function wbDownloadPdf() {
+  const html = _wbState?.laatsteHtml || await wbBouwHtml(_wbState.data);
   const w = window.open('', '_blank');
   if (!w) { alert('Popup geblokkeerd. Sta popups toe om PDF te maken.'); return; }
   w.document.open();
@@ -435,16 +447,146 @@ async function wbJsonOfThrow(res) {
   return data;
 }
 
-function wbBouwHtml(data) {
+async function wbBouwHtml(data) {
   const d = wbNormaliseerData(JSON.parse(JSON.stringify(data || wbLegeData())));
-  const matRows = (d.materiaalstaat||[]).slice(0,20).map((r,i)=>`<tr><td><span class="nr-cirkel">${i+1}</span></td><td>${wbEsc(r.benaming)}</td><td>${wbEsc(r.aantal||'')}</td><td>${wbEsc(r.lengte||'')}</td><td>${wbEsc(r.breedte||'')}</td><td><span class="dikte-tag">${wbEsc(r.dikte||'')} ${r.dikte?'mm':''}</span></td><td class="hout-type">${wbEsc(r.soortHout||'')}</td></tr>`).join('');
-  const veilig = (d.veiligheidsregels||[]).map(r=>`<div class="veilig-kaart"><div class="veilig-vink">✓</div><p>${wbEsc(r)}</p></div>`).join('');
-  const tools = (d.machines||[]).map(m=>`<div class="tool-kaart"><div class="tool-foto">${m.afbeeldingBase64?`<img src="${m.afbeeldingBase64}">`:'<span>Foto hier</span>'}</div><strong>${wbEsc(m.naam||m)}</strong><small>${wbEsc(m.omschrijving||'')}</small></div>`).join('');
-  let nr=0; const stappen = (d.secties||[]).flatMap(sec=>(sec.stappen||[]).map(st=>{ nr++; if((st.type||'foto')==='tekening'){ return `<div class="tekening-pagina"><div class="tekening-header"><div class="stap-cirkel" style="width:38px;height:38px;border-radius:50%;background:#3B5BDB;color:white;font-weight:700;display:inline-flex;align-items:center;justify-content:center;">${nr}</div><h3 style="margin:0;font-size:15px;color:#1E2A4A">${wbEsc(sec.titel||'Tekening')} ${nr}</h3></div>${st.stap?`<p style="color:#5A6480;font-size:13px;margin:0 0 12px">${wbEsc(st.stap)}</p>`:''}<div class="tekening-vlak"><span>✏️ Teken hier</span></div></div>`; } return `<div class="stap"><div class="stap-nummering"><div class="stap-cirkel">${nr}</div></div><div class="stap-kaart"><h3>${wbEsc(sec.titel||'Stap')} ${nr}</h3><p>${wbEsc(st.stap)}</p>${st.afbeeldingBase64?`<div class="foto-rij een"><div class="foto-vak groot"><img src="${st.afbeeldingBase64}"><div class="foto-label">${wbEsc(st.bijschrift||'Afbeelding bij de stap')}</div></div></div>`:`<div class="foto-rij een"><div class="foto-vak"><span>Foto hier plaatsen</span><div class="foto-label">${wbEsc(st.bijschrift||'Bijschrift')}</div></div></div>`}${st.tip?`<div class="blok tip"><div class="blok-titel">💡 Tip</div>${wbEsc(st.tip)}</div>`:''}</div></div>`;})).join('');
-  const doelen = (d.leerdoelen||[]).filter(Boolean).map(x=>`<li><span class="check-vakje"></span>${wbEsc(x)}</li>`).join('');
-  return `<!DOCTYPE html><html lang="nl"><head><meta charset="UTF-8"><title>${wbEsc(d.titel||'Werkboekje')}</title><style>
-  *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important}
-  @page{size:A4;margin:0}
-  :root{--donkerblauw:#1E2A4A;--middenblauw:#2D3F6B;--accentblauw:#3B5BDB;--lichtblauw:#E8EDFB;--groen:#2FB97D;--groen-licht:#E6F9F0;--geel:#F59F00;--geel-licht:#FFF8E6;--rood:#E03131;--rood-licht:#FFF0F0;--tekst:#1A1F36;--tekst-zacht:#5A6480;--rand:#DDE1EE;--achtergrond:#F4F6FB;--wit:#FFFFFF;--radius:12px;--radius-l:16px}*{box-sizing:border-box}body{font-family:Inter,Arial,sans-serif;background:var(--achtergrond);color:var(--tekst);font-size:14px;line-height:1.65;margin:0}.cover{background:var(--donkerblauw);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:60px 40px;text-align:center;page-break-after:always;break-after:page}.cover-inner{max-width:620px}.cover-label{display:inline-block;background:rgba(47,185,125,.15);color:var(--groen);border:1px solid rgba(47,185,125,.35);font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;padding:5px 16px;border-radius:100px;margin-bottom:28px}.cover h1{font-size:56px;font-weight:800;color:white;line-height:1.0;margin:0 0 12px}.accent{color:var(--groen)}.cover-vak{color:rgba(255,255,255,.65);margin-bottom:34px}.cover-fields{display:grid;grid-template-columns:1fr 1fr;gap:10px}.cover-field{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:var(--radius);padding:14px 18px;text-align:left}.cover-field label{display:block;font-size:10px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:var(--groen);margin-bottom:8px}.invul-lijn{border-bottom:1px solid rgba(255,255,255,.22);height:22px}.span2{grid-column:1/-1}.pagina{max-width:800px;margin:0 auto;padding:56px 32px}.sectie-header{display:flex;align-items:center;gap:14px;margin-bottom:24px;padding-bottom:16px;border-bottom:2px solid var(--lichtblauw)}.sectie-icon{width:40px;height:40px;background:var(--accentblauw);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px}.sectie-header h2{font-size:20px;color:var(--donkerblauw);margin:0}.scheidingslijn{border:none;border-top:1px solid var(--rand);margin:42px 0}.mat-tabel{width:100%;border-collapse:separate;border-spacing:0;border-radius:var(--radius);overflow:hidden;border:1px solid var(--rand);font-size:13px}.mat-tabel thead tr{background:var(--donkerblauw);color:white}.mat-tabel th,.mat-tabel td{padding:10px 12px;border-bottom:1px solid var(--rand);text-align:left}.mat-tabel tbody tr:nth-child(even){background:var(--lichtblauw)}.nr-cirkel,.stap-cirkel{border-radius:50%;background:var(--accentblauw);color:white;font-weight:700;display:inline-flex;align-items:center;justify-content:center}.nr-cirkel{width:24px;height:24px;font-size:11px}.dikte-tag{background:var(--donkerblauw);color:white;font-size:10px;font-weight:700;padding:2px 8px;border-radius:100px}.hout-type{color:var(--tekst-zacht);font-style:italic}.veilig-raster,.tool-raster{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px}.veilig-kaart,.tool-kaart{background:white;border:1px solid var(--rand);border-radius:var(--radius);padding:14px 16px}.veilig-kaart{display:flex;gap:12px}.veilig-vink{width:22px;height:22px;border-radius:50%;background:var(--groen);color:white;display:flex;align-items:center;justify-content:center;flex-shrink:0}.tool-kaart{text-align:center}.tool-foto{width:100%;height:100px;background:var(--achtergrond);border:1.5px dashed #AABBD8;border-radius:6px;display:flex;align-items:center;justify-content:center;margin-bottom:10px;color:#8b98b8;overflow:hidden}.tool-foto img,.foto-vak img{width:100%;height:100%;object-fit:cover}.stappen{display:flex;flex-direction:column}.stap{display:grid;grid-template-columns:52px 1fr;position:relative;break-inside:avoid}.stap:not(:last-child)::before{content:'';position:absolute;left:25px;top:46px;bottom:0;width:2px;background:var(--lichtblauw)}.stap-cirkel{width:38px;height:38px}.stap-kaart{background:white;border:1px solid var(--rand);border-radius:var(--radius);padding:20px 22px;margin:0 0 14px 14px}.stap-kaart h3{font-size:15px;color:var(--donkerblauw);margin:0 0 10px}.foto-rij{display:grid;gap:10px;margin:14px 0}.foto-rij.een{grid-template-columns:1fr}.foto-vak{background:var(--achtergrond);border:1.5px dashed #AABBD8;border-radius:var(--radius);height:180px;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;color:#8b98b8}.foto-vak.groot{height:240px}.foto-label{position:absolute;bottom:0;left:0;right:0;background:rgba(30,42,74,.06);border-top:1px dashed #AABBD8;padding:5px 10px;font-size:11px;color:#8b98b8;text-align:center}.blok{border-radius:0 var(--radius) var(--radius) 0;padding:14px 18px;margin:12px 0;font-size:13.5px;border-left:3px solid}.blok-titel{font-size:11px;font-weight:700;text-transform:uppercase;margin-bottom:6px}.tip{background:var(--geel-licht);border-color:var(--geel)}.checklist{list-style:none;padding:0}.checklist li{display:flex;gap:10px;padding:5px 0;border-bottom:1px solid var(--rand)}.check-vakje{width:18px;height:18px;border:2px solid var(--rand);border-radius:4px;flex-shrink:0;margin-top:2px}.succes-banner{background:var(--donkerblauw);border-radius:var(--radius-l);padding:40px;text-align:center;color:white}.succes-banner h2{color:var(--groen);font-size:32px}.tekening-pagina{page-break-before:always;break-before:page;min-height:100vh;padding:40px 32px;display:flex;flex-direction:column}.tekening-header{display:flex;align-items:center;gap:12px;margin-bottom:12px}.tekening-vlak{flex:1;min-height:500px;border:2px dashed #F59F00;border-radius:12px;background:#FFFBF0;display:flex;align-items:center;justify-content:center;color:#b38600;font-size:18px;font-weight:600}@media print{body{background:var(--achtergrond)}.cover{min-height:100vh}.pagina{padding:24px}.scheidingslijn{margin:28px 0}.stap{break-inside:avoid;page-break-inside:avoid}.tekening-pagina{min-height:100vh;padding:24px}.tekening-vlak{flex:1;min-height:600px}}
-  </style></head><body><div class="cover"><div class="cover-inner"><div class="cover-label">${wbEsc(d.vak||'Techniek')} · ${wbEsc(d.profieldeel||'Praktijkopdracht')}</div><h1>Opdracht<br><span class="accent">${wbEsc(d.titel||'Werkboekje')}</span></h1><p class="cover-vak">${wbEsc(d.niveau||'')} ${d.duur?'· '+wbEsc(d.duur):''}</p><div class="cover-fields"><div class="cover-field"><label>Naam</label><div class="invul-lijn"></div></div><div class="cover-field"><label>Klas</label><div class="invul-lijn"></div></div><div class="cover-field"><label>Datum</label><div class="invul-lijn"></div></div><div class="cover-field"><label>Docent</label><div class="invul-lijn"></div></div><div class="cover-field span2"><label>Duur van de opdracht</label><div style="color:white"><strong>${wbEsc(d.duur||'__ × 45 minuten')}</strong></div></div></div></div></div><div class="pagina"><div class="sectie-header"><div class="sectie-icon">🎯</div><h2>Leerdoelen</h2></div><p>${wbEsc(d.introductie||'')}</p><ul class="checklist">${doelen}</ul><hr class="scheidingslijn"><div class="sectie-header"><div class="sectie-icon">📋</div><h2>Materiaalstaat</h2></div><table class="mat-tabel"><thead><tr><th>Nr.</th><th>Benaming</th><th>Aantal</th><th>Lengte</th><th>Breedte</th><th>Dikte</th><th>Soort materiaal</th></tr></thead><tbody>${matRows}</tbody></table><hr class="scheidingslijn"><div class="sectie-header"><div class="sectie-icon">🦺</div><h2>Voorbereiding & veiligheid</h2></div><div class="veilig-raster">${veilig}</div><div class="sectie-header" style="margin-top:32px"><div class="sectie-icon">🔧</div><h2>Gereedschappen</h2></div><div class="tool-raster">${tools}</div><hr class="scheidingslijn"><div class="sectie-header"><div class="sectie-icon">🪵</div><h2>Stappenplan</h2></div><div class="stappen">${stappen}</div><hr class="scheidingslijn"><div class="succes-banner"><h2>Goed gedaan! 🎉</h2><p>Controleer je eigen werk nog één keer op netheid en kwaliteit voor je inlevert.</p></div></div></body></html>`;
+  const css = await wbLaadTemplateCss();
+
+  // ── Cover ──
+  const cover = `<div class="cover"><div class="cover-inner">
+    <div class="cover-label">${wbEsc(d.vak||'Techniek')} · ${wbEsc(d.profieldeel||'Praktijkopdracht')}</div>
+    <h1>Opdracht<br><span class="accent">${wbEsc(d.titel||'Werkboekje')}</span></h1>
+    <p class="cover-vak">${wbEsc(d.niveau||'')}${d.duur?' · '+wbEsc(d.duur):''}</p>
+    <div class="cover-fields">
+      <div class="cover-field"><label>Naam</label><div class="invul-lijn"></div></div>
+      <div class="cover-field"><label>Klas</label><div class="invul-lijn"></div></div>
+      <div class="cover-field"><label>Datum</label><div class="invul-lijn"></div></div>
+      <div class="cover-field"><label>Docent</label><div class="invul-lijn"></div></div>
+      <div class="cover-field span2"><label>Duur van de opdracht</label>
+        <div class="duur-pill"><span>⏱</span><strong>${wbEsc(d.duur||'__ × 45 minuten')}</strong></div>
+      </div>
+    </div>
+  </div></div>`;
+
+  const secties = [];
+
+  // ── Leerdoelen (alleen als er data is) ──
+  const doelen = (d.leerdoelen||[]).filter(Boolean);
+  if (d.introductie || doelen.length) {
+    secties.push(`
+      <div class="sectie-header"><div class="sectie-icon">🎯</div><h2>Leerdoelen</h2></div>
+      ${d.introductie ? `<p style="margin-bottom:16px;font-size:14px;color:var(--tekst-zacht)">${wbEsc(d.introductie)}</p>` : ''}
+      ${doelen.length ? `<ul class="checklist">${doelen.map(x=>`<li><span class="check-vakje"></span>${wbEsc(x)}</li>`).join('')}</ul>` : ''}
+      <hr class="scheidingslijn">`);
+  }
+
+  // ── Materiaalstaat (alleen als er rijen met benaming zijn) ──
+  const mat = (d.materiaalstaat||[]).filter(r=>r.benaming);
+  if (mat.length) {
+    secties.push(`
+      <div class="sectie-header"><div class="sectie-icon">📋</div><h2>Materiaalstaat</h2></div>
+      <table class="mat-tabel">
+        <thead><tr><th>Nr.</th><th>Benaming</th><th>Aantal</th><th>Lengte</th><th>Breedte</th><th>Dikte</th><th>Soort materiaal</th></tr></thead>
+        <tbody>${mat.map((r,i)=>`<tr>
+          <td><span class="nr-cirkel">${i+1}</span></td>
+          <td>${wbEsc(r.benaming)}</td>
+          <td>${wbEsc(r.aantal||'')}</td>
+          <td>${wbEsc(r.lengte||'')}</td>
+          <td>${wbEsc(r.breedte||'')}</td>
+          <td>${r.dikte?`<span class="dikte-tag">${wbEsc(r.dikte)} mm</span>`:''}</td>
+          <td class="hout-type">${wbEsc(r.soortHout||'')}</td>
+        </tr>`).join('')}</tbody>
+      </table>
+      <hr class="scheidingslijn">`);
+  }
+
+  // ── Veiligheid & Gereedschappen (alleen als er data is) ──
+  const veilig = (d.veiligheidsregels||[]).filter(Boolean);
+  const machines = (d.machines||[]).filter(m=>m.naam||m.omschrijving||m.afbeeldingBase64);
+  if (veilig.length || machines.length) {
+    secties.push(`
+      ${veilig.length ? `
+        <div class="sectie-header"><div class="sectie-icon">🦺</div><h2>Voorbereiding &amp; veiligheid</h2></div>
+        <div class="veilig-raster">${veilig.map(r=>`
+          <div class="veilig-kaart">
+            <div class="veilig-vink"><svg viewBox="0 0 12 12"><polyline points="1,6 4,10 11,2"/></svg></div>
+            <p>${wbEsc(r)}</p>
+          </div>`).join('')}
+        </div>` : ''}
+      ${machines.length ? `
+        <div class="sectie-header" style="margin-top:${veilig.length?'32px':'0'};border-bottom-color:var(--rand)">
+          <div class="sectie-icon" style="background:var(--middenblauw)">🔧</div>
+          <h2 style="font-size:17px">Gereedschappen</h2>
+        </div>
+        <div class="tool-raster">${machines.map(m=>`
+          <div class="tool-kaart">
+            <div class="tool-foto">${m.afbeeldingBase64?`<img src="${m.afbeeldingBase64}" style="width:100%;height:100%;object-fit:cover">`:'<span>Foto hier</span>'}</div>
+            <strong>${wbEsc(m.naam||'')}</strong>
+            <small>${wbEsc(m.omschrijving||'')}</small>
+          </div>`).join('')}
+        </div>` : ''}
+      <hr class="scheidingslijn">`);
+  }
+
+  // ── Stappenplan ──
+  let stapNr = 0;
+  const stapHtml = (d.secties||[]).filter(s=>s.stappen&&s.stappen.length).flatMap(sec =>
+    sec.stappen.map(st => {
+      stapNr++;
+      if ((st.type||'foto') === 'tekening') {
+        return `<div class="tekening-pagina">
+          <div class="tekening-header">
+            <div class="stap-cirkel">${stapNr}</div>
+            <h3 style="margin:0;font-size:15px;color:var(--donkerblauw)">${wbEsc(sec.titel||'Tekening')} ${stapNr}</h3>
+          </div>
+          ${st.stap?`<p style="color:var(--tekst-zacht);font-size:13px;margin:0 0 12px">${wbEsc(st.stap)}</p>`:''}
+          <div class="tekening-vlak"><span>✏️ Teken hier</span></div>
+        </div>`;
+      }
+      const fotoSvg = `<svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21,15 16,10 5,21"/></svg>`;
+      return `<div class="stap">
+        <div class="stap-nummering"><div class="stap-cirkel">${stapNr}</div></div>
+        <div class="stap-kaart">
+          <h3>${wbEsc(sec.titel||'Stap')} ${stapNr}</h3>
+          ${st.stap?`<p>${wbEsc(st.stap)}</p>`:''}
+          <div class="foto-rij een">
+            <div class="foto-vak${st.afbeeldingBase64?' groot':''}">
+              ${st.afbeeldingBase64
+                ? `<img src="${st.afbeeldingBase64}" style="width:100%;height:100%;object-fit:cover">`
+                : fotoSvg+'<span>Foto hier plaatsen</span>'}
+              <div class="foto-label">${wbEsc(st.bijschrift||'Bijschrift')}</div>
+            </div>
+          </div>
+          ${st.tip?`<div class="blok tip"><div class="blok-titel">💡 Tip</div>${wbEsc(st.tip)}</div>`:''}
+        </div>
+      </div>`;
+    })
+  ).join('');
+
+  if (stapNr > 0) {
+    secties.push(`
+      <div class="sectie-header"><div class="sectie-icon">🪵</div><h2>Stappenplan</h2></div>
+      <div class="stappen">${stapHtml}</div>
+      <hr class="scheidingslijn">`);
+  }
+
+  // ── Succes ──
+  secties.push(`<div class="succes-banner">
+    <h2>Goed gedaan! 🎉</h2>
+    <p>Controleer je eigen werk nog één keer op netheid en kwaliteit voor je inlevert.</p>
+  </div>`);
+
+  return `<!DOCTYPE html><html lang="nl"><head><meta charset="UTF-8">
+  <title>${wbEsc(d.titel||'Werkboekje')}</title>
+  <style>
+    *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important}
+    @page{size:A4;margin:0}
+    ${css}
+    .tekening-pagina{page-break-before:always;break-before:page;min-height:100vh;padding:40px 32px;display:flex;flex-direction:column}
+    .tekening-header{display:flex;align-items:center;gap:12px;margin-bottom:12px}
+    .tekening-vlak{flex:1;min-height:500px;border:2px dashed var(--geel);border-radius:var(--radius);background:var(--geel-licht);display:flex;align-items:center;justify-content:center;color:#b38600;font-size:18px;font-weight:600}
+    @media print{.tekening-pagina{min-height:100vh;padding:24px}.tekening-vlak{min-height:600px}}
+  </style></head><body>
+  ${cover}
+  <div class="pagina">${secties.join('\n')}</div>
+  </body></html>`;
 }
