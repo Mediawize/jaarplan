@@ -507,32 +507,30 @@ async function wbMaakVoorbeeld() {
   setTimeout(()=>{ const f=document.getElementById('wb-preview-frame'); if(f) f.srcdoc=_wbState.laatsteHtml; },50);
 }
 
-
-function wbHaalPreviewHtmlOp() {
-  const frame = document.getElementById('wb-preview-frame');
-  try {
-    const doc = frame && (frame.contentDocument || frame.contentWindow?.document);
-    const html = doc && doc.documentElement ? '<!DOCTYPE html>\n' + doc.documentElement.outerHTML : '';
-    if (html && html.length > 500) return html;
-  } catch (e) {}
-  return _wbState?.laatsteHtml || '';
+function wbPdfBestandsnaam() {
+  const titel = (_wbState?.data?.titel || 'werkboekje').trim() || 'werkboekje';
+  return titel.toLowerCase().replace(/[^a-z0-9-_]+/gi, '_').replace(/^_+|_+$/g, '').slice(0, 80) + '.pdf';
 }
 
-async function wbGeefPdfHtml() {
-  let html = wbHaalPreviewHtmlOp();
-  if (!html || html.length < 500) html = await wbBouwHtml(_wbState.data);
-  _wbState.laatsteHtml = html;
-  return html;
+async function wbMaakPdfPayload() {
+  wbSlaStapOp();
+  _wbState.laatsteHtml = await wbBouwHtml(_wbState.data);
+  return {
+    html: _wbState.laatsteHtml,
+    titel: _wbState.data.titel || 'Werkboekje',
+    vak: _wbState.data.vak || ''
+  };
 }
 
 async function wbOpslaan() {
   if (_wbState.busy) return;
   const result = document.getElementById('wb-save-result');
-  if (result) result.innerHTML = `<span style="color:var(--amber)">⏳ Werkboekje wordt opgeslagen...</span>`;
+  if (result) result.innerHTML = `<span style="color:var(--amber)">⏳ Werkboekje wordt opgeslagen als PDF...</span>`;
   _wbState.busy = true;
+
   try {
     if (_wbState.profielId != null) {
-      // Lesprofiel-modus: opslaan in werkboekjes-tabel
+      // Lesprofiel-modus: bewaar de bewerkbare wizard-data ook in de werkboekjes-tabel.
       const info = _wbState.activiteitInfo || {};
       const payload = {
         profielId: _wbState.profielId,
@@ -543,90 +541,78 @@ async function wbOpslaan() {
         activiteitUren: info.uren || 1,
         data: _wbState.data,
       };
+
       if (_wbState.wbId) {
-        await fetch(`/api/werkboekjes/${_wbState.wbId}`, { method:'PUT', credentials:'same-origin', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload) });
+        const r = await fetch(`/api/werkboekjes/${_wbState.wbId}`, {
+          method: 'PUT', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+        });
+        await wbJsonOfThrow(r);
       } else {
-        const res = await fetch('/api/werkboekjes', { method:'POST', credentials:'same-origin', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload) });
-        const wb = await wbJsonOfThrow(res);
+        const r = await fetch('/api/werkboekjes', {
+          method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+        });
+        const wb = await wbJsonOfThrow(r);
         _wbState.wbId = wb.id;
       }
-      const html = await wbGeefPdfHtml();
-      const pdfRes = await fetch('/api/werkboekjes/pdf-materiaal', {
-        method:'POST',
-        credentials:'same-origin',
-        headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({
-          titel: _wbState.data.titel || 'Werkboekje',
-          vak: _wbState.data.vak || '',
-          html
-        })
-      });
-      const pdfData = await wbJsonOfThrow(pdfRes);
-      _wbState.laatsteBestand = pdfData.bestandsnaam;
-      await wbKoppelBestandAanLesprofiel(pdfData.bestandsnaam);
-      _wbState.busy = false;
-      if (result) result.innerHTML = `<div class="alert alert-info"><strong>${wbEsc(_wbState.data.titel||'Werkboekje')}</strong> opgeslagen. <a href="/uploads/${wbEsc(pdfData.bestandsnaam)}" download="${wbEsc(pdfData.bestandsnaam)}" style="color:var(--accent);font-weight:600">Download opgeslagen PDF</a><button class="btn btn-sm" style="margin-left:10px" onclick="wbAnnuleer()">Sluiten</button></div>`;
-      if (typeof openProfielDetail === 'function') setTimeout(() => openProfielDetail(_wbState.profielId), 400);
-    } else {
-      // Standalone: PDF opslaan als materiaal, zodat hij zichtbaar wordt bij Toetsen & Materialen
-      const html = await wbGeefPdfHtml();
-      const res = await fetch('/api/werkboekjes/pdf-materiaal', {
-        method:'POST',
-        credentials:'same-origin',
-        headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({
-          titel: _wbState.data.titel || 'Werkboekje',
-          vak: _wbState.data.vak || '',
-          html
-        })
-      });
-      const data = await wbJsonOfThrow(res);
-      _wbState.laatsteBestand = data.bestandsnaam;
-      _wbState.busy = false;
-      if (result) result.innerHTML = `<div class="alert alert-info">Klaar: <strong>${wbEsc(data.titel)}</strong><br>Opgeslagen bij Toetsen & Materialen. <a href="/uploads/${wbEsc(data.bestandsnaam)}" download="${wbEsc(data.bestandsnaam)}" style="color:var(--accent);font-weight:600">Download opgeslagen PDF</a><button class="btn btn-sm" style="margin-left:10px" onclick="wbAnnuleer()">Sluiten</button></div>`;
-      if (typeof renderToetsen === 'function') setTimeout(() => renderToetsen(), 400);
     }
-  } catch(e) { _wbState.busy=false; if(result) result.innerHTML=`<span style="color:var(--red)">Fout: ${wbEsc(e.message)}</span>`; }
+
+    // Eén bron voor alles: dezelfde HTML als in de preview gaat naar Playwright en wordt als materiaal opgeslagen.
+    const pdfPayload = await wbMaakPdfPayload();
+    const res = await fetch('/api/werkboekjes/pdf-materiaal', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(pdfPayload)
+    });
+    const data = await wbJsonOfThrow(res);
+    _wbState.laatsteBestand = data.bestandsnaam;
+    _wbState.busy = false;
+
+    if (result) {
+      result.innerHTML = `<div class="alert alert-info">
+        Klaar: <strong>${wbEsc(data.titel || _wbState.data.titel || 'Werkboekje')}</strong><br>
+        <a href="${wbEsc(data.downloadUrl || ('/uploads/' + data.bestandsnaam))}" target="_blank" style="color:var(--accent);font-weight:600">Download opgeslagen PDF</a>
+        <button class="btn btn-sm" style="margin-left:8px" onclick="wbAnnuleer()">Sluiten</button>
+      </div>`;
+    }
+  } catch (e) {
+    _wbState.busy = false;
+    if (result) result.innerHTML = `<span style="color:var(--red)">Fout: ${wbEsc(e.message)}</span>`;
+  }
 }
 
-
 async function wbDownloadPdf() {
+  if (_wbState?.busy) return;
   try {
-    const html = await wbGeefPdfHtml();
+    const payload = await wbMaakPdfPayload();
     const res = await fetch('/api/werkboekjes/pdf-download', {
-      method:'POST',
-      credentials:'same-origin',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({ titel: _wbState?.data?.titel || 'Werkboekje', html })
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
     });
+
     if (!res.ok) {
-      let msg = 'PDF maken mislukt';
-      try { const j = await res.json(); msg = j.error || msg; } catch {}
-      throw new Error(msg);
+      const txt = await res.text();
+      let data = null;
+      try { data = JSON.parse(txt); } catch (_) {}
+      throw new Error(data?.error || txt.slice(0, 120) || 'PDF downloaden mislukt');
     }
+
     const blob = await res.blob();
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${(_wbState?.data?.titel || 'werkboekje').replace(/[^a-z0-9_-]+/gi,'_')}.pdf`;
+    a.download = wbPdfBestandsnaam();
     document.body.appendChild(a);
     a.click();
     a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 1500);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
   } catch (e) {
-    alert(e.message || 'PDF maken mislukt');
+    alert('PDF downloaden mislukt: ' + e.message);
   }
 }
 
-async function wbKoppelBestandAanLesprofiel(bestandsnaam) {
-  if (!_wbState || _wbState.profielId == null || !bestandsnaam || typeof API === 'undefined') return;
-  const profielen = await API.getLesprofielen();
-  const p = profielen.find(x => x.id === _wbState.profielId);
-  if (!p || !p.weken?.[_wbState.weekIdx]?.activiteiten?.[_wbState.actIdx]) return;
-  p.weken[_wbState.weekIdx].activiteiten[_wbState.actIdx].bestand = bestandsnaam;
-  await API.updateLesprofiel(p.id, { weken: p.weken });
-  if (window._lpActInfo) delete window._lpActInfo[`${p.id}_${_wbState.weekIdx}_${_wbState.actIdx}`];
-}
 async function wbJsonOfThrow(res) {
   const txt = await res.text();
   let data;
