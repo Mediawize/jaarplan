@@ -273,23 +273,38 @@ function wbStapStappenHtml() {
       <div class="form-field"><label>Titel onderdeel</label><input id="wb-sec-titel-${si}" value="${wbEsc(sec.titel)}"></div>
       <div class="form-field"><label>Benodigdheden (komma gescheiden)</label><input id="wb-sec-ben-${si}" value="${wbEsc((sec.benodigdheden||[]).join(', '))}"></div>
       ${(sec.stappen||[]).map((st,pi)=>{
-        const isTekening = (st.type||'foto') === 'tekening';
-        return `<div style="border:1px solid ${isTekening?'var(--amber)':'var(--border)'};border-radius:8px;padding:8px;margin-bottom:8px;background:${isTekening?'var(--amber-dim, #fffbf0)':'var(--surface)'}">
+        const type = st.type||'foto';
+        const isTekening = type === 'tekening';
+        const isUpload = type === 'tekening-upload';
+        const isSpeciaal = isTekening || isUpload;
+        return `<div style="border:1px solid ${isSpeciaal?'var(--amber)':'var(--border)'};border-radius:8px;padding:8px;margin-bottom:8px;background:${isSpeciaal?'var(--amber-dim, #fffbf0)':'var(--surface)'}">
         <div style="display:flex;gap:8px;align-items:center;margin-bottom:6px">
           <strong style="color:var(--accent)">Stap ${pi+1}</strong>
           <select id="wb-stap-type-${si}-${pi}" onchange="wbSlaStapOp();wbRender()">
-            <option value="foto" ${!isTekening?'selected':''}>📷 Foto + tekst</option>
-            <option value="tekening" ${isTekening?'selected':''}>✏️ Tekening (hele pagina)</option>
+            <option value="foto" ${type==='foto'?'selected':''}>📷 Foto + tekst</option>
+            <option value="tekening" ${isTekening?'selected':''}>📐 Tekenvak (hele pagina)</option>
+            <option value="tekening-upload" ${isUpload?'selected':''}>🖼️ Tekening uploaden (hele pagina)</option>
           </select>
           <button class="btn btn-sm" style="margin-left:auto" onclick="wbVerwijderStap(${si},${pi})">✕</button>
         </div>
         ${isTekening
           ? `<div style="background:white;border:1.5px dashed var(--amber,#f59f00);border-radius:6px;padding:12px;text-align:center;color:var(--ink-muted);font-size:12px;margin-bottom:6px">
-               📐 <strong>Tekenvak (ruitjes, A4-liggend)</strong> — leerling tekent hier met naam/datum/klas balk
+               📐 <strong>Tekenvak (ruitjes, A4-liggend, hele pagina)</strong> — leerling tekent hier zelf
              </div>
              <input id="wb-stap-tekst-${si}-${pi}" value="${wbEsc(st.stap)}" maxlength="200"
                placeholder="Opdracht boven de tekenpagina (optioneel)"
                style="width:100%;padding:6px 8px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:13px">`
+          : isUpload
+          ? `<div style="background:white;border:1.5px dashed var(--amber,#f59f00);border-radius:6px;padding:12px;text-align:center;color:var(--ink-muted);font-size:12px;margin-bottom:6px">
+               🖼️ <strong>Geüploade tekening (hele pagina)</strong> — vult de volledige pagina
+             </div>
+             <input id="wb-stap-tekst-${si}-${pi}" value="${wbEsc(st.stap)}" maxlength="200"
+               placeholder="Opdracht boven de afbeelding (optioneel)"
+               style="width:100%;padding:6px 8px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:13px;margin-bottom:6px">
+             <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+               <input type="file" accept="image/*" onchange="wbLaadStapAfbeelding(${si},${pi},this)">
+               ${st.afbeeldingBase64?'<span style="color:var(--accent);font-size:12px">✓ afbeelding geladen</span>':''}
+             </div>`
           : `<textarea id="wb-stap-tekst-${si}-${pi}" maxlength="500" rows="3"
                style="width:100%;padding:8px;border:1.5px solid var(--border);border-radius:var(--radius-sm)"
                placeholder="Beschrijf de stap concreet">${wbEsc(st.stap)}</textarea>
@@ -300,7 +315,7 @@ function wbStapStappenHtml() {
                <input id="wb-stap-bijschrift-${si}-${pi}" value="${wbEsc(st.bijschrift)}" placeholder="Bijschrift" style="flex:1;min-width:160px">
              </div>`
         }
-        ${!isTekening?`<button class="btn btn-sm" style="margin-top:6px;${wbDisabledStyle()}" ${wbDisabledAttr()} onclick="wbVraagAiSuggestie('stap:${si}:${pi}')">AI verbeter deze stap</button>`:''}
+        ${type==='foto'?`<button class="btn btn-sm" style="margin-top:6px;${wbDisabledStyle()}" ${wbDisabledAttr()} onclick="wbVraagAiSuggestie('stap:${si}:${pi}')">AI verbeter deze stap</button>`:''}
         <div id="wb-ai-stap-${si}-${pi}">${wbVoorstelHtml(`stap:${si}:${pi}`)}</div>
       </div>`;}).join('')}
       <button class="btn btn-sm" onclick="wbVoegStapToe(${si})">+ Stap</button>
@@ -321,7 +336,7 @@ function wbSlaStapOp() {
     d.veiligheidsregels = d.veiligheidsregels.map((_,i)=>wbVal(`wb-veil-${i}`)).filter(Boolean);
     d.machines = d.machines.map((m,i)=>({ naam:wbVal(`wb-mac-naam-${i}`), omschrijving:wbVal(`wb-mac-oms-${i}`), afbeeldingBase64:m.afbeeldingBase64||null })).filter(m=>m.naam||m.omschrijving||m.afbeeldingBase64);
   } else if (_wbState.stap === 6) {
-    d.secties = d.secties.map((sec,si)=>({ titel:wbVal(`wb-sec-titel-${si}`), benodigdheden:(document.getElementById(`wb-sec-ben-${si}`)?.value||'').split(',').map(x=>x.trim()).filter(Boolean), stappen:(sec.stappen||[]).map((st,pi)=>({ stap:wbVal(`wb-stap-tekst-${si}-${pi}`), type:document.getElementById(`wb-stap-type-${si}-${pi}`)?.value||'foto', tip:wbVal(`wb-stap-tip-${si}-${pi}`), afbeeldingBase64:st.afbeeldingBase64||null, bijschrift:wbVal(`wb-stap-bijschrift-${si}-${pi}`)})).filter(st=>st.type==='tekening'||st.stap||st.afbeeldingBase64) })).filter(sec=>sec.titel || sec.stappen.length);
+    d.secties = d.secties.map((sec,si)=>({ titel:wbVal(`wb-sec-titel-${si}`), benodigdheden:(document.getElementById(`wb-sec-ben-${si}`)?.value||'').split(',').map(x=>x.trim()).filter(Boolean), stappen:(sec.stappen||[]).map((st,pi)=>({ stap:wbVal(`wb-stap-tekst-${si}-${pi}`), type:document.getElementById(`wb-stap-type-${si}-${pi}`)?.value||'foto', tip:wbVal(`wb-stap-tip-${si}-${pi}`), afbeeldingBase64:st.afbeeldingBase64||null, bijschrift:wbVal(`wb-stap-bijschrift-${si}-${pi}`)})).filter(st=>st.type==='tekening'||st.type==='tekening-upload'||st.stap||st.afbeeldingBase64) })).filter(sec=>sec.titel || sec.stappen.length);
   }
 }
 
@@ -533,21 +548,35 @@ async function wbBouwHtml(data) {
     sec.stappen.map(st => {
       stapNr++;
       if ((st.type||'foto') === 'tekening') {
-        return `<div class="stap">
-          <div class="stap-nummering"><div class="stap-cirkel">${stapNr}</div></div>
-          <div class="stap-kaart">
-            <h3>${wbEsc(sec.titel||'Tekening')} ${stapNr}</h3>
-            ${st.stap?`<p>${wbEsc(st.stap)}</p>`:''}
-            <div class="tekenvak-wrapper">
-              <div class="tekenvak-label">Teken hier</div>
-              <div class="tekenvak ruitjes a4-liggend heeft-titelbalk">
-                <div class="tekenvak-titelbalk">
-                  <div class="tekenvak-titelbalk-veld"><span>Naam</span><div class="invul-lijn-klein"></div></div>
-                  <div class="tekenvak-titelbalk-veld"><span>Datum</span><div class="invul-lijn-klein"></div></div>
-                  <div class="tekenvak-titelbalk-veld"><span>Klas</span><div class="invul-lijn-klein"></div></div>
-                </div>
+        return `<div style="page-break-before:always;break-before:page;padding:14mm;min-height:100vh;box-sizing:border-box;display:flex;flex-direction:column">
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">
+            <div class="stap-cirkel">${stapNr}</div>
+            <h3 style="margin:0;font-size:17px;font-weight:700;color:var(--donkerblauw)">${wbEsc(sec.titel||'Tekening')} ${stapNr}</h3>
+          </div>
+          ${st.stap?`<p style="font-size:15px;color:var(--tekst-zacht);margin:0 0 14px">${wbEsc(st.stap)}</p>`:''}
+          <div class="tekenvak-wrapper" style="flex:1;display:flex;flex-direction:column">
+            <div class="tekenvak ruitjes heeft-titelbalk" style="flex:1;min-height:180mm">
+              <div class="tekenvak-titelbalk">
+                <div class="tekenvak-titelbalk-veld"><span>Naam</span><div class="invul-lijn-klein"></div></div>
+                <div class="tekenvak-titelbalk-veld"><span>Datum</span><div class="invul-lijn-klein"></div></div>
+                <div class="tekenvak-titelbalk-veld"><span>Klas</span><div class="invul-lijn-klein"></div></div>
               </div>
             </div>
+          </div>
+        </div>`;
+      }
+      if ((st.type||'foto') === 'tekening-upload') {
+        return `<div style="page-break-before:always;break-before:page;padding:14mm;min-height:100vh;box-sizing:border-box;display:flex;flex-direction:column">
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">
+            <div class="stap-cirkel">${stapNr}</div>
+            <h3 style="margin:0;font-size:17px;font-weight:700;color:var(--donkerblauw)">${wbEsc(sec.titel||'Tekening')} ${stapNr}</h3>
+          </div>
+          ${st.stap?`<p style="font-size:15px;color:var(--tekst-zacht);margin:0 0 14px">${wbEsc(st.stap)}</p>`:''}
+          <div style="flex:1;display:flex;align-items:center;justify-content:center">
+            ${st.afbeeldingBase64
+              ? `<img src="${st.afbeeldingBase64}" style="max-width:100%;max-height:220mm;object-fit:contain;border-radius:var(--radius);border:1px solid var(--rand)">`
+              : `<div class="foto-vak" style="width:100%;min-height:180mm;height:100%"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21,15 16,10 5,21"/></svg><span>Tekening hier plaatsen</span></div>`
+            }
           </div>
         </div>`;
       }
