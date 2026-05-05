@@ -1,7 +1,7 @@
 // ============================================================
 // public/js/views/toetsen.js
-// Werkboekje generator (upload + stappen-wizard), Toets generator,
-// School instellingen modal
+// Toets generator, materialenbibliotheek en school instellingen modal
+// Werkboekjes worden bewust afgehandeld in public/js/views/werkboekjes.js
 // ============================================================
 
 // ============================================================
@@ -478,10 +478,10 @@ const _wbWizard = {
   data: _wbWizardDefaults()
 };
 
-function openWerkboekjeWizard() {
-  _wbWizard.stap = 1;
-  _wbWizard.data = _wbWizardDefaults();
-  renderWizardStap();
+function openWerkboekjeWizardOudNietGebruiken() {
+  console.warn('Oude werkboekjes-wizard in toetsen.js is uitgeschakeld. Gebruik public/js/views/werkboekjes.js.');
+  if (typeof window.openWerkboekjeWizardNieuw === 'function') return window.openWerkboekjeWizardNieuw();
+  alert('Werkboekjes-module is niet geladen. Vernieuw de pagina met Ctrl + F5.');
 }
 
 function renderWizardStap() {
