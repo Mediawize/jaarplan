@@ -494,22 +494,16 @@ async function wbMaakVoorbeeld() {
   _wbState.laatsteHtml = await wbBouwHtml(_wbState.data);
   wbOpenModal(`
     <h2>Voorbeeld werkboekje</h2>
-    <p class="modal-sub">Controleer het voorbeeld. Je kunt terug om aan te passen. Opslaan maakt het bestand aan; PDF gebruikt dezelfde volledige layout.</p>
+    <p class="modal-sub">Controleer het voorbeeld. Je kunt terug om aan te passen. Opslaan maakt via Playwright een PDF aan en slaat die op als materiaal.</p>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
       <button class="btn" onclick="wbRender()">← Terug aanpassen</button>
-      <button class="btn btn-primary" onclick="wbOpslaan()">Opslaan als materiaal</button>
-      <button class="btn" onclick="wbDownloadPdf()">Download PDF</button>
+      <button class="btn btn-primary" onclick="wbOpslaan()">Opslaan als materiaal (PDF via Playwright)</button>
       <button class="btn" onclick="wbAnnuleer()">Afsluiten zonder opslaan</button>
     </div>
     <iframe id="wb-preview-frame" style="width:100%;height:70vh;border:1px solid var(--border);border-radius:8px;background:white"></iframe>
     <div id="wb-save-result" style="margin-top:10px;font-size:13px"></div>
   `);
   setTimeout(()=>{ const f=document.getElementById('wb-preview-frame'); if(f) f.srcdoc=_wbState.laatsteHtml; },50);
-}
-
-function wbPdfBestandsnaam() {
-  const titel = (_wbState?.data?.titel || 'werkboekje').trim() || 'werkboekje';
-  return titel.toLowerCase().replace(/[^a-z0-9-_]+/gi, '_').replace(/^_+|_+$/g, '').slice(0, 80) + '.pdf';
 }
 
 async function wbMaakPdfPayload() {
@@ -578,38 +572,6 @@ async function wbOpslaan() {
   } catch (e) {
     _wbState.busy = false;
     if (result) result.innerHTML = `<span style="color:var(--red)">Fout: ${wbEsc(e.message)}</span>`;
-  }
-}
-
-async function wbDownloadPdf() {
-  if (_wbState?.busy) return;
-  try {
-    const payload = await wbMaakPdfPayload();
-    const res = await fetch('/api/werkboekjes/pdf-download', {
-      method: 'POST',
-      credentials: 'same-origin',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-
-    if (!res.ok) {
-      const txt = await res.text();
-      let data = null;
-      try { data = JSON.parse(txt); } catch (_) {}
-      throw new Error(data?.error || txt.slice(0, 120) || 'PDF downloaden mislukt');
-    }
-
-    const blob = await res.blob();
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = wbPdfBestandsnaam();
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
-  } catch (e) {
-    alert('PDF downloaden mislukt: ' + e.message);
   }
 }
 
@@ -784,4 +746,3 @@ async function wbBouwHtml(data) {
   <div class="pagina">${secties.join('\n')}</div>
   </body></html>`;
 }
-
