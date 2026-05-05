@@ -1,7 +1,7 @@
 // ============================================================
 // public/js/views/werkboekjes.js
 // Werkboekje wizard — eigen flow, upload analyse, AI-voorstellen,
-// afbeeldingen, preview en PDF via Playwright op de server
+// afbeeldingen, preview en PDF via Playwright backend
 // ============================================================
 
 let _wbState = null;
@@ -66,9 +66,6 @@ function openWerkboekjeWizard() {
   wbReset();
   wbRender();
 }
-
-// Stabiele alias zodat toetsen.js nooit meer de oude werkboekjes-wizard hoeft te gebruiken.
-window.openWerkboekjeWizardNieuw = openWerkboekjeWizard;
 
 async function openWerkboekjeVoorActiviteit(profielId, weekIdx, actIdx, activiteitInfo) {
   wbReset();
