@@ -1,2 +1,47 @@
-<!-- cache busting toegevoegd -->
-<script src="/js/werkboekjes.js?v=2"></script>
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>JaarPlan — Docentenplatform</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/styles.css">
+  <link rel="stylesheet" href="/css/mobile-dashboard.css">
+</head>
+<body>
+
+<div id="login-screen" class="login-screen"></div>
+<div id="app-shell" style="display:none"></div>
+<div id="modal-overlay" style="display:none"></div>
+
+<!-- API laag -->
+<script src="/js/api.js"></script>
+
+<!-- Views -->
+<script src="/js/views/dashboard.js"></script>
+<script src="/js/views/klassen.js"></script>
+<script src="/js/views/vakken.js"></script>
+<script src="/js/views/schooljaren.js"></script>
+<script src="/js/views/jaarplanning.js"></script>
+<script src="/js/views/lesprofielen.js"></script>
+<script src="/js/views/lesbrieven.js"></script>
+<script src="/js/views/opdrachten.js"></script>
+<script src="/js/views/toetsen.js"></script>
+<script src="/js/views/werkboekjes.js"></script>
+<script src="/js/views/gebruikers.js"></script>
+<script src="/js/views/taken.js"></script>
+<script src="/js/views/rooster.js"></script>
+
+<!-- AI Wizard engine -->
+<script src="/js/ai-wizard.js"></script>
+
+<!-- PDF generator -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
+<!-- Hoofd app (auth + routing) -->
+<script src="/js/app.js"></script>
+<script src="/js/wachtwoord.js"></script>
+
+</body>
+</html>
