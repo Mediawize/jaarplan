@@ -148,6 +148,78 @@ function extractSubCode(line) {
 }
 
 // ============================================================
+// K-CODE HELPERS (K/PIE/13, K/PIE/13.1 — taakkaarten format)
+// ============================================================
+function extractKPrimaryCode(line) {
+  const m = line.match(/^(K\/[A-Z]+\/\d+)(?!\.\d)/i);
+  return m ? m[1] : null;
+}
+
+function extractKSubCode(line) {
+  const m = line.match(/^(K\/[A-Z]+\/\d+\.\d+)/i);
+  return m ? m[1] : null;
+}
+
+function isKModuleHeader(line) {
+  // "K/PIE/13 woon- en kantoortechnologie" — code gevolgd door naam
+  return /^K\/[A-Z]+\/\d+\s+\S/i.test(line);
+}
+
+function parseKModules(text) {
+  const lines = splitLines(text);
+  const modules = [];
+  let current = null;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (isKModuleHeader(line)) {
+      const codeMatch = line.match(/^(K\/[A-Z]+\/\d+)/i);
+      if (!codeMatch) continue;
+      const code = codeMatch[1];
+      if (modules.find(m => m.code === code)) continue;
+      const naam = line.slice(code.length).trim();
+      current = { code, naam, lines: [] };
+      modules.push(current);
+      continue;
+    }
+    if (current) current.lines.push(line);
+  }
+
+  return modules.map(module => {
+    const tasks = parseKTasks(module.lines);
+    const moduleText = module.lines.join('\n');
+    return { code: module.code, naam: module.naam, taskCount: tasks.length, tasks, text: moduleText };
+  });
+}
+
+function parseKTasks(lines) {
+  const tasks = [];
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const subCode = extractKSubCode(line);
+    if (!subCode) continue;
+    if (tasks.find(t => t.code === subCode)) continue;
+
+    let title = '';
+    for (let j = i + 1; j < Math.min(i + 5, lines.length); j++) {
+      const next = lines[j];
+      if (/^Deeltaak:/i.test(next)) {
+        title = next.replace(/^Deeltaak:\s*/i, '').trim();
+        for (let k = j + 1; k < Math.min(j + 3, lines.length); k++) {
+          const cont = lines[k];
+          if (/^(K\/[A-Z]+|De kandidaat|BB\s*KB|Taak:|\d+\.)/i.test(cont)) break;
+          if (cont.length > 3) title += ' ' + cont;
+        }
+        break;
+      }
+      if (/^(K\/[A-Z]+|De kandidaat|BB\s*KB)/i.test(next)) break;
+    }
+    tasks.push({ code: subCode, title: title || subCode });
+  }
+  return tasks;
+}
+
+// ============================================================
 // MODULE PARSING
 // ============================================================
 function parseModules(text) {
@@ -168,17 +240,16 @@ function parseModules(text) {
     if (current) current.lines.push(line);
   }
 
-  return modules.map(module => {
-    const taskText = module.lines.join('\n');
-    const tasks = parseTasks(module.lines);
-    return {
-      code: module.code,
-      naam: module.naam,
-      taskCount: tasks.length,
-      tasks,
-      text: taskText
-    };
-  });
+  if (modules.length) {
+    return modules.map(module => {
+      const taskText = module.lines.join('\n');
+      const tasks = parseTasks(module.lines);
+      return { code: module.code, naam: module.naam, taskCount: tasks.length, tasks, text: taskText };
+    });
+  }
+
+  // Fallback: K-format (taakkaarten met K/PIE/13.x codes)
+  return parseKModules(text);
 }
 
 function parseTasks(lines) {
@@ -266,6 +337,20 @@ function extractRowActivities(moduleText, niveau) {
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
 
+    // K-format: sub-taakcode (K/PIE/13.1)
+    if (/^K\/[A-Z]+\/\d+\.\d+/i.test(line)) {
+      flushRow(null);
+      currentSubCode = line.match(/^K\/[A-Z]+\/\d+\.\d+/i)[0];
+      inSubTask = true;
+      continue;
+    }
+
+    // K-format: module-header of losse moduleCode (K/PIE/13) — overslaan
+    if (/^K\/[A-Z]+\/\d+(?!\.\d)/i.test(line)) {
+      flushRow(null);
+      continue;
+    }
+
     if (/P\/[A-Z]+\/\d+\.\d+\.\d+/i.test(line) || /P\/[A-Z]+\/\d+\.\d+\s+\d+\.\d+\.\d+/i.test(line)) {
       flushRow(null);
       currentSubCode = extractSubCode(line);
@@ -292,6 +377,7 @@ function extractRowActivities(moduleText, niveau) {
     if (/^UITWERKING/i.test(line)) { flushRow(null); continue; }
     if (/^BB\s*KB\s*GL/i.test(line)) continue;
     if (/^Taak:/i.test(line)) continue;
+    if (/^Deeltaak:/i.test(line)) continue;
     if (/^Voor het uitvoeren/i.test(line)) continue;
     if (/^P\/[A-Z]+\/\d+\.\d+\s*$/i.test(line)) continue;
 
@@ -555,7 +641,56 @@ ${wekenSamenvatting}`;
   }
 }
 
+// ============================================================
+// TEXT-GEBASEERDE ANALYSE — voor DOCX en andere formaten
+// ============================================================
+async function analyseSyllabusText(text) {
+  const modules = parseModules(text).map(m => ({
+    code: m.code,
+    naam: m.naam,
+    taskCount: m.tasks.length,
+    taken: m.tasks.map(t => ({ code: t.code, title: t.title }))
+  }));
+  return { modules, sourceText: text };
+}
+
+async function generateLesprofielFromText(text, options) {
+  const modules = parseModules(text);
+  const module = modules.find(m => m.code === String(options.moduleCode));
+  if (!module) throw new Error('Gekozen profielmodule niet gevonden in de syllabus');
+
+  const niveau = String(options.niveau || 'BB').toUpperCase();
+  const activities = extractRowActivities(module.text, niveau);
+  if (!activities.length) throw new Error('Er zijn geen activiteiten gevonden voor deze module en dit niveau');
+
+  const weken = distributeActivities(
+    activities,
+    Math.max(1, Number(options.aantalWeken) || 1),
+    Math.max(1, Number(options.urenTheorie) || 1),
+    Math.max(1, Number(options.urenPraktijk) || 1)
+  );
+
+  const naam = options.naam || `${module.naam} ${niveau}`;
+  const urenPerWeek = (Number(options.urenTheorie) || 0) + (Number(options.urenPraktijk) || 0);
+  const verbeterdeWeken = await verbeterMetAI(weken, module.naam, niveau);
+  const vakCode = normalizeVakCodeForSyllabus(options.vakCode || options.vakNaam || options.vak || 'PIE');
+  const wekenMetVakCode = applyVakCodeToWeken(verbeterdeWeken, vakCode);
+
+  return {
+    naam,
+    niveau,
+    module: { code: module.code, naam: module.naam },
+    selectie: module.tasks.map(t => ({ code: applyVakCodeToSyllabusValue(t.code, vakCode), title: t.title })),
+    aantalWeken: wekenMetVakCode.length,
+    urenPerWeek,
+    beschrijving: `Automatisch gegenereerd — module ${module.code} ${module.naam}, niveau ${niveau}.`,
+    weken: wekenMetVakCode
+  };
+}
+
 module.exports = {
   analyseSyllabusPdf,
-  generateLesprofielFromPdf
+  generateLesprofielFromPdf,
+  analyseSyllabusText,
+  generateLesprofielFromText
 };
