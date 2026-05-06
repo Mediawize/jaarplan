@@ -1601,27 +1601,19 @@ app.delete('/api/lesbrieven/:id', requireCanEdit, (req, res) => {
 // WERKBOEKJES
 // ============================================================
 app.get('/api/werkboekjes', requireAuth, (req, res) => {
-  const { profielId, weekIdx, actIdx } = req.query;
-  if (profielId && weekIdx != null && actIdx != null) {
-    const wb = db.getWerkboekjeBySleutel(profielId, parseInt(weekIdx), parseInt(actIdx));
-    return res.json(wb ? [wb] : []);
-  }
-  res.json([]);
+  return res.status(410).json({ error: 'Werkboekje module is tijdelijk uitgeschakeld.' });
 });
 
 app.post('/api/werkboekjes', requireCanEdit, (req, res) => {
-  const wb = db.addWerkboekje(req.body);
-  res.json(wb);
+  return res.status(410).json({ error: 'Werkboekje module is tijdelijk uitgeschakeld.' });
 });
 
 app.put('/api/werkboekjes/:id', requireCanEdit, (req, res) => {
-  db.updateWerkboekje(req.params.id, req.body);
-  res.json({ success: true });
+  return res.status(410).json({ error: 'Werkboekje module is tijdelijk uitgeschakeld.' });
 });
 
 app.delete('/api/werkboekjes/:id', requireCanEdit, (req, res) => {
-  db.deleteWerkboekje(req.params.id);
-  res.json({ success: true });
+  return res.status(410).json({ error: 'Werkboekje module is tijdelijk uitgeschakeld.' });
 });
 
 
@@ -1712,54 +1704,9 @@ function stuurPdfFout(res, actie, e) {
 
 
 
+
+
 app.post('/api/werkboekjes/pdf-download', requireCanEdit, async (req, res) => {
-  try {
-    const { html, titel } = req.body || {};
-    console.log('Werkboekje PDF download route geraakt', { htmlLength: html ? html.length : 0 });
-    const pdfBuffer = await maakWerkboekjePdfBuffer(html);
-    if (!pdfBuffer || pdfBuffer.length < 1000) {
-      throw new Error('PDF lijkt leeg of ongeldig gegenereerd.');
-    }
-    const bestandsnaam = `${veiligeBestandsnaam(titel || 'werkboekje')}.pdf`;
-
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename="${bestandsnaam}"`);
-    res.send(pdfBuffer);
-  } catch (e) {
-    console.error('Werkboekje PDF download fout:', e);
-
-app.post('/api/werkboekjes/pdf-materiaal', requireCanEdit, async (req, res) => {
-  try {
-    const { html, titel, vak } = req.body || {};
-    console.log('Werkboekje PDF opslaan route geraakt', { htmlLength: html ? html.length : 0, titel });
-    const pdfBuffer = await maakWerkboekjePdfBuffer(html);
-    if (!pdfBuffer || pdfBuffer.length < 1000) {
-      throw new Error('PDF lijkt leeg of ongeldig gegenereerd.');
-    }
-
-    const naam = titel || 'Werkboekje';
-    const bestandsnaam = `${veiligeBestandsnaam(naam)}_${Date.now()}.pdf`;
-    const pad = path.join(uploadDir, bestandsnaam);
-    fs.writeFileSync(pad, pdfBuffer);
-
-    const mat = db.addMateriaal({
-      type: 'werkboekje',
-      naam,
-      bestandsnaam,
-      vak: vak || ''
-    });
-
-    console.log('Werkboekje PDF opgeslagen', { bestandsnaam, bytes: pdfBuffer.length, materiaalId: mat?.id });
-    res.json({
-      success: true,
-      titel: naam,
-      bestandsnaam,
-      materiaalId: mat?.id,
-      downloadUrl: `/uploads/${bestandsnaam}`
-    });
-  } catch (e) {
-    console.error('Werkboekje PDF opslaan fout:', e);
-  }
 });
 
 app.post('/api/lesbrieven/genereer', requireCanEdit, async (req, res) => {
