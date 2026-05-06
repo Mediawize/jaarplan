@@ -903,18 +903,19 @@
       break-after: page;
     }
 
-    /* Pagina: A4 marges */
+    /* Pagina: A4 marges — clone zorgt dat padding op elke pagina opnieuw geldt */
     .pagina {
       max-width: 210mm;
       padding: 14mm 14mm;
+      -webkit-box-decoration-break: clone;
+      box-decoration-break: clone;
     }
 
     /* Sectieheaders niet afbreken van hun inhoud én niet intern splitsen */
     .sectie-header { break-after: avoid; break-inside: avoid; }
 
     /* Stappen niet doormidden breken */
-    .stap { break-inside: avoid; margin-top: 0; padding-top: 12mm; }
-    .stap:first-child { padding-top: 0; }
+    .stap { break-inside: avoid; }
     .stap-kaart { break-inside: avoid; }
 
     /* Tekenvakken niet doormidden breken */

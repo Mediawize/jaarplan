@@ -550,12 +550,13 @@ async function wbOpslaan() {
       }
     }
 
-    const pdfPayload = await wbMaakPdfPayload();
+    // Gebruik exact dezelfde HTML als de preview — niet opnieuw bouwen.
+    const html = _wbState.laatsteHtml || await wbBouwHtml(_wbState.data);
     const res = await fetch('/api/werkboekjes/pdf-materiaal', {
       method: 'POST',
       credentials: 'same-origin',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(pdfPayload)
+      body: JSON.stringify({ html, titel: _wbState.data.titel || 'Werkboekje', vak: _wbState.data.vak || '' })
     });
     const data = await wbJsonOfThrow(res);
     _wbState.laatsteBestand = data.bestandsnaam;
