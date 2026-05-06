@@ -1671,8 +1671,8 @@ async function maakWerkboekjePdfBuffer(html) {
 
   try {
     const page = await browser.newPage({ viewport: { width: 1240, height: 1754 } });
-    await page.setContent(html, { waitUntil: 'networkidle' });
     await page.emulateMedia({ media: 'print' });
+    await page.setContent(html, { waitUntil: 'load' });
 
     return await page.pdf({
       format: 'A4',
