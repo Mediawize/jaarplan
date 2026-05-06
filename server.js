@@ -1601,19 +1601,43 @@ app.delete('/api/lesbrieven/:id', requireCanEdit, (req, res) => {
 // WERKBOEKJES
 // ============================================================
 app.get('/api/werkboekjes', requireAuth, (req, res) => {
-  return res.status(410).json({ error: 'Werkboekje module is tijdelijk uitgeschakeld.' });
+  try {
+    const { profielId, weekIdx, actIdx } = req.query;
+    if (profielId && weekIdx != null && actIdx != null) {
+      const wb = db.getWerkboekjeBySleutel(profielId, parseInt(weekIdx), parseInt(actIdx));
+      return res.json(wb ? [wb] : []);
+    }
+    res.json([]);
+  } catch (e) {
+    res.status(500).json({ error: 'Fout bij ophalen: ' + e.message });
+  }
 });
 
 app.post('/api/werkboekjes', requireCanEdit, (req, res) => {
-  return res.status(410).json({ error: 'Werkboekje module is tijdelijk uitgeschakeld.' });
+  try {
+    const wb = db.addWerkboekje(req.body);
+    res.json(wb);
+  } catch (e) {
+    res.status(500).json({ error: 'Fout bij aanmaken: ' + e.message });
+  }
 });
 
 app.put('/api/werkboekjes/:id', requireCanEdit, (req, res) => {
-  return res.status(410).json({ error: 'Werkboekje module is tijdelijk uitgeschakeld.' });
+  try {
+    db.updateWerkboekje(req.params.id, req.body);
+    res.json({ success: true });
+  } catch (e) {
+    res.status(500).json({ error: 'Fout bij bijwerken: ' + e.message });
+  }
 });
 
 app.delete('/api/werkboekjes/:id', requireCanEdit, (req, res) => {
-  return res.status(410).json({ error: 'Werkboekje module is tijdelijk uitgeschakeld.' });
+  try {
+    db.deleteWerkboekje(req.params.id);
+    res.json({ success: true });
+  } catch (e) {
+    res.status(500).json({ error: 'Fout bij verwijderen: ' + e.message });
+  }
 });
 
 
@@ -1691,11 +1715,37 @@ function stuurPdfFout(res, actie, e) {
 
 
 app.post('/api/werkboekjes/pdf-download', requireCanEdit, async (req, res) => {
-  return res.status(410).json({ error: 'Downloaden van werkboekjes is tijdelijk uitgezet.' });
+  try {
+    const { html, titel } = req.body || {};
+    const pdfBuffer = await maakWerkboekjePdfBuffer(html);
+    const bestandsnaam = `${veiligeBestandsnaam(titel || 'werkboekje')}.pdf`;
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${bestandsnaam}"`);
+    res.send(pdfBuffer);
+  } catch (e) {
+    stuurPdfFout(res, 'download', e);
+  }
 });
 
 app.post('/api/werkboekjes/pdf-materiaal', requireCanEdit, async (req, res) => {
-  return res.status(410).json({ error: 'Opslaan als materiaal van werkboekjes is tijdelijk uitgezet.' });
+  try {
+    const { html, titel, vak } = req.body || {};
+    const pdfBuffer = await maakWerkboekjePdfBuffer(html);
+    const naam = titel || 'Werkboekje';
+    const bestandsnaam = `${veiligeBestandsnaam(naam)}_${Date.now()}.pdf`;
+    const pad = path.join(uploadDir, bestandsnaam);
+    fs.writeFileSync(pad, pdfBuffer);
+    const mat = db.addMateriaal({ type: 'werkboekje', naam, bestandsnaam, vak: vak || '' });
+    res.json({
+      success: true,
+      titel: naam,
+      bestandsnaam,
+      materiaalId: mat?.id,
+      downloadUrl: `/uploads/${bestandsnaam}`
+    });
+  } catch (e) {
+    stuurPdfFout(res, 'opslaan', e);
+  }
 });
 
 app.post('/api/lesbrieven/genereer', requireCanEdit, async (req, res) => {
