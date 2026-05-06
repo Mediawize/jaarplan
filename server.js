@@ -1684,7 +1684,7 @@ async function maakWerkboekjePdfBuffer(html) {
     await browser.close();
   }
 }
-const PLAYWRIGHT_INSTALL_HINT = 'Controleer of npm install en npx playwright install chromium zijn uitgevoerd op de server.';
+const PLAYWRIGHT_INSTALL_HINT = 'Voer op de server uit: (1) npm install  (2) npx playwright install chromium  (3) npx playwright install-deps chromium';
 
 function stuurPdfFout(res, actie, e) {
   const message = e && e.message ? e.message : String(e || 'Onbekende fout');
@@ -1692,7 +1692,10 @@ function stuurPdfFout(res, actie, e) {
   const mistPlaywright =
     lower.includes('playwright') ||
     lower.includes('browser') ||
-    lower.includes('executable');
+    lower.includes('executable') ||
+    lower.includes('shared librar') ||
+    lower.includes('cannot open shared') ||
+    lower.includes('no such file');
 
   return res.status(500).json({
     error: `PDF ${actie} mislukt: ${message}`,
