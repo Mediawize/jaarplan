@@ -909,8 +909,8 @@
       padding: 14mm 14mm;
     }
 
-    /* Sectieheaders niet afbreken van hun inhoud */
-    .sectie-header { break-after: avoid; }
+    /* Sectieheaders niet afbreken van hun inhoud én niet intern splitsen */
+    .sectie-header { break-after: avoid; break-inside: avoid; }
 
     /* Stappen niet doormidden breken */
     .stap { break-inside: avoid; margin-top: 0; padding-top: 12mm; }
