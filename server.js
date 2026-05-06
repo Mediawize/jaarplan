@@ -1758,8 +1758,6 @@ async function maakWerkboekjePdfBuffer(html) {
     await browser.close();
   }
 }
-
-
 function stuurPdfFout(res, actie, e) {
   const message = e && e.message ? e.message : String(e || 'Onbekende fout');
   const lower = message.toLowerCase();
@@ -1771,7 +1769,6 @@ function stuurPdfFout(res, actie, e) {
   return res.status(500).json({
     error: `PDF ${actie} mislukt: ${message}`,
     hint: mistPlaywright
-      ? 'Controleer of npm install en npx playwright install chromium zijn uitgevoerd op de server.'
       : undefined
   });
 }
@@ -1788,14 +1785,6 @@ app.post('/api/werkboekjes/pdf-download', requireCanEdit, async (req, res) => {
     res.send(pdfBuffer);
   } catch (e) {
     console.error('Werkboekje PDF download fout:', e);
-<<<<<<< codex/fout-om-te-lossen-74oyds
-    stuurPdfFout(res, 'maken', e);
-=======
-    res.status(500).json({
-      error: 'PDF maken mislukt: ' + e.message,
-      hint: e.message.includes('playwright') ? 'Controleer of npm install en npx playwright install chromium zijn uitgevoerd op de server.' : undefined
-    });
->>>>>>> main
   }
 });
 
@@ -1827,14 +1816,6 @@ app.post('/api/werkboekjes/pdf-materiaal', requireCanEdit, async (req, res) => {
     });
   } catch (e) {
     console.error('Werkboekje PDF opslaan fout:', e);
-<<<<<<< codex/fout-om-te-lossen-74oyds
-    stuurPdfFout(res, 'opslaan', e);
-=======
-    res.status(500).json({
-      error: 'PDF opslaan mislukt: ' + e.message,
-      hint: e.message.includes('playwright') ? 'Controleer of npm install en npx playwright install chromium zijn uitgevoerd op de server.' : undefined
-    });
->>>>>>> main
   }
 });
 
