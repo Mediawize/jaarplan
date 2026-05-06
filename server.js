@@ -15,7 +15,7 @@ const db = require('./db/database');
 const { Schooljaar } = require('./db/schooljaar');
 const { analyseSyllabusPdf, generateLesprofielFromPdf } = require('./services/syllabusGenerator');
 const { chatJson } = require('./services/aiClient');
-const { chromium } = require('playwright');
+let chromium; // lazy-loaded voor duidelijkere foutafhandeling
 
 const app = express();
 app.set('trust proxy', 1);
@@ -1734,6 +1734,10 @@ async function maakWerkboekjePdfBuffer(html) {
     throw new Error('Geen geldige HTML ontvangen voor PDF.');
   }
 
+  if (!chromium) {
+    ({ chromium } = require('playwright'));
+  }
+
   const browser = await chromium.launch({
     headless: true,
     args: ['--no-sandbox', '--disable-setuid-sandbox']
@@ -1754,6 +1758,39 @@ async function maakWerkboekjePdfBuffer(html) {
     await browser.close();
   }
 }
+function stuurPdfFout(res, actie, e) {
+  const message = e && e.message ? e.message : String(e || 'Onbekende fout');
+  const lower = message.toLowerCase();
+  const mistPlaywright =
+    lower.includes('playwright') ||
+    lower.includes('browser') ||
+    lower.includes('executable');
+
+  return res.status(500).json({
+    error: `PDF ${actie} mislukt: ${message}`,
+    hint: mistPlaywright
+      : undefined
+  });
+}
+
+
+const PLAYWRIGHT_INSTALL_HINT = 'Controleer of npm install en npx playwright install chromium zijn uitgevoerd op de server.';
+
+function stuurPdfFout(res, actie, e) {
+  const message = e && e.message ? e.message : String(e || 'Onbekende fout');
+  const lower = message.toLowerCase();
+  const mistPlaywright =
+    lower.includes('playwright') ||
+    lower.includes('browser') ||
+    lower.includes('executable');
+
+  return res.status(500).json({
+    error: `PDF ${actie} mislukt: ${message}`,
+    hint: mistPlaywright
+      ? PLAYWRIGHT_INSTALL_HINT
+      : undefined
+  });
+}
 
 
 
@@ -1772,9 +1809,6 @@ app.post('/api/werkboekjes/pdf-download', requireCanEdit, async (req, res) => {
     res.send(pdfBuffer);
   } catch (e) {
     console.error('Werkboekje PDF download fout:', e);
-    res.status(500).json({ error: 'PDF maken mislukt: ' + (e && e.message ? e.message : String(e)) });
-  }
-});
 
 app.post('/api/werkboekjes/pdf-materiaal', requireCanEdit, async (req, res) => {
   try {
@@ -1807,7 +1841,6 @@ app.post('/api/werkboekjes/pdf-materiaal', requireCanEdit, async (req, res) => {
     });
   } catch (e) {
     console.error('Werkboekje PDF opslaan fout:', e);
-    res.status(500).json({ error: 'PDF opslaan mislukt: ' + (e && e.message ? e.message : String(e)) });
   }
 });
 
