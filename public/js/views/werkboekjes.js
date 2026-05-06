@@ -565,7 +565,7 @@ async function wbOpslaan() {
     if (result) {
       result.innerHTML = `<div class="alert alert-info">
         Klaar: <strong>${wbEsc(data.titel || _wbState.data.titel || 'Werkboekje')}</strong><br>
-        <a href="${wbEsc(data.downloadUrl || ('/uploads/' + data.bestandsnaam))}" target="_blank" style="color:var(--accent);font-weight:600">Download opgeslagen PDF</a>
+        <a href="${wbEsc(data.downloadUrl || ('/uploads/' + data.bestandsnaam))}" download style="color:var(--accent);font-weight:600">Download opgeslagen PDF</a>
         <button class="btn btn-sm" style="margin-left:8px" onclick="wbAnnuleer()">Sluiten</button>
       </div>`;
     }
