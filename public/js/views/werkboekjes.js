@@ -494,11 +494,10 @@ async function wbMaakVoorbeeld() {
   _wbState.laatsteHtml = await wbBouwHtml(_wbState.data);
   wbOpenModal(`
     <h2>Voorbeeld werkboekje</h2>
-    <p class="modal-sub">Controleer het voorbeeld. Je kunt terug om aan te passen. Opslaan maakt via Playwright een PDF aan en slaat die op als materiaal.</p>
+    <p class="modal-sub">Controleer het voorbeeld. Opslaan en downloaden van werkboekjes is tijdelijk uitgezet.</p>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
       <button class="btn" onclick="wbRender()">← Terug aanpassen</button>
-      <button class="btn btn-primary" onclick="wbOpslaan()">Opslaan als materiaal (PDF via Playwright)</button>
-      <button class="btn" onclick="wbAnnuleer()">Afsluiten zonder opslaan</button>
+      <button class="btn" onclick="wbAnnuleer()">Afsluiten</button>
     </div>
     <iframe id="wb-preview-frame" style="width:100%;height:70vh;border:1px solid var(--border);border-radius:8px;background:white"></iframe>
     <div id="wb-save-result" style="margin-top:10px;font-size:13px"></div>
@@ -517,62 +516,14 @@ async function wbMaakPdfPayload() {
 }
 
 async function wbOpslaan() {
-  if (_wbState.busy) return;
+  // Opslaan en downloaden van werkboekjes is bewust uitgezet.
   const result = document.getElementById('wb-save-result');
-  if (result) result.innerHTML = `<span style="color:var(--amber)">⏳ Werkboekje wordt opgeslagen als PDF...</span>`;
-  _wbState.busy = true;
-
-  try {
-    if (_wbState.profielId != null) {
-      // Lesprofiel-modus: bewaar de bewerkbare wizard-data ook in de werkboekjes-tabel.
-      const info = _wbState.activiteitInfo || {};
-      const payload = {
-        profielId: _wbState.profielId,
-        weekIdx: _wbState.weekIdx,
-        actIdx: _wbState.actIdx,
-        activiteitNaam: info.omschrijving || info.naam || '',
-        activiteitType: info.type || '',
-        activiteitUren: info.uren || 1,
-        data: _wbState.data,
-      };
-
-      if (_wbState.wbId) {
-        const r = await fetch(`/api/werkboekjes/${_wbState.wbId}`, {
-          method: 'PUT', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
-        });
-        await wbJsonOfThrow(r);
-      } else {
-        const r = await fetch('/api/werkboekjes', {
-          method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
-        });
-        const wb = await wbJsonOfThrow(r);
-        _wbState.wbId = wb.id;
-      }
-    }
-
-    // Eén bron voor alles: dezelfde HTML als in de preview gaat naar Playwright en wordt als materiaal opgeslagen.
-    const pdfPayload = await wbMaakPdfPayload();
-    const res = await fetch('/api/werkboekjes/pdf-materiaal', {
-      method: 'POST',
-      credentials: 'same-origin',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(pdfPayload)
-    });
-    const data = await wbJsonOfThrow(res);
-    _wbState.laatsteBestand = data.bestandsnaam;
-    _wbState.busy = false;
-
-    if (result) {
-      result.innerHTML = `<div class="alert alert-info">
-        Klaar: <strong>${wbEsc(data.titel || _wbState.data.titel || 'Werkboekje')}</strong><br>
-        <button class="btn btn-sm" style="margin-left:8px" onclick="wbAnnuleer()">Sluiten</button>
-      </div>`;
-    }
-  } catch (e) {
-    _wbState.busy = false;
-    if (result) result.innerHTML = `<span style="color:var(--red)">Fout: ${wbEsc(e.message)}</span>`;
+  if (result) {
+    result.innerHTML = `<span style="color:var(--amber)">Opslaan en downloaden van werkboekjes is tijdelijk uitgezet.</span>`;
   }
+  return;
 }
+
 
 async function wbJsonOfThrow(res) {
   const txt = await res.text();
