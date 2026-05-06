@@ -1553,108 +1553,18 @@ ${tekst}`,
 // WERKBOEKJE GENERATOR — upload met AI (quota fallback)
 // ============================================================
 app.post('/api/genereer-werkboekje', requireCanEdit, upload.single('bestand'), async (req, res) => {
-  if (!req.file) return res.status(400).json({ error: 'Geen bestand geupload' });
-  try {
-    const schoolnaam  = db.getInstelling('schoolnaam')  || '';
-    const logoBestand = db.getInstelling('logoBestand') || null;
-    const { titel } = req.body;
-    const inhoud = await extractTekstUitBestand(req.file.path, req.file.originalname);
-    if (req.file?.path && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
-    let data; let aiGebruikt = true;
-    try {
-      data = await chatJson({
-        system: 'Je maakt praktijk werkboekjes voor Nederlandse MBO/VMBO leerlingen in de techniek. Geef ALTIJD alleen geldig JSON terug, geen uitleg of tekst erbuiten.',
-        user: `Maak een volledig ingevuld werkboekje op basis van de onderstaande tekst.
-
-Geef ALLEEN dit JSON-formaat terug, volledig ingevuld:
-{
-  "titel": "Werkboekje: [kort en concreet onderwerp uit de tekst]",
-  "vak": "${titel || 'Techniek'}",
-  "profieldeel": "[profiel of richting uit de tekst, bijv. Bouw of Elektrotechniek]",
-  "opdrachtnummer": "1",
-  "duur": "[bijv. 8 x 45 minuten — extraheer uit tekst of schat]",
-  "leerdoelen": [
-    "De leerling kan [concrete vaardigheid 1].",
-    "De leerling kan [concrete vaardigheid 2].",
-    "De leerling kan [concrete vaardigheid 3]."
-  ],
-  "introductie": "[1-2 zinnen die de opdracht introduceren voor de leerling]",
-  "veiligheidsregels": [
-    "Werkpak en veiligheidsschoenen dragen.",
-    "Loshangende kleding is verboden.",
-    "Losse haren in een staart of knot.",
-    "Gehoorbescherming dragen bij gebruik van machines.",
-    "Nooit zonder toestemming een machine starten."
-  ],
-  "materiaalstaat": [
-    { "nummer": 1, "benaming": "[naam materiaal uit tekst]", "lengte": "", "breedte": "", "dikte": "", "soortHout": "[materiaalsoort]" }
-  ],
-  "machines": ["[Machine of gereedschap 1]", "[Machine of gereedschap 2]"],
-  "secties": [
-    {
-      "titel": "[Naam van deze fase, bijv. Voorbereiding of Assemblage]",
-      "benodigdheden": ["[gereedschap of materiaal]"],
-      "stappen": [
-        { "stap": "[Concrete actie die de leerling uitvoert. Max 2 zinnen.]", "heeftAfbeelding": true }
-      ]
-    }
-  ]
-}
-
-Regels:
-- Vul ALLE velden in op basis van de tekst — laat niets leeg tenzij de tekst echt geen info geeft
-- Max 3 secties, elk met 4-8 stappen
-- Max 4 leerdoelen
-- Max 12 materiaalrijen
-- Elke stap is een concrete handeling (werkwoord + object), max 2 zinnen
-- Schrijf in aanspreekvorm voor leerlingen ("Meet de lat op...", "Zaag het stuk...")
-
-Tekst:
-${String(inhoud).slice(0, 20000)}`,
-        maxTokens: 3500,
-        temperature: 0.2
-      });
-    } catch (aiErr) {
-      const msg = aiErr.message || '';
-      if (msg.includes('429') || msg.includes('quota') || msg.includes('insufficient') || msg.includes('ANTHROPIC_API_KEY')) {
-        aiGebruikt = false;
-        const eersteRegel = String(inhoud).split('\n').find(r => r.trim().length > 4) || '';
-        data = { titel: titel || ('Werkboekje: ' + eersteRegel.slice(0, 40).trim()), vak: '', profieldeel: '', opdrachtnummer: '1', duur: '', leerdoelen: [], introductie: '', veiligheidsregels: ['Je werkpak en werkschoenen aantrekken.', 'Loshangende kleding is verboden.', 'Losse haren in een staart of knot.', 'Gehoorbescherming is verplicht bij machines.'], materiaalstaat: [], machines: [], secties: [{ titel: 'Stappenplan', benodigdheden: [], stappen: [{ stap: 'Stap 1 - vul hier de stappen in.', heeftAfbeelding: true }] }] };
-      } else { throw aiErr; }
-    }
-    if (titel) data.titel = titel;
-    const docxBuffer = await bouwWerkboekjeDocxVast({ schoolnaam, logoBestand, data });
-    const bestandsnaam = 'werkboekje_' + Date.now() + '.docx';
-    fs.writeFileSync(path.join(uploadDir, bestandsnaam), docxBuffer);
-    const naam = data.titel || titel || 'Werkboekje';
-    const mat = db.addMateriaal({ type: 'werkboekje', naam, bestandsnaam, vak: data.vak || '' });
-    res.json({ success: true, bestandsnaam, titel: naam, materiaalId: mat?.id, waarschuwing: aiGebruikt ? null : 'AI niet beschikbaar. Leeg werkboekje aangemaakt.' });
-  } catch (e) {
-    if (req.file?.path && fs.existsSync(req.file.path)) { try { fs.unlinkSync(req.file.path); } catch (_) {} }
-    res.status(500).json({ error: 'Fout bij genereren: ' + e.message });
-  }
+  return res.status(410).json({
+    error: 'DOCX generatie is uitgezet. Gebruik de werkboekje PDF-flow via Playwright.'
+  });
 });
 
 // ============================================================
 // WERKBOEKJE GENERATOR — handmatig (wizard, geen AI)
 // ============================================================
 app.post('/api/genereer-werkboekje-handmatig', requireCanEdit, async (req, res) => {
-  try {
-    const schoolnaam  = db.getInstelling('schoolnaam')  || '';
-    const logoBestand = db.getInstelling('logoBestand') || null;
-    const data = req.body;
-    if (!data || !data.titel) return res.status(400).json({ error: 'Titel is verplicht' });
-    data.machines = (data.machines || []).filter(m => m && m.trim());
-    data.secties = (data.secties || []).map(s => ({ ...s, stappen: (s.stappen || []).filter(p => p.type === 'tekening' || (p.stap && p.stap.trim())) })).filter(s => s.titel || s.stappen.length);
-    const docxBuffer = await bouwWerkboekjeDocxVast({ schoolnaam, logoBestand, data });
-    const bestandsnaam = 'werkboekje_' + Date.now() + '.docx';
-    fs.writeFileSync(path.join(uploadDir, bestandsnaam), docxBuffer);
-    const naam = data.titel || 'Werkboekje';
-    const mat = db.addMateriaal({ type: 'werkboekje', naam, bestandsnaam, vak: data.vak || '' });
-    res.json({ success: true, bestandsnaam, titel: naam, materiaalId: mat?.id });
-  } catch (e) {
-    res.status(500).json({ error: 'Fout bij aanmaken: ' + e.message });
-  }
+  return res.status(410).json({
+    error: 'DOCX generatie is uitgezet. Gebruik de werkboekje PDF-flow via Playwright.'
+  });
 });
 
 
@@ -1755,11 +1665,16 @@ async function maakWerkboekjePdfBuffer(html) {
   }
 }
 
+
+
 app.post('/api/werkboekjes/pdf-download', requireCanEdit, async (req, res) => {
   try {
     const { html, titel } = req.body || {};
     console.log('Werkboekje PDF download route geraakt', { htmlLength: html ? html.length : 0 });
     const pdfBuffer = await maakWerkboekjePdfBuffer(html);
+    if (!pdfBuffer || pdfBuffer.length < 1000) {
+      throw new Error('PDF lijkt leeg of ongeldig gegenereerd.');
+    }
     const bestandsnaam = `${veiligeBestandsnaam(titel || 'werkboekje')}.pdf`;
 
     res.setHeader('Content-Type', 'application/pdf');
@@ -1776,6 +1691,9 @@ app.post('/api/werkboekjes/pdf-materiaal', requireCanEdit, async (req, res) => {
     const { html, titel, vak } = req.body || {};
     console.log('Werkboekje PDF opslaan route geraakt', { htmlLength: html ? html.length : 0, titel });
     const pdfBuffer = await maakWerkboekjePdfBuffer(html);
+    if (!pdfBuffer || pdfBuffer.length < 1000) {
+      throw new Error('PDF lijkt leeg of ongeldig gegenereerd.');
+    }
 
     const naam = titel || 'Werkboekje';
     const bestandsnaam = `${veiligeBestandsnaam(naam)}_${Date.now()}.pdf`;
