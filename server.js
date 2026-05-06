@@ -1792,6 +1792,8 @@ function stuurPdfFout(res, actie, e) {
   });
 }
 
+
+
 app.post('/api/werkboekjes/pdf-download', requireCanEdit, async (req, res) => {
   try {
     const { html, titel } = req.body || {};
@@ -1807,8 +1809,6 @@ app.post('/api/werkboekjes/pdf-download', requireCanEdit, async (req, res) => {
     res.send(pdfBuffer);
   } catch (e) {
     console.error('Werkboekje PDF download fout:', e);
-  }
-});
 
 app.post('/api/werkboekjes/pdf-materiaal', requireCanEdit, async (req, res) => {
   try {
