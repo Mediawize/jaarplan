@@ -507,7 +507,8 @@ async function wbMaakVoorbeeld() {
 }
 
 async function wbMaakPdfPayload() {
-  wbSlaStapOp();
+  // Niet wbSlaStapOp() aanroepen: de data is al opgeslagen door wbMaakVoorbeeld().
+  // Een extra aanroep hier leest lege formuliervelden (modal is open) en wist stapdata.
   _wbState.laatsteHtml = await wbBouwHtml(_wbState.data);
   return {
     html: _wbState.laatsteHtml,
