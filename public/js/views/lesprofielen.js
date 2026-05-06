@@ -104,9 +104,9 @@ async function renderLesprofielWizard() {
     <div class="alert alert-info" style="margin-bottom:16px"><strong>Optioneel:</strong> upload eerst een syllabus PDF. De wizard analyseert de syllabus en neemt de gekozen module mee in de AI-generatie. Sla dit over als je zelf een onderwerp wilt invullen.</div>
     <div class="form-grid">
       <div class="form-field form-full">
-        <label>Syllabus PDF uploaden</label>
-        <input id="lpw-syllabus-upload" type="file" accept="application/pdf,.pdf" onchange="analyseerLesprofielWizardUpload(this)">
-        <small style="color:var(--ink-muted)">${d.syllabusBestand ? `Geanalyseerd: ${escHtml(d.syllabusBestand)}` : 'Geen upload gekozen. Je kunt gewoon doorgaan zonder syllabus.'}</small>
+        <label>Syllabus uploaden (PDF of Word)</label>
+        <input id="lpw-syllabus-upload" type="file" accept="application/pdf,.pdf,.docx,.doc,application/vnd.openxmlformats-officedocument.wordprocessingml.document" onchange="analyseerLesprofielWizardUpload(this)">
+        <small style="color:var(--ink-muted)">${d.syllabusBestand ? `Geanalyseerd: ${escHtml(d.syllabusBestand)}` : 'Geen upload gekozen. Ondersteund: .pdf en .docx (ook taakkaarten met K/PIE-codes).'}</small>
       </div>
       <div id="lpw-syllabus-status" class="form-field form-full" style="${d.syllabusBestand || d.syllabusModules?.length ? '' : 'display:none'}">
         ${d.syllabusModules?.length ? `<div class="alert alert-success">${d.syllabusModules.length} profielmodules gevonden. Kies in de volgende stap welke module je wilt gebruiken.</div>` : ''}

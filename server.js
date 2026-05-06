@@ -13,7 +13,7 @@ const rateLimit = require('express-rate-limit');
 const helmet = require('helmet');
 const db = require('./db/database');
 const { Schooljaar } = require('./db/schooljaar');
-const { analyseSyllabusPdf, generateLesprofielFromPdf } = require('./services/syllabusGenerator');
+const { analyseSyllabusPdf, generateLesprofielFromPdf, analyseSyllabusText, generateLesprofielFromText } = require('./services/syllabusGenerator');
 const { chatJson } = require('./services/aiClient');
 let chromium; // lazy-loaded voor duidelijkere foutafhandeling
 
@@ -548,16 +548,28 @@ app.post('/api/analyse-syllabus', requireCanEdit, syllabusUpload, async (req, re
   const file = pickUploadedFile(req);
   try {
     if (!file) {
-      return res.status(400).json({ error: 'Geen PDF ontvangen. Kies eerst een syllabusbestand.' });
+      return res.status(400).json({ error: 'Geen bestand ontvangen. Kies eerst een syllabus PDF of Word-bestand.' });
     }
-    if (!/\.pdf$/i.test(file.originalname || '')) {
+    const ext = path.extname(file.originalname || '').toLowerCase();
+    if (ext !== '.pdf' && ext !== '.docx' && ext !== '.doc') {
       if (file.path && fs.existsSync(file.path)) fs.unlinkSync(file.path);
-      return res.status(400).json({ error: 'Alleen PDF-bestanden worden ondersteund bij analyseren.' });
+      return res.status(400).json({ error: 'Alleen PDF- en Word-bestanden (.pdf, .docx) worden ondersteund.' });
     }
-    const analysed = await analyseSyllabusPdf(file.path);
+
+    let analysed;
+    if (ext === '.pdf') {
+      analysed = await analyseSyllabusPdf(file.path);
+    } else {
+      const mammoth = require('mammoth');
+      const { value: text } = await mammoth.extractRawText({ path: file.path });
+      analysed = await analyseSyllabusText(text);
+    }
+
     const uploadToken = createUploadToken();
     syllabusUploadTokens.set(uploadToken, {
       filePath: file.path,
+      sourceText: analysed.sourceText || '',
+      isDocx: ext !== '.pdf',
       originalname: file.originalname,
       createdAt: Date.now()
     });
@@ -590,7 +602,7 @@ app.post('/api/genereer-lesprofiel-uit-syllabus', requireCanEdit, async (req, re
     if (!vak) {
       return res.status(404).json({ error: 'Vak niet gevonden.' });
     }
-    const gegenereerd = await generateLesprofielFromPdf(uploadInfo.filePath, {
+    const opties = {
       moduleCode: String(moduleCode),
       niveau: String(niveau).toUpperCase(),
       aantalWeken: Number(aantalWeken),
@@ -600,7 +612,10 @@ app.post('/api/genereer-lesprofiel-uit-syllabus', requireCanEdit, async (req, re
       vakId,
       vakCode: vak.naam,
       vakNaam: vak.volledig || vak.naam
-    });
+    };
+    const gegenereerd = uploadInfo.isDocx
+      ? await generateLesprofielFromText(uploadInfo.sourceText, opties)
+      : await generateLesprofielFromPdf(uploadInfo.filePath, opties);
     const profiel = db.addLesprofiel({
       naam: gegenereerd.naam,
       vakId: vak.id,
