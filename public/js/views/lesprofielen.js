@@ -523,7 +523,10 @@ async function renderLesprofielen() {
                               ${(p.weken || []).slice(0, 4).map((w, i) => `<span style="font-size:10px;padding:2px 7px;border-radius:4px;background:var(--cream);border:1px solid var(--border);color:var(--ink-muted)">W${i+1}: ${(w.activiteiten || []).map(a => a.type[0]).join('+') || '—'}</span>`).join('')}
                               ${p.aantalWeken > 4 ? `<span style="font-size:10px;color:var(--ink-muted)">+${p.aantalWeken - 4}</span>` : ''}
                             </div>
-                            <button class="btn btn-sm btn-primary" style="width:100%;margin-top:12px" onclick="event.stopPropagation();openKoppelModal('${p.id}')">Koppelen aan planning →</button>
+                            <div style="display:flex;gap:6px;margin-top:12px">
+                              <button class="btn btn-sm btn-primary" style="flex:1" onclick="event.stopPropagation();openKoppelModal('${p.id}')">Koppelen aan planning →</button>
+                              <button class="btn btn-sm" style="color:var(--red);border-color:var(--red)" onclick="event.stopPropagation();verwijderProfiel('${p.id}')" title="Lesprofiel verwijderen">🗑</button>
+                            </div>
                           </div>`;
                         }).join('')}
                       </div>
