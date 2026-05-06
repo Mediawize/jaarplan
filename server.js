@@ -640,6 +640,124 @@ app.post('/api/genereer-lesprofiel-uit-syllabus', requireCanEdit, async (req, re
 });
 
 // ============================================================
+// LESPROFIEL WIZARD — genereer preview (slaat NIET op in DB)
+// Gebruikt syllabus-token als aanwezig, anders pure AI-generatie
+// ============================================================
+app.post('/api/genereer-lesprofiel-wizard', requireCanEdit, async (req, res) => {
+  const {
+    naam, vakId, niveau, aantalWeken, urenPerWeek, beschrijving,
+    syllabusUploadToken, syllabusModuleCode,
+    aiWeekthemas, aiActiviteiten
+  } = req.body || {};
+
+  try {
+    const vak = db.getVakken().find(v => v.id === vakId);
+    const vakNaam = vak ? (vak.volledig || vak.naam) : (naam || 'Techniek');
+    const niv = String(niveau || 'BB').toUpperCase();
+    const weken = Math.max(1, Number(aantalWeken) || 8);
+    const uren = Math.max(1, Number(urenPerWeek) || 3);
+
+    // ── Pad 1: syllabus-gebaseerd ──────────────────────────────
+    if (syllabusUploadToken && syllabusModuleCode) {
+      const uploadInfo = syllabusUploadTokens.get(syllabusUploadToken);
+      if (uploadInfo) {
+        const opties = {
+          moduleCode: String(syllabusModuleCode),
+          niveau: niv,
+          aantalWeken: weken,
+          urenTheorie: Math.ceil(uren / 2),
+          urenPraktijk: Math.floor(uren / 2) || 1,
+          naam: naam || undefined,
+          vakId,
+          vakCode: vak?.naam || '',
+          vakNaam
+        };
+        const gegenereerd = uploadInfo.isDocx
+          ? await generateLesprofielFromText(uploadInfo.sourceText, opties)
+          : await generateLesprofielFromPdf(uploadInfo.filePath, opties);
+
+        return res.json({
+          success: true,
+          profiel: {
+            naam: naam || gegenereerd.naam,
+            vakId,
+            niveau: niv,
+            aantalWeken: gegenereerd.aantalWeken,
+            urenPerWeek: gegenereerd.urenPerWeek,
+            beschrijving: beschrijving || gegenereerd.beschrijving || '',
+            weken: gegenereerd.weken || []
+          },
+          warning: null
+        });
+      }
+    }
+
+    // ── Pad 2: AI-generatie op basis van metadata ──────────────
+    const urenTheorie = Math.ceil(uren / 2);
+    const urenPraktijk = Math.floor(uren / 2) || 1;
+
+    const prompt = `Je bent een ervaren VMBO/MBO docent die lesplannen opstelt.
+Maak een lesprofiel voor: "${naam || vakNaam}", vak "${vakNaam}", niveau ${niv}, ${weken} weken, ${uren} uur/week (${urenTheorie} uur theorie + ${urenPraktijk} uur praktijk).
+${beschrijving ? `Onderwerp/context: ${beschrijving}` : ''}
+
+Geef ALLEEN geldige JSON terug in dit formaat:
+{
+  "weken": [
+    {
+      "weekIndex": 1,
+      "thema": "kort weekthema (3-5 woorden)",
+      "activiteiten": [
+        { "type": "Theorie", "uren": ${urenTheorie}, "omschrijving": "Concrete omschrijving. Begin met werkwoord.", "syllabus": "", "link": "", "bestand": null },
+        { "type": "Praktijk", "uren": ${urenPraktijk}, "omschrijving": "Concrete omschrijving. Begin met werkwoord.", "syllabus": "", "link": "", "bestand": null }
+      ]
+    }
+  ]
+}
+
+Regels:
+- Genereer precies ${weken} weken
+- Elke week heeft 1 Theorie- en 1 Praktijk-activiteit
+- Omschrijvingen zijn kort (1 zin), actiegericht en vakspecifiek
+- Weekthema's zijn oplopend qua complexiteit
+- Schrijf in aanspreekvorm voor de docent`;
+
+    let aiData;
+    let warning = null;
+    try {
+      aiData = await chatJson({
+        system: 'Je schrijft kort, helder en praktisch Nederlands voor VMBO/MBO docenten. Geef altijd alleen geldig JSON terug.',
+        user: prompt,
+        maxTokens: 3500,
+        temperature: 0.3
+      });
+    } catch (aiErr) {
+      const msg = aiErr.message || '';
+      if (msg.includes('429') || msg.includes('quota') || msg.includes('insufficient') || msg.includes('ANTHROPIC_API_KEY')) {
+        warning = 'AI niet beschikbaar — lege weekplanning aangemaakt. Vul zelf de weken in.';
+        aiData = { weken: Array.from({ length: weken }, (_, i) => ({ weekIndex: i + 1, thema: `Week ${i + 1}`, activiteiten: [{ type: 'Theorie', uren: urenTheorie, omschrijving: '', syllabus: '', link: '', bestand: null }, { type: 'Praktijk', uren: urenPraktijk, omschrijving: '', syllabus: '', link: '', bestand: null }] })) };
+      } else throw aiErr;
+    }
+
+    return res.json({
+      success: true,
+      profiel: {
+        naam: naam || vakNaam,
+        vakId,
+        niveau: niv,
+        aantalWeken: (aiData.weken || []).length || weken,
+        urenPerWeek: uren,
+        beschrijving: beschrijving || '',
+        weken: aiData.weken || []
+      },
+      warning
+    });
+  } catch (e) {
+    console.error('Fout bij /api/genereer-lesprofiel-wizard:', e);
+    return res.status(500).json({ error: 'Fout bij genereren van lesprofiel: ' + e.message });
+  }
+});
+
+// ============================================================
 // SCHOOL INSTELLINGEN — logo + naam opslaan / ophalen
 // ============================================================
 app.get('/api/instellingen', requireAuth, (req, res) => {
