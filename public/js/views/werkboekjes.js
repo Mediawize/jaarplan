@@ -565,7 +565,6 @@ async function wbOpslaan() {
     if (result) {
       result.innerHTML = `<div class="alert alert-info">
         Klaar: <strong>${wbEsc(data.titel || _wbState.data.titel || 'Werkboekje')}</strong><br>
-        De PDF is opgeslagen bij Materialen.
         <button class="btn btn-sm" style="margin-left:8px" onclick="wbAnnuleer()">Sluiten</button>
       </div>`;
     }
