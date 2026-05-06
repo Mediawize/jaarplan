@@ -1755,11 +1755,33 @@ async function maakWerkboekjePdfBuffer(html) {
   }
 }
 
+
+const PLAYWRIGHT_INSTALL_HINT = 'Controleer of npm install en npx playwright install chromium zijn uitgevoerd op de server.';
+
+function stuurPdfFout(res, actie, e) {
+  const message = e && e.message ? e.message : String(e || 'Onbekende fout');
+  const lower = message.toLowerCase();
+  const mistPlaywright =
+    lower.includes('playwright') ||
+    lower.includes('browser') ||
+    lower.includes('executable');
+
+  return res.status(500).json({
+    error: `PDF ${actie} mislukt: ${message}`,
+    hint: mistPlaywright
+      ? PLAYWRIGHT_INSTALL_HINT
+      : undefined
+  });
+}
+
 app.post('/api/werkboekjes/pdf-download', requireCanEdit, async (req, res) => {
   try {
     const { html, titel } = req.body || {};
     console.log('Werkboekje PDF download route geraakt', { htmlLength: html ? html.length : 0 });
     const pdfBuffer = await maakWerkboekjePdfBuffer(html);
+    if (!pdfBuffer || pdfBuffer.length < 1000) {
+      throw new Error('PDF lijkt leeg of ongeldig gegenereerd.');
+    }
     const bestandsnaam = `${veiligeBestandsnaam(titel || 'werkboekje')}.pdf`;
 
     res.setHeader('Content-Type', 'application/pdf');
@@ -1767,7 +1789,7 @@ app.post('/api/werkboekjes/pdf-download', requireCanEdit, async (req, res) => {
     res.send(pdfBuffer);
   } catch (e) {
     console.error('Werkboekje PDF download fout:', e);
-    res.status(500).json({ error: 'PDF maken mislukt: ' + e.message });
+    stuurPdfFout(res, 'maken', e);
   }
 });
 
@@ -1776,6 +1798,9 @@ app.post('/api/werkboekjes/pdf-materiaal', requireCanEdit, async (req, res) => {
     const { html, titel, vak } = req.body || {};
     console.log('Werkboekje PDF opslaan route geraakt', { htmlLength: html ? html.length : 0, titel });
     const pdfBuffer = await maakWerkboekjePdfBuffer(html);
+    if (!pdfBuffer || pdfBuffer.length < 1000) {
+      throw new Error('PDF lijkt leeg of ongeldig gegenereerd.');
+    }
 
     const naam = titel || 'Werkboekje';
     const bestandsnaam = `${veiligeBestandsnaam(naam)}_${Date.now()}.pdf`;
@@ -1799,7 +1824,7 @@ app.post('/api/werkboekjes/pdf-materiaal', requireCanEdit, async (req, res) => {
     });
   } catch (e) {
     console.error('Werkboekje PDF opslaan fout:', e);
-    res.status(500).json({ error: 'PDF opslaan mislukt: ' + e.message });
+    stuurPdfFout(res, 'opslaan', e);
   }
 });
 
