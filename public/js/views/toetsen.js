@@ -16,7 +16,6 @@ async function renderToetsen() {
     const metToets = alleOpd.filter(o => o.toetsBestand);
     const metTheorie = alleOpd.filter(o => o.theorieLink);
     const toetsBib = materialen.filter(m => m.type === 'toets');
-    const werkBoekBib = materialen.filter(m => m.type === 'werkboekje');
 
     const renderMateriaalRijen = (lijst) => lijst.map(m => {
       const datum = m.aangemaakt ? m.aangemaakt.slice(0, 10) : '';
@@ -39,7 +38,6 @@ async function renderToetsen() {
         <div class="page-header-left"><h1>Toetsen & Materialen</h1></div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
           ${!readonly ? `
-            <span class="badge" style="background:#fff3cd;color:#8a6d3b;border:1px solid #ffeeba">Werkboekje tijdelijk uitgeschakeld</span>
             <button class="btn" onclick="openToetsGenerator()" style="display:inline-flex;align-items:center;gap:6px">
               <span style="font-size:15px">📝</span> Toets genereren
             </button>
@@ -57,15 +55,6 @@ async function renderToetsen() {
           : renderMateriaalRijen(toetsBib)}
       </div>
 
-      <div class="card" style="margin-bottom:20px">
-        <div class="card-header">
-          <div><h2>📓 Werkboekje bibliotheek (${werkBoekBib.length})</h2>
-          <div class="card-meta">Gegenereerde werkboekjes — koppel ze aan een activiteit in een lesprofiel</div></div>
-        </div>
-        ${werkBoekBib.length === 0
-          ? `<div class="empty-state"><h3>Nog geen werkboekjes</h3><p>Werkboekje module is tijdelijk uitgeschakeld.</p></div>`
-          : renderMateriaalRijen(werkBoekBib)}
-      </div>
 
       <div class="card" style="margin-bottom:20px">
         <div class="card-header"><div><h2>Toetsen (gekoppeld aan opdrachten) (${metToets.length})</h2></div></div>
@@ -227,7 +216,7 @@ async function openInstellingenModal() {
   const inst = await getSchoolInstellingen();
   openModal(`
     <h2>⚙️ School instellingen</h2>
-    <p class="modal-sub">Schoolnaam en logo worden bovenaan elk werkboekje en elke toets geplaatst.</p>
+    <p class="modal-sub">Schoolnaam en logo worden bovenaan elke toets geplaatst.</p>
     <div id="inst-result" style="margin-bottom:8px;font-size:13px"></div>
     <div class="form-field">
       <label>Schoolnaam *</label>
@@ -309,15 +298,6 @@ async function cleanupProfielen() {
   }
 }
 
-// ============================================================
-// NIEUW WERKBOEKJE — STAPPEN-WIZARD (zonder AI)
-// ============================================================
-// ============================================================
-// WERKBOEKJE WIZARD
-// ============================================================
-// De werkboekjes-wizard staat bewust NIET meer in toetsen.js.
-// Deze knop/flow gebruikt de module: public/js/views/werkboekjes.js
-// Daar staat ook de Playwright PDF-download via /api/werkboekjes/pdf-download.
 
 // ============================================================
 // TOETS GENERATOR — keuze: upload (AI) of wizard (handmatig)
