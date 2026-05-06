@@ -1710,6 +1710,8 @@ function stuurPdfFout(res, actie, e) {
 
 
 
+
+
 app.post('/api/werkboekjes/pdf-download', requireCanEdit, async (req, res) => {
   try {
     const { html, titel } = req.body || {};
