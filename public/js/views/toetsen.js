@@ -39,9 +39,7 @@ async function renderToetsen() {
         <div class="page-header-left"><h1>Toetsen & Materialen</h1></div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
           ${!readonly ? `
-            <button class="btn" onclick="openWerkboekjeWizard()" style="display:inline-flex;align-items:center;gap:6px">
-              <span style="font-size:15px">📓</span> Werkboekje maken
-            </button>
+            <span class="badge" style="background:#fff3cd;color:#8a6d3b;border:1px solid #ffeeba">Werkboekje tijdelijk uitgeschakeld</span>
             <button class="btn" onclick="openToetsGenerator()" style="display:inline-flex;align-items:center;gap:6px">
               <span style="font-size:15px">📝</span> Toets genereren
             </button>
@@ -65,7 +63,7 @@ async function renderToetsen() {
           <div class="card-meta">Gegenereerde werkboekjes — koppel ze aan een activiteit in een lesprofiel</div></div>
         </div>
         ${werkBoekBib.length === 0
-          ? `<div class="empty-state"><h3>Nog geen werkboekjes</h3><p>Genereer een werkboekje via "Werkboekje maken" hierboven.</p></div>`
+          ? `<div class="empty-state"><h3>Nog geen werkboekjes</h3><p>Werkboekje module is tijdelijk uitgeschakeld.</p></div>`
           : renderMateriaalRijen(werkBoekBib)}
       </div>
 
