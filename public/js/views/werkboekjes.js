@@ -285,7 +285,7 @@ function wbStapVeiligheidHtml() {
       <div id="wb-ai-veiligheid">${wbVoorstelHtml('veiligheid')}</div>
     </div>
     <div class="form-field" style="margin-top:14px"><label>Gereedschappen en machines</label>
-      ${d.machines.map((m,i)=>`<div style="border:1px solid var(--border);border-radius:8px;padding:8px;margin-bottom:8px"><div style="display:flex;gap:6px"><input id="wb-mac-naam-${i}" value="${wbEsc(m.naam || m)}" placeholder="Naam" style="flex:1"><input id="wb-mac-oms-${i}" value="${wbEsc(m.omschrijving||'')}" placeholder="Omschrijving" style="flex:1"><button class="btn btn-sm" onclick="wbVerwijderMachine(${i})">✕</button></div><div style="margin-top:6px"><input type="file" accept="image/*" onchange="wbLaadMachineAfbeelding(${i},this)"> ${m.afbeeldingBase64 ? '<span style="color:var(--accent);font-size:12px">✓ afbeelding geladen</span>' : ''}</div></div>`).join('')}
+      ${d.machines.map((m,i)=>`<div style="border:1px solid var(--border);border-radius:8px;padding:8px;margin-bottom:8px"><div style="display:flex;gap:6px"><input id="wb-mac-naam-${i}" value="${wbEsc(m.naam || '')}" placeholder="Naam" style="flex:1"><input id="wb-mac-oms-${i}" value="${wbEsc(m.omschrijving||'')}" placeholder="Omschrijving" style="flex:1"><button class="btn btn-sm" onclick="wbVerwijderMachine(${i})">✕</button></div><div style="margin-top:6px"><input type="file" accept="image/*" onchange="wbLaadMachineAfbeelding(${i},this)"> ${m.afbeeldingBase64 ? '<span style="color:var(--accent);font-size:12px">✓ afbeelding geladen</span>' : ''}</div></div>`).join('')}
       <button class="btn btn-sm" onclick="wbVoegMachineToe()">+ Gereedschap</button>
       <button class="btn btn-sm" style="margin-left:6px;${wbDisabledStyle()}" ${wbDisabledAttr()} onclick="wbVraagAiSuggestie('machines')">AI voorstel gereedschap</button>
       <div id="wb-ai-machines">${wbVoorstelHtml('machines')}</div>
@@ -371,7 +371,7 @@ function wbNormaliseerData(data) {
   data.leerdoelen = Array.isArray(data.leerdoelen) ? data.leerdoelen.filter(Boolean) : [];
   if (!data.leerdoelen.length) data.leerdoelen = ['', '', ''];
   data.materiaalstaat = Array.isArray(data.materiaalstaat) ? data.materiaalstaat.map((r,i)=>({ nummer:i+1, benaming:r.benaming||r.naam||'', aantal:r.aantal||'', lengte:r.lengte||'', breedte:r.breedte||'', dikte:r.dikte||'', soortHout:r.soortHout||r.materiaal||'' })) : [];
-  data.machines = Array.isArray(data.machines) ? data.machines.map(m => typeof m === 'string' ? { naam:m, omschrijving:'', afbeeldingBase64:null } : { naam:m.naam||'', omschrijving:m.omschrijving||'', afbeeldingBase64:m.afbeeldingBase64||null }) : [];
+  data.machines = Array.isArray(data.machines) ? data.machines.map(m => typeof m === 'string' ? { naam:m, omschrijving:'', afbeeldingBase64:null } : { naam:String(m.naam||''), omschrijving:String(m.omschrijving||''), afbeeldingBase64:m.afbeeldingBase64||null }) : [];
   data.secties = Array.isArray(data.secties) && data.secties.length ? data.secties.map(s=>({ titel:s.titel||'Stappenplan', benodigdheden:Array.isArray(s.benodigdheden)?s.benodigdheden:[], stappen:Array.isArray(s.stappen)?s.stappen.map(st=>({ stap:st.stap||st.tekst||'', type:st.type||'foto', tip:st.tip||'', afbeeldingBase64:st.afbeeldingBase64||null, bijschrift:st.bijschrift||'' })):[] })) : wbLegeData().secties;
   return data;
 }
@@ -635,7 +635,7 @@ async function wbBouwHtml(data) {
 
   // ── Veiligheid & Gereedschappen (alleen als er data is) ──
   const veilig = (d.veiligheidsregels||[]).filter(Boolean);
-  const machines = (d.machines||[]).filter(m=>m.naam||m.omschrijving||m.afbeeldingBase64);
+  const machines = (d.machines||[]).filter(m=>(typeof m.naam==='string'&&m.naam.trim())||(typeof m.omschrijving==='string'&&m.omschrijving.trim())||m.afbeeldingBase64);
   if (veilig.length || machines.length) {
     secties.push(`
       ${veilig.length ? `
