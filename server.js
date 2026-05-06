@@ -1755,11 +1755,16 @@ async function maakWerkboekjePdfBuffer(html) {
   }
 }
 
+
+
 app.post('/api/werkboekjes/pdf-download', requireCanEdit, async (req, res) => {
   try {
     const { html, titel } = req.body || {};
     console.log('Werkboekje PDF download route geraakt', { htmlLength: html ? html.length : 0 });
     const pdfBuffer = await maakWerkboekjePdfBuffer(html);
+    if (!pdfBuffer || pdfBuffer.length < 1000) {
+      throw new Error('PDF lijkt leeg of ongeldig gegenereerd.');
+    }
     const bestandsnaam = `${veiligeBestandsnaam(titel || 'werkboekje')}.pdf`;
 
     res.setHeader('Content-Type', 'application/pdf');
@@ -1776,6 +1781,9 @@ app.post('/api/werkboekjes/pdf-materiaal', requireCanEdit, async (req, res) => {
     const { html, titel, vak } = req.body || {};
     console.log('Werkboekje PDF opslaan route geraakt', { htmlLength: html ? html.length : 0, titel });
     const pdfBuffer = await maakWerkboekjePdfBuffer(html);
+    if (!pdfBuffer || pdfBuffer.length < 1000) {
+      throw new Error('PDF lijkt leeg of ongeldig gegenereerd.');
+    }
 
     const naam = titel || 'Werkboekje';
     const bestandsnaam = `${veiligeBestandsnaam(naam)}_${Date.now()}.pdf`;
