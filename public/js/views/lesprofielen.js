@@ -136,21 +136,29 @@ async function renderLesprofielWizard() {
       </div>
     </div>`;
 
-  const stap3 = `
-    <p style="font-size:14px;color:var(--ink-muted);margin:0 0 14px">Vink aan wat de AI moet genereren. <strong>Je kunt meerdere opties tegelijk aanvinken.</strong> Elke optie voegt iets toe aan het lesprofiel.</p>
-    <div style="display:flex;flex-direction:column;gap:8px">
-      ${[
-        [‘lpw-ai-weekthemas’,’aiWeekthemas’,’📅 Weekthema\’s’,’AI maakt per week een duidelijke titel of thema. Dit is de basis.’],
-        [‘lpw-ai-activiteiten’,’aiActiviteiten’,’📚 Activiteiten per week’,’AI vult theorie, praktijk, toetsmomenten en presentaties per week in.’],
-        [‘lpw-ai-bronnen’,’aiBronnen’,’🔗 Bronnen en materialen’,’AI noemt suggesties voor bronnen, werkbladen, video\’s of practicum-materiaal.’],
-        [‘lpw-ai-differentiatie’,’aiDifferentiatie’,’🎯 Differentiatie’,’AI voegt steun en verdieping toe voor verschillende niveaus.’],
-        [‘lpw-ai-opmerkingen’,’aiOpmerkingen’,’💬 Opmerkingen en aandachtspunten’,’AI verwerkt docentopmerkingen zoals voorbereiding, veiligheid of benodigdheden.’]
-      ].map(([id,key,title,sub]) => `
-        <label style="display:flex;gap:12px;align-items:flex-start;cursor:pointer;border:2px solid ${d[key]?’var(--accent)’:’var(--border)’};border-radius:10px;padding:12px 14px;background:${d[key]?’#f0fdf4’:’#fff’};transition:border-color .15s,background .15s" onclick="">
-          <input id="${id}" type="checkbox" ${d[key] ? ‘checked’ : ‘’} style="width:18px;height:18px;margin-top:2px;cursor:pointer;flex-shrink:0;accent-color:var(--accent)" onchange="this.closest(‘label’).style.borderColor=this.checked?’var(--accent)’:’var(--border)’;this.closest(‘label’).style.background=this.checked?’#f0fdf4’:’#fff’">
-          <span><strong style="font-size:14px">${title}</strong><br><small style="color:var(--ink-muted);font-size:12px">${sub}</small></span>
-        </label>`).join(‘’)}
-    </div>`;
+  const aiOptiesData = [
+    ["lpw-ai-weekthemas",    "aiWeekthemas",    "Weekthema’s",                    "AI maakt per week een duidelijke titel of thema. Dit is de basis."],
+    ["lpw-ai-activiteiten",  "aiActiviteiten",  "Activiteiten per week",          "AI vult theorie, praktijk, toetsmomenten en presentaties per week in."],
+    ["lpw-ai-bronnen",       "aiBronnen",       "Bronnen en materialen",          "AI noemt suggesties voor bronnen, werkbladen, video’s of practicum-materiaal."],
+    ["lpw-ai-differentiatie","aiDifferentiatie","Differentiatie",                 "AI voegt steun en verdieping toe voor verschillende niveaus."],
+    ["lpw-ai-opmerkingen",   "aiOpmerkingen",   "Opmerkingen en aandachtspunten", "AI verwerkt docentopmerkingen zoals voorbereiding, veiligheid of benodigdheden."]
+  ];
+  const aiOptiesHtml = aiOptiesData.map(function(item) {
+    var id = item[0], key = item[1], title = item[2], sub = item[3];
+    var selected = d[key];
+    var border = selected ? "var(--accent)" : "var(--border)";
+    var bg = selected ? "#f0fdf4" : "#fff";
+    var checked = selected ? "checked" : "";
+    return "<label style=\"display:flex;gap:12px;align-items:flex-start;cursor:pointer;border:2px solid " + border + ";border-radius:10px;padding:12px 14px;background:" + bg + ";transition:border-color .15s,background .15s\">"
+      + "<input id=\"" + id + "\" type=\"checkbox\" " + checked + " style=\"width:18px;height:18px;margin-top:2px;cursor:pointer;flex-shrink:0;accent-color:var(--accent)\" "
+      + "onchange=\"var l=this.closest(‘label’);l.style.borderColor=this.checked?’var(--accent)’:’var(--border)’;l.style.background=this.checked?’#f0fdf4’:’#fff’\">"
+      + "<span><strong style=\"font-size:14px\">" + escHtml(title) + "</strong><br>"
+      + "<small style=\"color:var(--ink-muted);font-size:12px\">" + escHtml(sub) + "</small></span>"
+      + "</label>";
+  }).join("");
+
+  const stap3 = "<p style=\"font-size:14px;color:var(--ink-muted);margin:0 0 14px\">Vink aan wat de AI moet genereren. <strong>Je kunt meerdere opties tegelijk aanvinken.</strong> Elke optie voegt iets toe aan het lesprofiel.</p>"
+    + "<div style=\"display:flex;flex-direction:column;gap:8px\">" + aiOptiesHtml + "</div>";
 
   const preview = lesprofielWizardState.preview;
   const stap4 = preview ? `
