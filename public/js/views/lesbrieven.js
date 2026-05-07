@@ -29,8 +29,8 @@ async function openLesbrief(profielId, weekIdx, actIdx, activiteitInfo) {
     const res = await fetch(`/api/lesbrieven?profielId=${profielId}&weekIdx=${weekIdx}&actIdx=${actIdx}`, { credentials: 'same-origin' });
     const lijst = await res.json();
     if (lijst && lijst.length > 0) {
-      _lb.data = lijst[0];
       _lb.id = lijst[0].id;
+      _lb.data = lijst[0].data && Object.keys(lijst[0].data).length > 0 ? lijst[0].data : lbLeeg();
       lbToonOverzicht();  // bestaande lesbrief → overzicht tonen
       return;
     }
@@ -497,7 +497,7 @@ async function lbOpslaan() {
     activiteitNaam: info.omschrijving || info.naam || '',
     activiteitType: info.type || '',
     activiteitUren: info.uren || 1,
-    ..._lb.data,
+    data: _lb.data,
   };
 
   try {
