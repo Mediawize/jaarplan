@@ -57,7 +57,7 @@ function resetLesprofielWizard() {
       naam: '', vakId: '', niveau: '', aantalWeken: 8, urenPerWeek: 3, beschrijving: '',
       syllabusUploadToken: '', syllabusBestand: '', syllabusModules: [], syllabusModuleCode: '', syllabusPreview: '',
       aiWeekthemas: true, aiActiviteiten: true, aiBronnen: false, aiDifferentiatie: false, aiOpmerkingen: false,
-      lesModuleId: ''
+      lesModuleId: '', feedback: ''
     }
   };
 }
@@ -196,8 +196,13 @@ async function renderLesprofielWizard() {
     ${lesprofielWizardState.warning ? `<div class="alert" style="background:var(--amber-light);color:var(--amber);margin-bottom:12px">${escHtml(lesprofielWizardState.warning)}</div>` : ''}
     <div class="alert alert-success" style="margin-bottom:16px">Voorbeeld is gemaakt. Kies <strong>Opslaan</strong> om het lesprofiel echt aan te maken.</div>
     <div class="card" style="margin-bottom:12px;padding:16px"><h3 style="margin-top:0">${escHtml(preview.naam)}</h3><div style="font-size:13px;color:var(--ink-muted);margin-bottom:8px">${escHtml(preview.niveau || 'Alle niveaus')} · ${preview.aantalWeken} weken · ${preview.urenPerWeek} uur/week</div><div style="font-size:13px">${escHtml(preview.beschrijving || '')}</div></div>
-    <div style="max-height:360px;overflow:auto;border:1px solid var(--border);border-radius:12px;background:#fff">
+    <div style="max-height:300px;overflow:auto;border:1px solid var(--border);border-radius:12px;background:#fff;margin-bottom:16px">
       ${(preview.weken || []).map((w, i) => `<div style="padding:12px 14px;border-bottom:1px solid var(--border)"><strong>Week ${i + 1}: ${escHtml(w.thema || '')}</strong><ul style="margin:8px 0 0 18px;padding:0;font-size:13px">${(w.activiteiten || []).map(a => `<li><strong>${escHtml(a.type || 'Activiteit')}</strong> · ${escHtml(a.uren || '')} uur · ${escHtml(a.omschrijving || '')}${a.syllabus ? ` <span style="color:var(--ink-muted)">(${escHtml(a.syllabus)})</span>` : ''}</li>`).join('')}</ul></div>`).join('')}
+    </div>
+    <div style="border:1px solid var(--border);border-radius:10px;padding:14px;background:#fafafa">
+      <label style="font-weight:600;font-size:13px;display:block;margin-bottom:6px">Niet tevreden? Geef een opmerking en genereer opnieuw</label>
+      <textarea id="lpw-feedback" rows="3" style="width:100%;resize:vertical;font-size:13px" placeholder="Bijv: maak week 3 meer praktijkgericht, voeg een toetsweek toe aan het einde, gebruik minder theorie-uren...">${escHtml(d.feedback || '')}</textarea>
+      <button class="btn btn-sm" style="margin-top:8px" onclick="hergeneerLesprofielWizard()">↻ Opnieuw genereren met opmerking</button>
     </div>` : `<div class="alert alert-info">Klik op <strong>Voorbeeld genereren</strong>. Er wordt nog niets opgeslagen.</div>`;
 
   const body = step === 1 ? stap1 : step === 2 ? stap2 : step === 3 ? stap3 : stap4;
@@ -339,6 +344,16 @@ async function vorigeLesprofielWizardStap() {
 
 async function genereerLesprofielWizardPreview() {
   leesLesprofielWizardStap3();
+  lesprofielWizardState.data.feedback = '';
+  await _voerGeneratieUit();
+}
+
+async function hergeneerLesprofielWizard() {
+  lesprofielWizardState.data.feedback = document.getElementById('lpw-feedback')?.value?.trim() || '';
+  await _voerGeneratieUit();
+}
+
+async function _voerGeneratieUit() {
   const loadingId = 'lpw-loading';
   const acties = document.querySelector('.modal-actions');
   if (acties) acties.insertAdjacentHTML('beforebegin', `<div id="${loadingId}" class="alert alert-info" style="margin-top:12px">⏳ Lesprofiel wordt gegenereerd, even geduld...</div>`);
@@ -353,7 +368,7 @@ async function genereerLesprofielWizardPreview() {
     if (el) el.outerHTML = `<div class="alert" style="background:#fef2f2;color:#dc2626;border:1px solid #fca5a5;border-radius:10px;padding:12px 16px;margin-top:12px">
       <strong>Genereren mislukt:</strong> ${escHtml(e.message)}<br>
       <small style="opacity:.8">Controleer je internetverbinding of probeer het opnieuw. Je kunt ook teruggaan en de instellingen aanpassen.</small><br>
-      <button class="btn btn-sm" style="margin-top:8px" onclick="genereerLesprofielWizardPreview()">↻ Opnieuw proberen</button>
+      <button class="btn btn-sm" style="margin-top:8px" onclick="hergeneerLesprofielWizard()">↻ Opnieuw proberen</button>
     </div>`;
   }
 }
