@@ -1,6 +1,6 @@
 // ============================================================
 // public/js/views/lesbrieven.js
-// Wizard-stijl navigatie (6 stappen) — zelfde stijl als toets/werkboekje wizard
+// Layout gebaseerd op Lesvoorbereidingsformulier (Bijlage 1)
 // ============================================================
 
 const _lb = {
@@ -44,31 +44,54 @@ async function openLesbrief(profielId, weekIdx, actIdx, activiteitInfo) {
 }
 
 function lbLeeg() {
+  const info = _lb.activiteitInfo || {};
   return {
-    voorbereiding: '',
-    benodigdheden: [],
-    lesverloop: [],
-    stappenplan: [],
-    aandachtspunten: [],
-    differentiatie: { snel: '', langzaam: '' },
-    opmerkingen: '',
+    // Identificatie
+    kandidaat: '',
+    datumLes: '',
+    werkplekbegeleider: '',
+    vak: info.vak || '',
+    klas: info.klas || '',
+    school: '',
+    lokaal: '',
+    onderwerp: info.omschrijving || info.naam || '',
+    methode: info.type || 'Theorie',
+    // Lesdoel
+    lesdoel: '',
+    beginsituatie: '',
+    // Didactiek
+    watDoekIk: '',
+    watDoetDeLeerling: '',
+    // Evaluatie
+    evaluatie: '',
+    // Reflectie
+    reflectie: '',
+    // Fasering
+    fasering: [
+      { fase: 'Fase 1 — Docent geeft leerdoelen aan',       tijd: '0:00–05:00',  activiteitLeraar: '', activiteitLeerling: '', hulpmiddelen: '' },
+      { fase: 'Fase 2 — Docent activeert voorkennis',        tijd: '05:00–15:00', activiteitLeraar: '', activiteitLeerling: '', hulpmiddelen: '' },
+      { fase: 'Fase 3 — Docent geeft instructie',            tijd: '15:00–25:00', activiteitLeraar: '', activiteitLeerling: '', hulpmiddelen: '' },
+      { fase: 'Fase 4 — Leerlingen werken zelfstandig',      tijd: '25:00–35:00', activiteitLeraar: '', activiteitLeerling: '', hulpmiddelen: '' },
+      { fase: 'Fase 5 — Docent koppelt leerdoelen terug',    tijd: '35:00–40:00', activiteitLeraar: '', activiteitLeerling: '', hulpmiddelen: '' },
+      { fase: 'Fase 6 — Reflectie op product en proces',     tijd: '40:00–45:00', activiteitLeraar: '', activiteitLeerling: '', hulpmiddelen: '' },
+    ],
   };
 }
 
 // ============================================================
-// STAPPEN DEFINITIES
+// STAPPEN
 // ============================================================
 const LB_STAPPEN = [
-  { id: 'voorbereiding',    label: 'Voorbereiding' },
-  { id: 'lesverloop',       label: 'Lesverloop' },
-  { id: 'stappenplan',      label: 'Stappenplan' },
-  { id: 'aandachtspunten',  label: 'Aandachtspunten' },
-  { id: 'differentiatie',   label: 'Differentiatie' },
-  { id: 'opmerkingen',      label: 'Opmerkingen' },
+  { id: 'identificatie', label: 'Gegevens' },
+  { id: 'lesdoel',       label: 'Lesdoel' },
+  { id: 'didactiek',     label: 'Didactiek' },
+  { id: 'evaluatie',     label: 'Evaluatie' },
+  { id: 'reflectie',     label: 'Resultaat & Reflectie' },
+  { id: 'fasering',      label: 'Fasering' },
 ];
 
 // ============================================================
-// RENDER MODAL — wizard-stijl
+// RENDER MODAL
 // ============================================================
 function renderLb() {
   const s = _lb.stap;
@@ -80,7 +103,6 @@ function renderLb() {
 
   openModal(`
     <div style="margin:-4px -4px 0">
-      <!-- Header -->
       <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;padding-bottom:10px">
         <div>
           <h2 style="margin:0 0 4px;font-size:18px">📄 Lesbrief — stap ${s} van ${totaal}: ${huidigLabel}</h2>
@@ -95,7 +117,6 @@ function renderLb() {
         </div>
       </div>
 
-      <!-- Progress bar -->
       <div style="margin-bottom:16px">
         <div style="display:flex;gap:4px;margin-bottom:6px">
           ${LB_STAPPEN.map((_, i) => `<div style="flex:1;height:4px;border-radius:2px;background:${i < s ? 'var(--accent)' : 'var(--border)'}"></div>`).join('')}
@@ -104,15 +125,9 @@ function renderLb() {
       </div>
 
       <div id="lb-ai-status" style="font-size:13px;margin-bottom:8px"></div>
-
-      <!-- Stap inhoud -->
-      <div id="lb-tab-inhoud">
-        ${lbRenderTab(huidigId, ro)}
-      </div>
-
+      <div id="lb-tab-inhoud">${lbRenderTab(huidigId, ro)}</div>
       <div id="lb-opslaan-status" style="font-size:13px;margin-top:8px"></div>
 
-      <!-- Navigatie -->
       <div class="modal-actions">
         ${s === 1
           ? `<button class="btn" onclick="closeModalDirect()">Sluiten</button>`
@@ -131,14 +146,9 @@ function renderLb() {
 
   setTimeout(() => {
     const box = document.querySelector('#modal-overlay .modal-box');
-    if (box) box.style.maxWidth = '860px';
+    if (box) box.style.maxWidth = '900px';
     lbInjectStijlen();
-    if (huidigId === 'lesverloop') {
-      document.querySelectorAll('[id^="lb-lv-beschr-"]').forEach(el => {
-        el.style.height = 'auto';
-        el.style.height = el.scrollHeight + 'px';
-      });
-    }
+    if (huidigId === 'fasering') lbAutoResizeFasering();
   }, 0);
 }
 
@@ -147,38 +157,34 @@ function lbInjectStijlen() {
   const s = document.createElement('style');
   s.id = 'lb-stijlen';
   s.textContent = `
-    .lb-textarea {
-      width:100%;padding:8px 10px;border:1.5px solid var(--border);
-      border-radius:var(--radius-sm);font-size:13px;font-family:inherit;
-      box-sizing:border-box;resize:vertical;
-    }
+    .lb-textarea { width:100%;padding:8px 10px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:13px;font-family:inherit;box-sizing:border-box;resize:vertical; }
     .lb-textarea:focus { outline:none;border-color:var(--accent); }
-    .lb-input {
-      padding:6px 9px;border:1.5px solid var(--border);
-      border-radius:var(--radius-sm);font-size:13px;font-family:inherit;
-      box-sizing:border-box;
-    }
+    .lb-input { padding:6px 9px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:13px;font-family:inherit;box-sizing:border-box; }
     .lb-input:focus { outline:none;border-color:var(--accent); }
     .lb-del-btn { color:var(--red);border:none;background:none;cursor:pointer;font-size:14px;padding:3px 4px;flex-shrink:0; }
-    .lb-fase-rij { border:1px solid var(--border);border-radius:6px;padding:10px 12px;margin-bottom:8px;background:#FAFAFA; }
+    .lb-fase-tabel { width:100%;border-collapse:collapse;font-size:13px; }
+    .lb-fase-tabel th { background:var(--accent);color:#fff;padding:8px 10px;text-align:left;font-weight:600;font-size:12px; }
+    .lb-fase-tabel td { padding:6px 8px;border-bottom:1px solid var(--border);vertical-align:top; }
+    .lb-fase-tabel tr:nth-child(even) td { background:#f9fafb; }
+    .lb-fase-tabel .lb-td-input { border:none;width:100%;background:transparent;font-size:13px;font-family:inherit;padding:2px 4px;border-radius:4px; }
+    .lb-fase-tabel .lb-td-input:focus { outline:2px solid var(--accent);background:#fff; }
+    .lb-fase-tabel textarea.lb-td-input { resize:vertical;min-height:52px; }
   `;
   document.head.appendChild(s);
 }
 
-// ============================================================
-// WIZARD NAVIGATIE
-// ============================================================
-function lbVorigeStap() {
-  lbLeesData();
-  _lb.stap--;
-  renderLb();
+function lbAutoResizeFasering() {
+  document.querySelectorAll('.lb-fase-tabel textarea').forEach(el => {
+    el.style.height = 'auto';
+    el.style.height = el.scrollHeight + 'px';
+  });
 }
 
-function lbVolgendeStap() {
-  lbLeesData();
-  _lb.stap++;
-  renderLb();
-}
+// ============================================================
+// NAVIGATIE
+// ============================================================
+function lbVorigeStap() { lbLeesData(); _lb.stap--; renderLb(); }
+function lbVolgendeStap() { lbLeesData(); _lb.stap++; renderLb(); }
 
 // ============================================================
 // STAP INHOUD
@@ -186,141 +192,131 @@ function lbVolgendeStap() {
 function lbRenderTab(tabId, ro) {
   const d = _lb.data;
 
-  // ---- VOORBEREIDING ----
-  if (tabId === 'voorbereiding') {
-    const bens = d.benodigdheden && d.benodigdheden.length ? d.benodigdheden : [''];
+  // ---- IDENTIFICATIE ----
+  if (tabId === 'identificatie') {
     return `
+      <p style="font-size:12px;color:var(--ink-muted);margin:0 0 14px">Basisgegevens van de les.</p>
+      <div class="form-grid">
+        <div class="form-field"><label>Kandidaat / Docent</label><input id="lb-kandidaat" class="lb-input" style="width:100%" value="${escHtml(d.kandidaat||'')}" ${ro?'readonly':''} placeholder="Naam docent"></div>
+        <div class="form-field"><label>Datum les</label><input id="lb-datuml" class="lb-input" style="width:100%" value="${escHtml(d.datumLes||'')}" ${ro?'readonly':''} placeholder="bijv. 28-03-2025"></div>
+        <div class="form-field"><label>Vak</label><input id="lb-vak" class="lb-input" style="width:100%" value="${escHtml(d.vak||'')}" ${ro?'readonly':''} placeholder="Vaknaam"></div>
+        <div class="form-field"><label>Klas</label><input id="lb-klas" class="lb-input" style="width:100%" value="${escHtml(d.klas||'')}" ${ro?'readonly':''} placeholder="bijv. GL3"></div>
+        <div class="form-field"><label>School</label><input id="lb-school" class="lb-input" style="width:100%" value="${escHtml(d.school||'')}" ${ro?'readonly':''} placeholder="Schoolnaam"></div>
+        <div class="form-field"><label>Lokaal</label><input id="lb-lokaal" class="lb-input" style="width:100%" value="${escHtml(d.lokaal||'')}" ${ro?'readonly':''} placeholder="bijv. 204"></div>
+        <div class="form-field"><label>Werkplekbegeleider</label><input id="lb-wpb" class="lb-input" style="width:100%" value="${escHtml(d.werkplekbegeleider||'')}" ${ro?'readonly':''} placeholder="Naam begeleider"></div>
+        <div class="form-field"><label>Methode</label><input id="lb-methode" class="lb-input" style="width:100%" value="${escHtml(d.methode||'')}" ${ro?'readonly':''} placeholder="bijv. Theorie / Praktijk"></div>
+        <div class="form-field form-full"><label>Onderwerp / Hoofdstuk</label><input id="lb-onderwerp" class="lb-input" style="width:100%" value="${escHtml(d.onderwerp||'')}" ${ro?'readonly':''} placeholder="Onderwerp van de les"></div>
+      </div>`;
+  }
+
+  // ---- LESDOEL ----
+  if (tabId === 'lesdoel') {
+    return `
+      <div style="background:#f0f9ff;border-left:3px solid var(--accent);border-radius:6px;padding:10px 14px;margin-bottom:16px;font-size:12px;color:var(--ink-muted)">
+        <strong style="color:var(--accent)">Vraag 1:</strong> Wat wil ik de leerlingen leren? Wat is het lesdoel voor deze les en hoe verhoudt dat lesdoel zich tot PTA / eindtermen / kwalificatiedossier? (actiewerkwoorden — samenhang — niveau van leren, zichtbaar en meetbaar)
+      </div>
+      <div class="form-field" style="margin-bottom:14px">
+        <label style="font-weight:600">Lesdoel(en)</label>
+        <p style="font-size:12px;color:var(--ink-muted);margin:2px 0 6px">Formuleer als "Leerlingen kunnen..." of "Leerlingen kennen...". Gebruik actiewerkwoorden.</p>
+        <textarea id="lb-lesdoel" rows="5" class="lb-textarea" ${ro?'readonly':''} placeholder="bijv. Leerlingen kunnen uitleggen wat een elektrische installatie is.&#10;Leerlingen herkennen symbolen in een installatieschema.">${escHtml(d.lesdoel||'')}</textarea>
+      </div>
       <div class="form-field">
-        <label style="font-weight:600">Voorbereiding</label>
-        <p style="font-size:12px;color:var(--ink-muted);margin-bottom:6px">Wat moet de docent regelen vóór de les?</p>
-        <textarea id="lb-voorbereiding" rows="4" ${ro ? 'readonly' : ''} class="lb-textarea"
-          placeholder="bijv. Zorg dat alle computers aan staan, materialen klaarliggen...">${escHtml(d.voorbereiding || '')}</textarea>
-      </div>
-      <div class="form-field" style="margin-top:14px">
-        <label style="font-weight:600">Benodigdheden</label>
-        <div id="lb-benodigdheden-lijst" style="margin-top:6px">
-          ${bens.map((b, i) => `
-            <div style="display:flex;gap:6px;margin-bottom:6px;align-items:center">
-              <span style="font-size:13px;color:var(--ink-muted);min-width:20px;text-align:right">${i + 1}.</span>
-              <input id="lb-ben-${i}" value="${escHtml(b)}" ${ro ? 'readonly' : ''}
-                placeholder="Benodigdheid..." class="lb-input" style="flex:1">
-              ${!ro ? `<button onclick="lbVerwijderBen(${i})" class="lb-del-btn">✕</button>` : ''}
-            </div>`).join('')}
-        </div>
-        ${!ro ? `<button class="btn btn-sm" onclick="lbVoegBenToe()" style="margin-top:2px">+ Toevoegen</button>` : ''}
+        <label style="font-weight:600">Beginsituatie</label>
+        <p style="font-size:12px;color:var(--ink-muted);margin:2px 0 6px">Beschrijf de klas: niveau, eerdere kennis, bijzonderheden.</p>
+        <textarea id="lb-beginsituatie" rows="4" class="lb-textarea" ${ro?'readonly':''} placeholder="bijv. VMBO GL3, basis- en kaderniveau, actieve groep. Eerder aan bod geweest: ...">${escHtml(d.beginsituatie||'')}</textarea>
       </div>`;
   }
 
-  // ---- LESVERLOOP ----
-  if (tabId === 'lesverloop') {
-    const fases = d.lesverloop && d.lesverloop.length ? d.lesverloop :
-      [{ fase: 'Introductie', minuten: 10, beschrijving: '' },
-       { fase: 'Instructie',  minuten: 20, beschrijving: '' },
-       { fase: 'Verwerking',  minuten: 30, beschrijving: '' },
-       { fase: 'Afsluiting',  minuten: 5,  beschrijving: '' }];
-    const totaal = fases.reduce((t, f) => t + (parseInt(f.minuten) || 0), 0);
-    const beschikbaar = _lb.activiteitInfo?.uren ? Math.round(_lb.activiteitInfo.uren * 45) : null;
+  // ---- DIDACTIEK ----
+  if (tabId === 'didactiek') {
     return `
-      <div style="font-size:13px;color:var(--ink-muted);margin-bottom:12px">
-        Totaal: <strong>${totaal} minuten</strong>
-        ${beschikbaar ? ` · Beschikbaar: <strong>${beschikbaar} minuten</strong>` : ''}
+      <div style="background:#f0f9ff;border-left:3px solid var(--accent);border-radius:6px;padding:10px 14px;margin-bottom:16px;font-size:12px;color:var(--ink-muted)">
+        <strong style="color:var(--accent)">Vraag 2:</strong> Hoe kan ik dat bereiken, zó dat alle leerlingen actief meedoen? (aansluiting belevingswereld — betekenis geven — docentrollen — activerende didactiek)
       </div>
-      <div id="lb-lesverloop-lijst">
-        ${fases.map((f, i) => `
-          <div class="lb-fase-rij">
-            <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap">
-              <input id="lb-lv-fase-${i}" value="${escHtml(f.fase || '')}" ${ro ? 'readonly' : ''}
-                placeholder="Fase naam" class="lb-input" style="flex:1;min-width:100px;font-weight:600">
-              <div style="display:flex;align-items:center;gap:4px;flex-shrink:0">
-                <input id="lb-lv-min-${i}" type="number" min="1" max="240" value="${f.minuten || 10}" ${ro ? 'readonly' : ''}
-                  class="lb-input" style="width:58px;text-align:center">
-                <span style="font-size:12px;color:var(--ink-muted)">min</span>
-              </div>
-              ${!ro ? `<button onclick="lbVerwijderFase(${i})" class="lb-del-btn">✕</button>` : ''}
-            </div>
-            <textarea id="lb-lv-beschr-${i}" ${ro ? 'readonly' : ''}
-              placeholder="Wat doet de docent in deze fase..."
-              class="lb-textarea" style="font-size:12px"
-              oninput="this.style.height='auto';this.style.height=this.scrollHeight+'px'"
-              rows="${Math.max(2, Math.ceil((f.beschrijving || '').length / 80))}"
-              >${escHtml(f.beschrijving || '')}</textarea>
-          </div>`).join('')}
+      <div class="form-field" style="margin-bottom:14px">
+        <label style="font-weight:600">Wat doe ik? (en waarom)</label>
+        <p style="font-size:12px;color:var(--ink-muted);margin:2px 0 6px">Beschrijf je aanpak als docent: hoe open je de les, welke werkvormen gebruik je, hoe begeleid je?</p>
+        <textarea id="lb-watdoeik" rows="5" class="lb-textarea" ${ro?'readonly':''} placeholder="bijv. Ik start met een herkenbaar praktijkvoorbeeld om voorkennis te activeren. Via gerichte vragen laat ik leerlingen zelf verbanden leggen...">${escHtml(d.watDoekIk||'')}</textarea>
       </div>
-      ${!ro ? `<button class="btn btn-sm" onclick="lbVoegFaseToe()">+ Fase toevoegen</button>` : ''}`;
-  }
-
-  // ---- STAPPENPLAN ----
-  if (tabId === 'stappenplan') {
-    const stappen = d.stappenplan && d.stappenplan.length ? d.stappenplan : [{ stap: 1, instructie: '' }];
-    return `
-      <p style="font-size:12px;color:var(--ink-muted);margin-bottom:12px">Concrete stap-voor-stap instructie voor de docent.</p>
-      <div id="lb-stappenplan-lijst">
-        ${stappen.map((s, i) => `
-          <div style="display:flex;gap:8px;margin-bottom:10px;align-items:flex-start">
-            <div style="min-width:28px;height:28px;background:var(--accent);color:white;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;margin-top:2px;flex-shrink:0">${i + 1}</div>
-            <textarea id="lb-sp-${i}" rows="2" ${ro ? 'readonly' : ''}
-              placeholder="Instructie voor de docent..."
-              class="lb-textarea" style="flex:1">${escHtml(s.instructie || '')}</textarea>
-            ${!ro ? `<button onclick="lbVerwijderStap(${i})" class="lb-del-btn" style="margin-top:4px">✕</button>` : ''}
-          </div>`).join('')}
-      </div>
-      ${!ro ? `<button class="btn btn-sm" onclick="lbVoegStapToe()">+ Stap toevoegen</button>` : ''}`;
-  }
-
-  // ---- AANDACHTSPUNTEN ----
-  if (tabId === 'aandachtspunten') {
-    const punten = d.aandachtspunten && d.aandachtspunten.length ? d.aandachtspunten : [''];
-    return `
-      <p style="font-size:12px;color:var(--ink-muted);margin-bottom:12px">Veiligheidsaandachtspunten, didactische tips en aandachtige leerlingen.</p>
-      <div id="lb-aandacht-lijst">
-        ${punten.map((p, i) => `
-          <div style="display:flex;gap:8px;margin-bottom:8px;align-items:center">
-            <span style="font-size:16px;flex-shrink:0">⚠️</span>
-            <input id="lb-ap-${i}" value="${escHtml(p)}" ${ro ? 'readonly' : ''}
-              placeholder="Aandachtspunt of tip..."
-              class="lb-input" style="flex:1">
-            ${!ro ? `<button onclick="lbVerwijderAP(${i})" class="lb-del-btn">✕</button>` : ''}
-          </div>`).join('')}
-      </div>
-      ${!ro ? `<button class="btn btn-sm" onclick="lbVoegAPToe()">+ Aandachtspunt toevoegen</button>` : ''}`;
-  }
-
-  // ---- DIFFERENTIATIE ----
-  if (tabId === 'differentiatie') {
-    const diff = d.differentiatie || { snel: '', langzaam: '' };
-    return `
-      <p style="font-size:12px;color:var(--ink-muted);margin-bottom:14px">Tips voor leerlingen die snel of juist langzamer werken.</p>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
-        <div>
-          <label style="font-weight:600;font-size:13px;display:flex;align-items:center;gap:6px;margin-bottom:6px">
-            <span style="background:#DEF7EC;color:#065F46;border-radius:4px;padding:2px 8px;font-size:12px">Snel klaar</span>
-          </label>
-          <textarea id="lb-diff-snel" rows="6" ${ro ? 'readonly' : ''}
-            placeholder="bijv. Verdiepingsopdracht maken, andere leerling helpen..."
-            class="lb-textarea">${escHtml(diff.snel || '')}</textarea>
-        </div>
-        <div>
-          <label style="font-weight:600;font-size:13px;display:flex;align-items:center;gap:6px;margin-bottom:6px">
-            <span style="background:#FEF3C7;color:#92400E;border-radius:4px;padding:2px 8px;font-size:12px">Extra tijd</span>
-          </label>
-          <textarea id="lb-diff-langzaam" rows="6" ${ro ? 'readonly' : ''}
-            placeholder="bijv. Minder opdrachten, extra uitleg geven..."
-            class="lb-textarea">${escHtml(diff.langzaam || '')}</textarea>
-        </div>
+      <div class="form-field">
+        <label style="font-weight:600">Wat doet de leerling? (waartoe)</label>
+        <p style="font-size:12px;color:var(--ink-muted);margin:2px 0 6px">Beschrijf wat leerlingen doen en wat het doel daarvan is.</p>
+        <textarea id="lb-watdoetll" rows="5" class="lb-textarea" ${ro?'readonly':''} placeholder="bijv. Leerlingen denken mee, herkennen begrippen, verwerken technische termen in hun schema...">${escHtml(d.watDoetDeLeerling||'')}</textarea>
       </div>`;
   }
 
-  // ---- OPMERKINGEN ----
-  if (tabId === 'opmerkingen') {
+  // ---- EVALUATIE ----
+  if (tabId === 'evaluatie') {
     return `
-      <label style="font-weight:600">Opmerkingen</label>
-      <p style="font-size:12px;color:var(--ink-muted);margin-bottom:8px">Vrije notities voor de docent.</p>
-      <textarea id="lb-opmerkingen" rows="10" ${ro ? 'readonly' : ''}
-        class="lb-textarea"
-        placeholder="Vrije notities, ervaringen, aanpassingen voor volgende keer...">${escHtml(d.opmerkingen || '')}</textarea>`;
+      <div style="background:#f0f9ff;border-left:3px solid var(--accent);border-radius:6px;padding:10px 14px;margin-bottom:16px;font-size:12px;color:var(--ink-muted)">
+        <strong style="color:var(--accent)">Vraag 3:</strong> Hoe controleer en evalueer ik of leerlingen geleerd hebben wat ik ze wilde leren? (per les — afsluiter — toetsing)
+      </div>
+      <div class="form-field">
+        <label style="font-weight:600">Evaluatie</label>
+        <p style="font-size:12px;color:var(--ink-muted);margin:2px 0 6px">Hoe check je tijdens en na de les of de leerdoelen bereikt zijn?</p>
+        <textarea id="lb-evaluatie" rows="8" class="lb-textarea" ${ro?'readonly':''} placeholder="bijv. Tijdens de uitleg stel ik vragen en observeer ik reacties.&#10;Ik luister goed tijdens zelfstandig werken naar hoe leerlingen hun werk verwoorden.&#10;Als leerlingen kunnen uitleggen wat ze doen en waarom, weet ik dat de begrippen zijn blijven hangen.">${escHtml(d.evaluatie||'')}</textarea>
+      </div>`;
+  }
+
+  // ---- REFLECTIE ----
+  if (tabId === 'reflectie') {
+    return `
+      <div style="background:#f0f9ff;border-left:3px solid var(--accent);border-radius:6px;padding:10px 14px;margin-bottom:16px;font-size:12px;color:var(--ink-muted)">
+        <strong style="color:var(--accent)">Vraag 4:</strong> Wat wil ik laten zien? Resultaat: wat moet de assessoren zien? — wat heb ik nodig om resultaat te bereiken? — reflectie op eigen handelen.
+      </div>
+      <div class="form-field">
+        <label style="font-weight:600">Resultaat & Reflectie</label>
+        <p style="font-size:12px;color:var(--ink-muted);margin:2px 0 6px">Wat wil je demonstreren als docent? Hoe reflecteer je op je eigen handelen?</p>
+        <textarea id="lb-reflectie" rows="8" class="lb-textarea" ${ro?'readonly':''} placeholder="bijv. Ik wil laten zien dat ik taalsteun kan bieden in een technische les. Ik gebruik heldere taal, herhaal en verklaar vakbegrippen, en help leerlingen deze woorden te gebruiken...">${escHtml(d.reflectie||'')}</textarea>
+      </div>`;
+  }
+
+  // ---- FASERING ----
+  if (tabId === 'fasering') {
+    const fases = d.fasering && d.fasering.length ? d.fasering : lbLeeg().fasering;
+    return `
+      <p style="font-size:12px;color:var(--ink-muted);margin:0 0 12px">Lesplan per fase: wat doe je als docent, wat verwacht je van de leerlingen, welke hulpmiddelen gebruik je?</p>
+      <div style="overflow-x:auto">
+        <table class="lb-fase-tabel">
+          <thead>
+            <tr>
+              <th style="width:22%">Fasering van de les</th>
+              <th style="width:12%">Tijd</th>
+              <th style="width:24%">Activiteit leraar</th>
+              <th style="width:24%">Activiteit leerlingen</th>
+              <th style="width:18%">Hulpmiddelen</th>
+              ${!ro ? '<th style="width:32px"></th>' : ''}
+            </tr>
+          </thead>
+          <tbody id="lb-fasering-tbody">
+            ${fases.map((f, i) => lbFaseRijHtml(f, i, ro)).join('')}
+          </tbody>
+        </table>
+      </div>
+      ${!ro ? `<button class="btn btn-sm" style="margin-top:10px" onclick="lbVoegFaseToe()">+ Fase toevoegen</button>` : ''}`;
   }
 
   return '';
+}
+
+function lbFaseRijHtml(f, i, ro) {
+  if (ro) {
+    return `<tr>
+      <td style="font-weight:600;font-size:12px">${escHtml(f.fase||'')}</td>
+      <td style="white-space:nowrap;font-size:12px;color:var(--ink-muted)">${escHtml(f.tijd||'')}</td>
+      <td>${escHtml(f.activiteitLeraar||'')}</td>
+      <td>${escHtml(f.activiteitLeerling||'')}</td>
+      <td>${escHtml(f.hulpmiddelen||'')}</td>
+    </tr>`;
+  }
+  return `<tr id="lb-fase-rij-${i}">
+    <td><input class="lb-td-input" id="lb-f-fase-${i}" value="${escHtml(f.fase||'')}" placeholder="Fase naam"></td>
+    <td><input class="lb-td-input" id="lb-f-tijd-${i}" value="${escHtml(f.tijd||'')}" placeholder="0:00–10:00" style="width:90px"></td>
+    <td><textarea class="lb-td-input" id="lb-f-leraar-${i}" placeholder="Wat doe ik..." oninput="this.style.height='auto';this.style.height=this.scrollHeight+'px'">${escHtml(f.activiteitLeraar||'')}</textarea></td>
+    <td><textarea class="lb-td-input" id="lb-f-leerling-${i}" placeholder="Wat doen leerlingen..." oninput="this.style.height='auto';this.style.height=this.scrollHeight+'px'">${escHtml(f.activiteitLeerling||'')}</textarea></td>
+    <td><input class="lb-td-input" id="lb-f-hulp-${i}" value="${escHtml(f.hulpmiddelen||'')}" placeholder="bijv. Digibord"></td>
+    <td><button onclick="lbVerwijderFase(${i})" class="lb-del-btn">✕</button></td>
+  </tr>`;
 }
 
 // ============================================================
@@ -330,100 +326,60 @@ function lbLeesData() {
   const d = _lb.data;
   const t = LB_STAPPEN[_lb.stap - 1]?.id;
 
-  if (t === 'voorbereiding') {
-    d.voorbereiding = document.getElementById('lb-voorbereiding')?.value || '';
-    const bens = [];
-    let i = 0;
-    while (document.getElementById(`lb-ben-${i}`)) {
-      const v = document.getElementById(`lb-ben-${i}`).value.trim();
-      if (v) bens.push(v);
-      i++;
-    }
-    d.benodigdheden = bens;
-  } else if (t === 'lesverloop') {
+  if (t === 'identificatie') {
+    d.kandidaat           = document.getElementById('lb-kandidaat')?.value?.trim() || '';
+    d.datumLes            = document.getElementById('lb-datuml')?.value?.trim() || '';
+    d.werkplekbegeleider  = document.getElementById('lb-wpb')?.value?.trim() || '';
+    d.vak                 = document.getElementById('lb-vak')?.value?.trim() || '';
+    d.klas                = document.getElementById('lb-klas')?.value?.trim() || '';
+    d.school              = document.getElementById('lb-school')?.value?.trim() || '';
+    d.lokaal              = document.getElementById('lb-lokaal')?.value?.trim() || '';
+    d.onderwerp           = document.getElementById('lb-onderwerp')?.value?.trim() || '';
+    d.methode             = document.getElementById('lb-methode')?.value?.trim() || '';
+  } else if (t === 'lesdoel') {
+    d.lesdoel       = document.getElementById('lb-lesdoel')?.value?.trim() || '';
+    d.beginsituatie = document.getElementById('lb-beginsituatie')?.value?.trim() || '';
+  } else if (t === 'didactiek') {
+    d.watDoekIk          = document.getElementById('lb-watdoeik')?.value?.trim() || '';
+    d.watDoetDeLeerling  = document.getElementById('lb-watdoetll')?.value?.trim() || '';
+  } else if (t === 'evaluatie') {
+    d.evaluatie = document.getElementById('lb-evaluatie')?.value?.trim() || '';
+  } else if (t === 'reflectie') {
+    d.reflectie = document.getElementById('lb-reflectie')?.value?.trim() || '';
+  } else if (t === 'fasering') {
     const fases = [];
     let i = 0;
-    while (document.getElementById(`lb-lv-fase-${i}`)) {
+    while (document.getElementById(`lb-f-fase-${i}`) !== null) {
       fases.push({
-        fase: document.getElementById(`lb-lv-fase-${i}`).value.trim(),
-        minuten: parseInt(document.getElementById(`lb-lv-min-${i}`)?.value) || 0,
-        beschrijving: document.getElementById(`lb-lv-beschr-${i}`)?.value.trim() || '',
+        fase:             document.getElementById(`lb-f-fase-${i}`)?.value?.trim() || '',
+        tijd:             document.getElementById(`lb-f-tijd-${i}`)?.value?.trim() || '',
+        activiteitLeraar: document.getElementById(`lb-f-leraar-${i}`)?.value?.trim() || '',
+        activiteitLeerling: document.getElementById(`lb-f-leerling-${i}`)?.value?.trim() || '',
+        hulpmiddelen:     document.getElementById(`lb-f-hulp-${i}`)?.value?.trim() || '',
       });
       i++;
     }
-    d.lesverloop = fases;
-  } else if (t === 'stappenplan') {
-    const stappen = [];
-    let i = 0;
-    while (document.getElementById(`lb-sp-${i}`)) {
-      const v = document.getElementById(`lb-sp-${i}`).value.trim();
-      if (v) stappen.push({ stap: i + 1, instructie: v });
-      i++;
-    }
-    d.stappenplan = stappen;
-  } else if (t === 'aandachtspunten') {
-    const punten = [];
-    let i = 0;
-    while (document.getElementById(`lb-ap-${i}`)) {
-      const v = document.getElementById(`lb-ap-${i}`).value.trim();
-      if (v) punten.push(v);
-      i++;
-    }
-    d.aandachtspunten = punten;
-  } else if (t === 'differentiatie') {
-    d.differentiatie = {
-      snel: document.getElementById('lb-diff-snel')?.value.trim() || '',
-      langzaam: document.getElementById('lb-diff-langzaam')?.value.trim() || '',
-    };
-  } else if (t === 'opmerkingen') {
-    d.opmerkingen = document.getElementById('lb-opmerkingen')?.value || '';
+    d.fasering = fases;
   }
 }
 
 // ============================================================
-// RIJEN TOEVOEGEN / VERWIJDEREN
+// RIJEN TOEVOEGEN / VERWIJDEREN (fasering)
 // ============================================================
-function lbVoegBenToe() {
-  lbLeesData();
-  _lb.data.benodigdheden.push('');
-  document.getElementById('lb-tab-inhoud').innerHTML = lbRenderTab('voorbereiding', false);
-}
-function lbVerwijderBen(i) {
-  lbLeesData();
-  _lb.data.benodigdheden.splice(i, 1);
-  if (!_lb.data.benodigdheden.length) _lb.data.benodigdheden = [''];
-  document.getElementById('lb-tab-inhoud').innerHTML = lbRenderTab('voorbereiding', false);
-}
 function lbVoegFaseToe() {
   lbLeesData();
-  _lb.data.lesverloop.push({ fase: 'Nieuwe fase', minuten: 10, beschrijving: '' });
-  document.getElementById('lb-tab-inhoud').innerHTML = lbRenderTab('lesverloop', false);
+  const n = (_lb.data.fasering || []).length + 1;
+  _lb.data.fasering.push({
+    fase: 'Fase ' + n, tijd: '', activiteitLeraar: '', activiteitLeerling: '', hulpmiddelen: ''
+  });
+  document.getElementById('lb-tab-inhoud').innerHTML = lbRenderTab('fasering', false);
+  lbAutoResizeFasering();
 }
+
 function lbVerwijderFase(i) {
   lbLeesData();
-  _lb.data.lesverloop.splice(i, 1);
-  document.getElementById('lb-tab-inhoud').innerHTML = lbRenderTab('lesverloop', false);
-}
-function lbVoegStapToe() {
-  lbLeesData();
-  _lb.data.stappenplan.push({ stap: _lb.data.stappenplan.length + 1, instructie: '' });
-  document.getElementById('lb-tab-inhoud').innerHTML = lbRenderTab('stappenplan', false);
-}
-function lbVerwijderStap(i) {
-  lbLeesData();
-  _lb.data.stappenplan.splice(i, 1);
-  document.getElementById('lb-tab-inhoud').innerHTML = lbRenderTab('stappenplan', false);
-}
-function lbVoegAPToe() {
-  lbLeesData();
-  _lb.data.aandachtspunten.push('');
-  document.getElementById('lb-tab-inhoud').innerHTML = lbRenderTab('aandachtspunten', false);
-}
-function lbVerwijderAP(i) {
-  lbLeesData();
-  _lb.data.aandachtspunten.splice(i, 1);
-  if (!_lb.data.aandachtspunten.length) _lb.data.aandachtspunten = [''];
-  document.getElementById('lb-tab-inhoud').innerHTML = lbRenderTab('aandachtspunten', false);
+  _lb.data.fasering.splice(i, 1);
+  document.getElementById('lb-tab-inhoud').innerHTML = lbRenderTab('fasering', false);
 }
 
 // ============================================================
@@ -503,6 +459,7 @@ async function lbGenereerAI() {
         profielNaam: info.profielNaam || '',
         weekThema: info.weekThema || '',
         syllabuscodes: info.syllabus || '',
+        huidigData: _lb.data,
       }),
     });
     const data = await res.json();
@@ -511,6 +468,7 @@ async function lbGenereerAI() {
     _lb.data = { ..._lb.data, ...data.data };
     if (statusEl) statusEl.innerHTML = `<span style="color:var(--accent)">✓ AI heeft de lesbrief ingevuld. Controleer en sla op.</span>`;
     document.getElementById('lb-tab-inhoud').innerHTML = lbRenderTab(LB_STAPPEN[_lb.stap - 1].id, false);
+    if (LB_STAPPEN[_lb.stap - 1].id === 'fasering') lbAutoResizeFasering();
   } catch (e) {
     const isQuota = e.message.includes('AI_QUOTA') || e.message.includes('quota');
     if (statusEl) statusEl.innerHTML = isQuota
