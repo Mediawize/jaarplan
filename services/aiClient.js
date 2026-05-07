@@ -66,7 +66,50 @@ async function chatJson({ system, user, prompt, systemPrompt, maxTokens = 3000, 
   return extractJsonFromText(Array.isArray(content) ? content.map(x => x?.text || '').join('') : content);
 }
 
+// Vision: stuur een afbeelding + tekstvraag naar Claude
+async function chatVision({ imageBase64, mediaType = 'image/jpeg', prompt, system = '', maxTokens = 1500 }) {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) throw new Error('ANTHROPIC_API_KEY niet ingesteld');
+
+  const usedModel = process.env.ANTHROPIC_MODEL || 'claude-haiku-4-5-20251001';
+
+  const body = {
+    model: usedModel,
+    max_tokens: maxTokens,
+    messages: [{
+      role: 'user',
+      content: [
+        {
+          type: 'image',
+          source: { type: 'base64', media_type: mediaType, data: imageBase64 }
+        },
+        { type: 'text', text: prompt }
+      ]
+    }]
+  };
+  if (system) body.system = system;
+
+  const response = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01',
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(body)
+  });
+
+  const data = await response.json();
+  if (!response.ok) {
+    const errMsg = data?.error?.message || JSON.stringify(data);
+    throw new Error(`Anthropic vision fout ${response.status}: ${errMsg}`);
+  }
+
+  return data?.content?.[0]?.text || '';
+}
+
 module.exports = {
   chatJson,
+  chatVision,
   extractJsonFromText,
 };

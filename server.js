@@ -14,7 +14,7 @@ const helmet = require('helmet');
 const db = require('./db/database');
 const { Schooljaar } = require('./db/schooljaar');
 const { analyseSyllabusPdf, generateLesprofielFromPdf, analyseSyllabusText, generateLesprofielFromText } = require('./services/syllabusGenerator');
-const { chatJson } = require('./services/aiClient');
+const { chatJson, chatVision, extractJsonFromText } = require('./services/aiClient');
 let chromium; // lazy-loaded voor duidelijkere foutafhandeling
 
 const app = express();
@@ -643,11 +643,64 @@ app.post('/api/genereer-lesprofiel-uit-syllabus', requireCanEdit, async (req, re
 // LESPROFIEL WIZARD — genereer preview (slaat NIET op in DB)
 // Gebruikt syllabus-token als aanwezig, anders pure AI-generatie
 // ============================================================
+// ============================================================
+// LESPROFIEL — AFBEELDING ANALYSEREN (vision)
+// ============================================================
+app.post('/api/analyse-afbeelding-lesprofiel', requireCanEdit, uploadSingle, async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: 'Geen afbeelding ontvangen.' });
+
+    const mime = req.file.mimetype || 'image/jpeg';
+    const allowed = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+    if (!allowed.includes(mime)) {
+      return res.status(400).json({ error: 'Alleen JPEG, PNG, WebP of GIF toegestaan.' });
+    }
+
+    const imageBase64 = req.file.buffer.toString('base64');
+
+    const prompt = `Dit is een screenshot van een leerplatform met een stappenplan of lesoverzicht.
+
+Lees alle zichtbare stap- of lesnamen uit de afbeelding.
+Sla items over die een toets of test zijn (zoals "D-toets", "Eindtoets", "Toets", "Test", "Assessment", items met "toets" of "test" in de naam).
+Sla ook navigatie-elementen, knoppen en voortgangsbalken over.
+
+Geef ALLEEN geldige JSON terug:
+{
+  "stappen": ["naam stap 1", "naam stap 2", ...]
+}
+
+Zet elke gevonden les- of theoriestap als aparte string in de array. Gebruik de exacte naam zoals in de afbeelding.`;
+
+    const rawText = await chatVision({
+      imageBase64,
+      mediaType: mime,
+      prompt,
+      system: 'Je bent een assistent die tekst uit screenshots van onderwijsplatforms leest. Geef altijd alleen geldig JSON terug.',
+      maxTokens: 1000
+    });
+
+    let stappen = [];
+    try {
+      const parsed = extractJsonFromText(rawText);
+      stappen = Array.isArray(parsed.stappen) ? parsed.stappen.filter(Boolean) : [];
+    } catch {
+      // fallback: parse regels direct als stappen niet als JSON terugkomen
+      stappen = rawText.split('\n').map(l => l.replace(/^[-*\d.]+\s*/, '').trim()).filter(Boolean);
+    }
+
+    return res.json({ success: true, stappen });
+  } catch (e) {
+    console.error('Fout bij /api/analyse-afbeelding-lesprofiel:', e);
+    return res.status(500).json({ error: 'Fout bij analyseren afbeelding: ' + e.message });
+  }
+});
+
 app.post('/api/genereer-lesprofiel-wizard', requireCanEdit, async (req, res) => {
   const {
     naam, vakId, niveau, aantalWeken, urenPerWeek, beschrijving,
     syllabusUploadToken, syllabusModuleCode,
-    aiWeekthemas, aiActiviteiten
+    aiWeekthemas, aiActiviteiten,
+    afbeeldingStappen   // array van stap-namen uit vision analyse
   } = req.body || {};
 
   try {
@@ -703,9 +756,17 @@ app.post('/api/genereer-lesprofiel-wizard', requireCanEdit, async (req, res) => 
     const urenTheorie = Math.ceil(uren / 2);
     const urenPraktijk = Math.floor(uren / 2) || 1;
 
+    const extraStappen = Array.isArray(afbeeldingStappen) && afbeeldingStappen.length
+      ? afbeeldingStappen.filter(Boolean)
+      : [];
+
+    const stappenContext = extraStappen.length
+      ? `\n\nDe volgende theorielessen staan in de lessenreeks (gebruik deze als weekthema's, verspreid logisch over ${weken} weken, sla er over als er te veel zijn):\n${extraStappen.map((s, i) => `${i + 1}. ${s}`).join('\n')}`
+      : '';
+
     const prompt = `Je bent een ervaren VMBO/MBO docent die lesplannen opstelt.
 Maak een lesprofiel voor: "${naam || vakNaam}", vak "${vakNaam}", niveau ${niv}, ${weken} weken, ${uren} uur/week (${urenTheorie} uur theorie + ${urenPraktijk} uur praktijk).
-${beschrijving ? `Onderwerp/context: ${beschrijving}` : ''}
+${beschrijving ? `Onderwerp/context: ${beschrijving}` : ''}${stappenContext}
 
 Geef ALLEEN geldige JSON terug in dit formaat:
 {
@@ -725,7 +786,7 @@ Regels:
 - Genereer precies ${weken} weken
 - Elke week heeft 1 Theorie- en 1 Praktijk-activiteit
 - Omschrijvingen zijn kort (1 zin), actiegericht en vakspecifiek
-- Weekthema's zijn oplopend qua complexiteit
+${extraStappen.length ? '- Gebruik de opgegeven stappen als weekthema\'s in de gegeven volgorde' : '- Weekthema\'s zijn oplopend qua complexiteit'}
 - Schrijf in aanspreekvorm voor de docent`;
 
     let aiData;
