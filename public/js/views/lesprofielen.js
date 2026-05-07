@@ -137,15 +137,19 @@ async function renderLesprofielWizard() {
     </div>`;
 
   const stap3 = `
-    <div class="alert alert-info" style="margin-bottom:16px"><strong>Meerdere keuzes aanvinken mag.</strong> Elke keuze voegt iets extra's toe aan hetzelfde lesprofiel. Laat je alles uit, dan maakt de wizard alleen een eenvoudige basisindeling.</div>
-    <div class="form-grid">
+    <p style="font-size:14px;color:var(--ink-muted);margin:0 0 14px">Vink aan wat de AI moet genereren. <strong>Je kunt meerdere opties tegelijk aanvinken.</strong> Elke optie voegt iets toe aan het lesprofiel.</p>
+    <div style="display:flex;flex-direction:column;gap:8px">
       ${[
-        ['lpw-ai-weekthemas','aiWeekthemas','1. Weekthema’s','AI maakt per week een duidelijke titel/thema. Dit is de basisstructuur.'],
-        ['lpw-ai-activiteiten','aiActiviteiten','2. Activiteiten','AI vult theorie, praktijk, toetsmomenten en presentaties per week in.'],
-        ['lpw-ai-bronnen','aiBronnen','3. Bronnen/materialen','AI noemt suggesties voor bronnen, werkbladen, video’s of practicum-materiaal.'],
-        ['lpw-ai-differentiatie','aiDifferentiatie','4. Differentiatie','AI voegt steun/verdieping toe voor verschillende niveaus.'],
-        ['lpw-ai-opmerkingen','aiOpmerkingen','5. Opmerkingen/aandachtspunten','AI verwerkt korte docentopmerkingen, voorbereiding, veiligheid of aandachtspunten.']
-      ].map(([id,key,title,sub]) => `<label class="form-field form-full" style="display:flex;gap:10px;align-items:flex-start;cursor:pointer;border:1px solid var(--border);border-radius:12px;padding:12px;background:#fff"><input id="${id}" type="checkbox" ${d[key] ? 'checked' : ''} style="width:auto;margin-top:3px"><span><strong>${title}</strong><br><small style="color:var(--ink-muted)">${sub}</small></span></label>`).join('')}
+        [‘lpw-ai-weekthemas’,’aiWeekthemas’,’📅 Weekthema\’s’,’AI maakt per week een duidelijke titel of thema. Dit is de basis.’],
+        [‘lpw-ai-activiteiten’,’aiActiviteiten’,’📚 Activiteiten per week’,’AI vult theorie, praktijk, toetsmomenten en presentaties per week in.’],
+        [‘lpw-ai-bronnen’,’aiBronnen’,’🔗 Bronnen en materialen’,’AI noemt suggesties voor bronnen, werkbladen, video\’s of practicum-materiaal.’],
+        [‘lpw-ai-differentiatie’,’aiDifferentiatie’,’🎯 Differentiatie’,’AI voegt steun en verdieping toe voor verschillende niveaus.’],
+        [‘lpw-ai-opmerkingen’,’aiOpmerkingen’,’💬 Opmerkingen en aandachtspunten’,’AI verwerkt docentopmerkingen zoals voorbereiding, veiligheid of benodigdheden.’]
+      ].map(([id,key,title,sub]) => `
+        <label style="display:flex;gap:12px;align-items:flex-start;cursor:pointer;border:2px solid ${d[key]?’var(--accent)’:’var(--border)’};border-radius:10px;padding:12px 14px;background:${d[key]?’#f0fdf4’:’#fff’};transition:border-color .15s,background .15s" onclick="">
+          <input id="${id}" type="checkbox" ${d[key] ? ‘checked’ : ‘’} style="width:18px;height:18px;margin-top:2px;cursor:pointer;flex-shrink:0;accent-color:var(--accent)" onchange="this.closest(‘label’).style.borderColor=this.checked?’var(--accent)’:’var(--border)’;this.closest(‘label’).style.background=this.checked?’#f0fdf4’:’#fff’">
+          <span><strong style="font-size:14px">${title}</strong><br><small style="color:var(--ink-muted);font-size:12px">${sub}</small></span>
+        </label>`).join(‘’)}
     </div>`;
 
   const preview = lesprofielWizardState.preview;
@@ -277,15 +281,23 @@ async function vorigeLesprofielWizardStap() {
 
 async function genereerLesprofielWizardPreview() {
   leesLesprofielWizardStap3();
+  const loadingId = 'lpw-loading';
   const acties = document.querySelector('.modal-actions');
-  if (acties) acties.insertAdjacentHTML('beforebegin', '<div id="lpw-loading" class="alert alert-info" style="margin-top:12px">Lesprofiel wordt gegenereerd...</div>');
+  if (acties) acties.insertAdjacentHTML('beforebegin', `<div id="${loadingId}" class="alert alert-info" style="margin-top:12px">⏳ Lesprofiel wordt gegenereerd, even geduld...</div>`);
   try {
     const res = await API.genereerLesprofielWizard(lesprofielWizardState.data);
     lesprofielWizardState.preview = res.profiel;
     lesprofielWizardState.warning = res.warning || '';
     lesprofielWizardState.step = 4;
     await renderLesprofielWizard();
-  } catch (e) { document.getElementById('lpw-loading')?.remove(); alert(e.message); }
+  } catch (e) {
+    const el = document.getElementById(loadingId);
+    if (el) el.outerHTML = `<div class="alert" style="background:#fef2f2;color:#dc2626;border:1px solid #fca5a5;border-radius:10px;padding:12px 16px;margin-top:12px">
+      <strong>Genereren mislukt:</strong> ${escHtml(e.message)}<br>
+      <small style="opacity:.8">Controleer je internetverbinding of probeer het opnieuw. Je kunt ook teruggaan en de instellingen aanpassen.</small><br>
+      <button class="btn btn-sm" style="margin-top:8px" onclick="genereerLesprofielWizardPreview()">↻ Opnieuw proberen</button>
+    </div>`;
+  }
 }
 
 async function slaLesprofielWizardOp() {
