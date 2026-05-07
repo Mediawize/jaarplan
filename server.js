@@ -701,7 +701,7 @@ app.post('/api/genereer-lesprofiel-wizard', requireCanEdit, async (req, res) => 
     naam, vakId, niveau, aantalWeken, urenPerWeek, beschrijving,
     syllabusUploadToken, syllabusModuleCode,
     aiWeekthemas, aiActiviteiten,
-    afbeeldingStappen   // array van stap-namen uit vision analyse
+    lesModuleId
   } = req.body || {};
 
   try {
@@ -757,12 +757,14 @@ app.post('/api/genereer-lesprofiel-wizard', requireCanEdit, async (req, res) => 
     const urenTheorie = Math.ceil(uren / 2);
     const urenPraktijk = Math.floor(uren / 2) || 1;
 
-    const extraStappen = Array.isArray(afbeeldingStappen) && afbeeldingStappen.length
-      ? afbeeldingStappen.filter(Boolean)
+    // Les module stappen ophalen als gekoppeld
+    const gekoppeldeModule = lesModuleId ? db.getLesModule(lesModuleId) : null;
+    const extraStappen = gekoppeldeModule && Array.isArray(gekoppeldeModule.stappen) && gekoppeldeModule.stappen.length
+      ? gekoppeldeModule.stappen.filter(Boolean)
       : [];
 
     const stappenContext = extraStappen.length
-      ? `\n\nDe volgende theorielessen staan in de lessenreeks (gebruik deze als weekthema's, verspreid logisch over ${weken} weken, sla er over als er te veel zijn):\n${extraStappen.map((s, i) => `${i + 1}. ${s}`).join('\n')}`
+      ? `\n\nDe volgende theoriestappen uit de les module "${gekoppeldeModule.naam}" moeten als basis dienen. Verdeel ze logisch over de ${weken} weken als weekthema's:\n${extraStappen.map((s, i) => `${i + 1}. ${s}`).join('\n')}`
       : '';
 
     const prompt = `Je bent een ervaren VMBO/MBO docent die lesplannen opstelt.
