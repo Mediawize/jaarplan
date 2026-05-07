@@ -821,7 +821,7 @@ function bewerkActiviteit(profielId, weekIdx, actIdx) {
         <div class="form-field"><label>Uren *</label><select id="act-uren">
           ${[1, 1.5, 2, 2.5, 3, 4, 5, 6, 7, 8].map(u => `<option value="${u}" ${a.uren == u ? 'selected' : ''}>${u} uur</option>`).join('')}
         </select></div>
-        <div class="form-field form-full"><label>Omschrijving</label><input id="act-omschrijving" value="${escHtml(a.omschrijving || '')}"></div>
+        <div class="form-field form-full"><label>Omschrijving</label><textarea id="act-omschrijving" rows="3" style="resize:vertical">${escHtml(a.omschrijving || '')}</textarea></div>
         <div class="form-field form-full"><label>Link</label><input id="act-link" type="url" placeholder="https://..." value="${escHtml(a.link || '')}"></div>
         <div class="form-field form-full"><label>Syllabuscodes</label><input id="act-syllabus" placeholder="bijv. PIE-1.1" value="${escHtml(a.syllabus || '')}"></div>
         <div class="form-field form-full"><label>Toets bestandsnaam</label><input id="act-bestand" placeholder="bijv. toets_p1.pdf" value="${escHtml(a.bestand || '')}"></div>
@@ -870,7 +870,7 @@ function openActiviteitModal(profielId, weekIdx) {
       <div class="form-field"><label>Uren *</label><select id="act-uren">
         ${[0.5, 1, 1.5, 2, 2.5, 3, 4].map(u => `<option value="${u}" ${u === 1 ? 'selected' : ''}>${u} uur</option>`).join('')}
       </select></div>
-      <div class="form-field form-full"><label>Omschrijving</label><input id="act-omschrijving" placeholder="bijv. Uitleg businessmodel canvas"></div>
+      <div class="form-field form-full"><label>Omschrijving</label><textarea id="act-omschrijving" rows="3" style="resize:vertical" placeholder="bijv. Uitleg businessmodel canvas"></textarea></div>
       <div class="form-field form-full"><label>Link</label><input id="act-link" type="url" placeholder="https://..."></div>
       <div class="form-field form-full"><label>Syllabuscodes</label><input id="act-syllabus" placeholder="bijv. PIE-1.1"></div>
       <div class="form-field form-full"><label>Toets bestandsnaam</label><input id="act-bestand" placeholder="bijv. toets_p1.pdf"></div>
