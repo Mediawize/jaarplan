@@ -829,6 +829,87 @@ ${extraStappen.length ? '- Gebruik de opgegeven stappen als weekthema\'s in de g
 });
 
 // ============================================================
+// LES MODULES — CRUD + PDF-analyse
+// ============================================================
+app.get('/api/les-modules', requireAuth, (req, res) => {
+  res.json(db.getLesModules());
+});
+
+app.post('/api/les-modules', requireAdmin, (req, res) => {
+  const m = db.addLesModule({ ...req.body, aangemaaktDoor: req.session.user.id });
+  res.json(m);
+});
+
+app.put('/api/les-modules/:id', requireAdmin, (req, res) => {
+  db.updateLesModule(req.params.id, req.body);
+  res.json({ success: true });
+});
+
+app.delete('/api/les-modules/:id', requireAdmin, (req, res) => {
+  db.deleteLesModule(req.params.id);
+  res.json({ success: true });
+});
+
+// PDF of DOCX uploaden en theorie-stappen extraheren
+app.post('/api/les-modules/analyseer', requireAdmin, upload.single('bestand'), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: 'Geen bestand ontvangen.' });
+
+    const mime = req.file.mimetype || '';
+    const isDocx = mime.includes('word') || req.file.originalname.match(/\.docx?$/i);
+    const isPdf  = mime === 'application/pdf' || req.file.originalname.match(/\.pdf$/i);
+    if (!isDocx && !isPdf) return res.status(400).json({ error: 'Alleen PDF of Word (.docx) toegestaan.' });
+
+    let bronTekst = '';
+    if (isDocx) {
+      const mammoth = require('mammoth');
+      const result = await mammoth.extractRawText({ path: req.file.path });
+      bronTekst = result.value;
+    } else {
+      const { analyseSyllabusPdf } = require('./services/syllabusGenerator');
+      const analyse = await analyseSyllabusPdf(req.file.path);
+      bronTekst = analyse.rawText || '';
+    }
+
+    if (!bronTekst.trim()) return res.status(422).json({ error: 'Kon geen tekst lezen uit het bestand.' });
+
+    const prompt = `Je bent een VMBO/MBO onderwijsexpert die een syllabus of profieldeel-document analyseert.
+
+Lees de onderstaande tekst en extraheer alle theorie-lessen/stappen die een leerling moet doorlopen.
+Sla toetsmomenten over (D-toets, Deeltoets, Eindtoets, toets, examen, assessment).
+Sla ook administratieve teksten, inhoudsopgaven en koppen zonder concrete les-inhoud over.
+
+Geef ALLEEN geldige JSON terug:
+{
+  "naam": "naam van het profieldeel of keuzedeel (max 60 tekens)",
+  "type": "profieldeel of keuzedeel",
+  "stappen": ["naam stap 1", "naam stap 2", ...]
+}
+
+Tekst:
+${bronTekst.slice(0, 12000)}`;
+
+    const resultaat = await chatJson({
+      system: 'Je leest onderwijsdocumenten en geeft altijd alleen geldig JSON terug.',
+      user: prompt,
+      maxTokens: 2000,
+      model: 'claude-sonnet-4-6'
+    });
+
+    return res.json({
+      success: true,
+      naam: resultaat.naam || req.file.originalname.replace(/\.[^.]+$/, ''),
+      type: resultaat.type || 'profieldeel',
+      stappen: Array.isArray(resultaat.stappen) ? resultaat.stappen.filter(Boolean) : [],
+      bronBestand: req.file.originalname
+    });
+  } catch (e) {
+    console.error('Fout bij /api/les-modules/analyseer:', e);
+    res.status(500).json({ error: 'Fout bij analyseren: ' + e.message });
+  }
+});
+
+// ============================================================
 // SCHOOL INSTELLINGEN — logo + naam opslaan / ophalen
 // ============================================================
 app.get('/api/instellingen', requireAuth, (req, res) => {

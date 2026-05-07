@@ -164,6 +164,19 @@ db.exec(`
     resultaat TEXT,
     aangemaakt TEXT DEFAULT (datetime('now'))
   );
+
+  CREATE TABLE IF NOT EXISTS les_modules (
+    id        TEXT PRIMARY KEY,
+    naam      TEXT NOT NULL,
+    type      TEXT NOT NULL DEFAULT 'profieldeel',
+    vakId     TEXT,
+    niveau    TEXT,
+    stappen   TEXT DEFAULT '[]',
+    beschrijving TEXT DEFAULT '',
+    bronBestand  TEXT DEFAULT '',
+    aangemaaktDoor TEXT,
+    aangemaaktOp   TEXT DEFAULT (datetime('now'))
+  );
 `);
 
 // ============================================================
@@ -722,5 +735,30 @@ module.exports = {
     const alle = Q.getKlassen.all().map(k => ({ ...k, docenten: parseJSON(k.docenten), niveau: k.niveau || '' }));
     if (!docentId) return alle;
     return alle.filter(k => (k.docenten || []).includes(docentId));
+  },
+
+  // ============================================================
+  // LES MODULES
+  // ============================================================
+  getLesModules() {
+    return db.prepare('SELECT * FROM les_modules ORDER BY naam').all()
+      .map(m => ({ ...m, stappen: parseJSON(m.stappen, []) }));
+  },
+  getLesModule(id) {
+    const m = db.prepare('SELECT * FROM les_modules WHERE id=?').get(id);
+    return m ? { ...m, stappen: parseJSON(m.stappen, []) } : null;
+  },
+  addLesModule(d) {
+    const id = require('crypto').randomUUID();
+    db.prepare('INSERT INTO les_modules (id,naam,type,vakId,niveau,stappen,beschrijving,bronBestand,aangemaaktDoor) VALUES (?,?,?,?,?,?,?,?,?)')
+      .run(id, d.naam||'', d.type||'profieldeel', d.vakId||null, d.niveau||'', JSON.stringify(d.stappen||[]), d.beschrijving||'', d.bronBestand||'', d.aangemaaktDoor||null);
+    return this.getLesModule(id);
+  },
+  updateLesModule(id, d) {
+    db.prepare('UPDATE les_modules SET naam=?,type=?,vakId=?,niveau=?,stappen=?,beschrijving=?,bronBestand=? WHERE id=?')
+      .run(d.naam||'', d.type||'profieldeel', d.vakId||null, d.niveau||'', JSON.stringify(d.stappen||[]), d.beschrijving||'', d.bronBestand||'', id);
+  },
+  deleteLesModule(id) {
+    db.prepare('DELETE FROM les_modules WHERE id=?').run(id);
   },
 };
