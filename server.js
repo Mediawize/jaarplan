@@ -2075,58 +2075,82 @@ app.post('/api/lesbrieven/genereer', requireCanEdit, async (req, res) => {
   const niveauLabel = niveau || huidigData?.klas || 'VMBO';
   const vakLabel = vak || huidigData?.vak || '';
 
+  // Type-specifieke aanpak
+  const typeContext = {
+    'Theorie':     'Dit is een THEORIELES. De focus ligt op kennisoverdracht: begrippen uitleggen, verbanden leggen, voorbeelden geven. Werkvormen: directe instructie, interactieve uitleg, verwerkingsopdrachten, exit-ticket.',
+    'Praktijk':    'Dit is een PRAKTIJKLES. De focus ligt op het uitvoeren van een praktische opdracht of vaardigheid. Werkvormen: demonstratie door docent, begeleid oefenen, zelfstandig uitvoeren, terugkoppeling op product/proces.',
+    'Toets':       'Dit is een TOETSLES. Structuur: rust creëren, toets uitleggen, leerlingen werken zelfstandig, nakijken of inleveren. Minimale instructie, maximale zelfstandigheid.',
+    'Presentatie': 'Dit is een PRESENTATIELES. Leerlingen presenteren hun werk. Werkvormen: presentaties begeleiden, feedback geven, reflectiegesprek.',
+  }[activiteitType] || 'Stem de werkvormen af op het type activiteit.';
+
+  // Tijdsindeling op basis van aantal lesuren (1 lesuur = 45 min)
+  const lesuren = Number(activiteitUren) || 1;
+  const aantalBlokken = lesuren >= 2 ? 6 : 5;  // meer fases bij 2+ uur
+  const extraTijdTip = lesuren >= 2
+    ? `De les duurt ${lesuren} lesuren (${minuten} min). Verdeel de tijd ruimer: meer tijd voor zelfstandig werken en verdieping.`
+    : `De les duurt ${lesuren} lesuur (${minuten} min). Houd het strak en efficiënt.`;
+
   // Niveau-specifieke didactische context
   const niveauContext = {
-    'BB': 'Basisberoepsgerichte leerweg (BB) — korte instructies, veel herhaling, concrete en visuele uitleg, kleine stappen, veel structuur en duidelijke opdrachten.',
-    'KB': 'Kaderberoepsgerichte leerweg (KB) — gestructureerde instructie, mix van uitleg en zelfstandig werken, concrete toepassingen in de beroepspraktijk.',
-    'GL': 'Gemengde leerweg (GL) — meer zelfstandigheid, verbanden leggen tussen theorie en praktijk, iets meer abstractievermogen verwacht.',
-    'TL': 'Theoretische leerweg (TL) — hogere mate van zelfstandigheid, verbanden leggen, analyse en redeneren, transfervragen mogelijk.',
-    'Havo': 'Havo — zelfstandig leren, abstract denken, verbanden leggen, hogere denkvaardigheden (analyseren, evalueren).',
-    'VWO': 'VWO — hoge zelfstandigheid, abstract en analytisch denken, verdieping en breedte, onderzoekend leren.',
-  }[niveau] || 'VMBO praktijkonderwijs — concrete instructie, visuele ondersteuning, praktijkgerichte aanpak.';
+    'BB': 'Basisberoepsgerichte leerweg (BB): korte instructiemomenten (max 10 min), veel visuele ondersteuning, kleine concrete stappen, veel herhaling, directe feedback, strakke structuur.',
+    'KB': 'Kaderberoepsgerichte leerweg (KB): gestructureerde instructie (max 15 min), mix van uitleg en zelfstandig werken, concrete beroepstoepassingen, ruimte voor vragen.',
+    'GL': 'Gemengde leerweg (GL): instructie gevolgd door zelfstandig werken, verbanden leggen theorie-praktijk, leerlingen denken mee en redeneren.',
+    'TL': 'Theoretische leerweg (TL): hogere zelfstandigheid, analyse en redeneren, transfervragen, leerlingen formuleren eigen antwoorden.',
+    'Havo': 'Havo: zelfstandig leren, hogere denkvaardigheden (analyseren, evalueren), open vragen, leerlingen verbanden leggen.',
+    'VWO': 'VWO: onderzoekend leren, abstracte concepten, verdieping en breedte, leerlingen redeneren en onderbouwen.',
+  }[niveau] || 'VMBO praktijkonderwijs: concrete instructie, visuele ondersteuning, praktijkgerichte aanpak.';
 
   try {
     const data = await chatJson({
-      system: `Je bent een ervaren VMBO/MBO docent die een lesvoorbereidingsformulier invult vanuit jouw eigen perspectief als docent.
-Je schrijft ALTIJD in de eerste persoon vanuit de docent ("Ik start de les met...", "Ik loop rond en...", "Ik stel gerichte vragen...").
-Pas de didactiek, werkvormen en taalgebruik aan op het opgegeven niveau.
+      system: `Je bent een ervaren VMBO/MBO docent die een lesvoorbereidingsformulier invult vanuit jouw eigen perspectief.
+Je schrijft ALTIJD in de eerste persoon ("Ik start met...", "Ik loop rond en...", "Ik stel de vraag...").
+De inhoud is volledig gebaseerd op de lesomschrijving, het lestype en het niveau — niet generiek.
 Geef altijd alleen geldig JSON terug.`,
-      user: `Vul een lesvoorbereidingsformulier in voor onderstaande les. Schrijf vanuit het perspectief van de docent.
+      user: `Maak een lesvoorbereidingsformulier voor deze specifieke les.
 
-LES-INFORMATIE:
-- Activiteit: ${activiteitNaam || 'onbekend'}
-- Type: ${activiteitType || 'Theorie'}
-- Duur: ${minuten} minuten
+WAT IS DEZE LES:
+- Lesomschrijving: "${activiteitNaam || 'onbekend'}"
+- Lestype: ${activiteitType || 'Theorie'}
+- Duur: ${lesuren} lesuur${lesuren !== 1 ? 'en' : ''} = ${minuten} minuten
 - Weekthema: ${weekThema || '—'}
-- Lesprofiel: ${profielNaam || '—'}
 - Vak: ${vakLabel || '—'}
+- Lesprofiel: ${profielNaam || '—'}
 - Niveau: ${niveauLabel}
 
-NIVEAU-CONTEXT:
+HOE DIT LESTYPE WERKT:
+${typeContext}
+
+TIJDSINSTRUCTIE:
+${extraTijdTip}
+
+NIVEAU-AANWIJZINGEN:
 ${niveauContext}
+
+BELANGRIJK: Alle inhoud moet direct aansluiten op de lesomschrijving "${activiteitNaam}". Geen generieke teksten.
 
 Geef ALLEEN geldige JSON terug:
 {
-  "lesdoel": "3-5 lesdoelen als 'Leerlingen kunnen...' of 'Leerlingen kennen...'. Actiewerkwoorden, passend bij ${niveauLabel}-niveau.",
-  "beginsituatie": "Beschrijf de klas vanuit jouw ervaring als docent: wat weet de klas al, wat zijn aandachtspunten, hoe werkt deze groep. 2-3 zinnen.",
-  "watDoekIk": "Schrijf in eerste persoon: hoe open ik de les, welke werkvormen kies ik en waarom, hoe begeleid ik de leerlingen. Afgestemd op ${niveauLabel}. 4-6 zinnen.",
-  "watDoetDeLeerling": "Beschrijf concreet wat leerlingen doen en met welk doel. Passend bij ${niveauLabel}-niveau. 2-4 zinnen.",
-  "evaluatie": "Schrijf in eerste persoon: hoe controleer ik tijdens en na de les of de leerdoelen bereikt zijn. Concreet en observeerbaar. 3-4 punten.",
-  "reflectie": "Schrijf in eerste persoon: wat wil ik laten zien als docent, hoe reflecteer ik op mijn eigen handelen. 2-3 zinnen.",
+  "lesdoel": "3-5 concrete lesdoelen over '${activiteitNaam}' als 'Leerlingen kunnen...' of 'Leerlingen kennen...'. Niveau: ${niveauLabel}.",
+  "beginsituatie": "Wat weet de klas al over dit onderwerp, wat zijn relevante aandachtspunten voor deze les. 2-3 zinnen.",
+  "watDoekIk": "Eerste persoon. Hoe geef ik deze ${activiteitType || 'les'} over '${activiteitNaam}': opening, werkvorm, begeleiding. Afgestemd op ${niveauLabel}. 4-6 zinnen.",
+  "watDoetDeLeerling": "Wat doen leerlingen concreet in deze les en waarom. Passend bij ${niveauLabel} en het type ${activiteitType || 'les'}. 2-4 zinnen.",
+  "evaluatie": "Eerste persoon. Hoe controleer ik of leerlingen '${activiteitNaam}' beheersen. Concreet en observeerbaar. 3-4 punten.",
+  "reflectie": "Eerste persoon. Wat wil ik als docent laten zien in deze les en hoe reflecteer ik achteraf. 2 zinnen.",
   "fasering": [
-    { "fase": "Fase 1 — Docent geeft leerdoelen aan", "tijd": "0:00–05:00", "activiteitLeraar": "Eerste persoon: wat doe ik.", "activiteitLeerling": "Wat doen leerlingen.", "hulpmiddelen": "Digibord" },
-    { "fase": "Fase 2 — Docent activeert voorkennis", "tijd": "05:00–15:00", "activiteitLeraar": "...", "activiteitLeerling": "...", "hulpmiddelen": "..." },
-    { "fase": "Fase 3 — Docent geeft instructie", "tijd": "15:00–25:00", "activiteitLeraar": "...", "activiteitLeerling": "...", "hulpmiddelen": "..." },
-    { "fase": "Fase 4 — Leerlingen werken zelfstandig", "tijd": "25:00–35:00", "activiteitLeraar": "...", "activiteitLeerling": "...", "hulpmiddelen": "..." },
-    { "fase": "Fase 5 — Docent koppelt leerdoelen terug", "tijd": "35:00–40:00", "activiteitLeraar": "...", "activiteitLeerling": "...", "hulpmiddelen": "..." },
-    { "fase": "Fase 6 — Reflectie op product en proces", "tijd": "40:00–${minuten}:00", "activiteitLeraar": "...", "activiteitLeerling": "...", "hulpmiddelen": "..." }
+    { "fase": "Fase 1 — Docent geeft leerdoelen aan", "tijd": "0:00–05:00", "activiteitLeraar": "Eerste persoon, specifiek voor '${activiteitNaam}'.", "activiteitLeerling": "Wat doen leerlingen.", "hulpmiddelen": "Digibord" },
+    { "fase": "Fase 2 — Docent activeert voorkennis", "tijd": "05:00–12:00", "activiteitLeraar": "...", "activiteitLeerling": "...", "hulpmiddelen": "..." },
+    { "fase": "Fase 3 — Docent geeft instructie / demonstreert", "tijd": "12:00–${Math.round(minuten * 0.45)}:00", "activiteitLeraar": "...", "activiteitLeerling": "...", "hulpmiddelen": "..." },
+    { "fase": "Fase 4 — Leerlingen verwerken / oefenen", "tijd": "${Math.round(minuten * 0.45)}:00–${Math.round(minuten * 0.78)}:00", "activiteitLeraar": "...", "activiteitLeerling": "...", "hulpmiddelen": "..." },
+    { "fase": "Fase 5 — Docent koppelt leerdoelen terug", "tijd": "${Math.round(minuten * 0.78)}:00–${Math.round(minuten * 0.9)}:00", "activiteitLeraar": "...", "activiteitLeerling": "...", "hulpmiddelen": "..." },
+    { "fase": "Fase 6 — Afsluiting en reflectie", "tijd": "${Math.round(minuten * 0.9)}:00–${minuten}:00", "activiteitLeraar": "...", "activiteitLeerling": "...", "hulpmiddelen": "..." }
   ]
 }
 
 Regels:
-- Fasering: tijden lopen cumulatief door tot ${minuten} minuten
-- activiteitLeraar altijd in eerste persoon ("Ik loop rond...", "Ik stel de vraag...")
-- Werkvormen en instructieniveau aanpassen aan ${niveauLabel}`,
+- Tijden in fasering lopen cumulatief door tot precies ${minuten} minuten
+- activiteitLeraar altijd in eerste persoon
+- Alle tekst specifiek over '${activiteitNaam}', niet generiek
+- Werkvormen passend bij ${activiteitType || 'Theorie'} + ${niveauLabel}`,
       maxTokens: 2500,
       temperature: 0.3
     });
