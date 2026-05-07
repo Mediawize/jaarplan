@@ -672,27 +672,34 @@ app.post('/api/genereer-lesprofiel-wizard', requireCanEdit, async (req, res) => 
           vakCode: vak?.naam || '',
           vakNaam
         };
-        const gegenereerd = uploadInfo.isDocx
-          ? await generateLesprofielFromText(uploadInfo.sourceText, opties)
-          : await generateLesprofielFromPdf(uploadInfo.filePath, opties);
+        try {
+          const gegenereerd = uploadInfo.isDocx
+            ? await generateLesprofielFromText(uploadInfo.sourceText, opties)
+            : await generateLesprofielFromPdf(uploadInfo.filePath, opties);
 
-        return res.json({
-          success: true,
-          profiel: {
-            naam: naam || gegenereerd.naam,
-            vakId,
-            niveau: niv,
-            aantalWeken: gegenereerd.aantalWeken,
-            urenPerWeek: gegenereerd.urenPerWeek,
-            beschrijving: beschrijving || gegenereerd.beschrijving || '',
-            weken: gegenereerd.weken || []
-          },
-          warning: null
-        });
+          return res.json({
+            success: true,
+            profiel: {
+              naam: naam || gegenereerd.naam,
+              vakId,
+              niveau: niv,
+              aantalWeken: gegenereerd.aantalWeken,
+              urenPerWeek: gegenereerd.urenPerWeek,
+              beschrijving: beschrijving || gegenereerd.beschrijving || '',
+              weken: gegenereerd.weken || []
+            },
+            warning: null
+          });
+        } catch (syllabusErr) {
+          // Syllabus leverde niets op — doorvallen naar AI-generatie met waarschuwing
+          console.warn('Syllabus generatie mislukt, val terug op AI:', syllabusErr.message);
+        }
       }
     }
 
     // ── Pad 2: AI-generatie op basis van metadata ──────────────
+    // (ook als Pad 1 niets opleverde)
+    const syllabusNietGebruikt = !!(syllabusUploadToken && syllabusModuleCode);
     const urenTheorie = Math.ceil(uren / 2);
     const urenPraktijk = Math.floor(uren / 2) || 1;
 
@@ -722,7 +729,9 @@ Regels:
 - Schrijf in aanspreekvorm voor de docent`;
 
     let aiData;
-    let warning = null;
+    let warning = syllabusNietGebruikt
+      ? 'De geselecteerde module leverde geen activiteiten op in het document. Het lesprofiel is gegenereerd door AI op basis van naam en niveau.'
+      : null;
     try {
       aiData = await chatJson({
         system: 'Je schrijft kort, helder en praktisch Nederlands voor VMBO/MBO docenten. Geef altijd alleen geldig JSON terug.',
