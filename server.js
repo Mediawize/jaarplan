@@ -97,6 +97,7 @@ const storage = multer.diskStorage({
   }
 });
 const upload = multer({ storage, limits: { fileSize: 25 * 1024 * 1024 } });
+const uploadMemory = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 
 app.use(helmet({ contentSecurityPolicy: false }));
 app.use(express.json({ limit: '50mb' }));
@@ -646,7 +647,7 @@ app.post('/api/genereer-lesprofiel-uit-syllabus', requireCanEdit, async (req, re
 // ============================================================
 // LESPROFIEL — AFBEELDING ANALYSEREN (vision)
 // ============================================================
-app.post('/api/analyse-afbeelding-lesprofiel', requireCanEdit, uploadSingle, async (req, res) => {
+app.post('/api/analyse-afbeelding-lesprofiel', requireCanEdit, uploadMemory.single('bestand'), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'Geen afbeelding ontvangen.' });
 
