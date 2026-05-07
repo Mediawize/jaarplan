@@ -873,24 +873,40 @@ app.post('/api/les-modules/analyseer', requireAdmin, upload.single('bestand'), a
 
     if (!bronTekst.trim()) return res.status(422).json({ error: 'Kon geen tekst lezen uit het bestand. Controleer of het een doorzoekbare PDF is (geen scan). Probeer het bestand te openen en de tekst te selecteren — als dat niet lukt, is het een gescande PDF.' });
 
-    const prompt = `Je bent een VMBO/MBO onderwijsexpert die een syllabus of profieldeel-document analyseert.
+    const prompt = `Je bent een VMBO-onderwijsspecialist die een syllabus of profieldeel-document analyseert voor VMBO praktijkonderwijs.
 
-Lees de onderstaande tekst en extraheer alle theorie-lessen/stappen die een leerling moet doorlopen.
-Sla toetsmomenten over (D-toets, Deeltoets, Eindtoets, toets, examen, assessment).
-Sla ook administratieve teksten, inhoudsopgaven en koppen zonder concrete les-inhoud over.
+CONTEXT:
+- Dit zijn VMBO-leerlingen (praktijkleerweg) die een praktijkvak leren
+- Aan elk praktijkvak is THEORIE gekoppeld die in EloDigitaal als theoriestappen wordt aangeboden
+- De syllabus beschrijft competenties en handelingen die een leerling moet beheersen
+- Jouw taak: zet elke competentie/handeling om naar een passende THEORIE-lesnaam voor VMBO-niveau
 
-Geef ALLEEN geldige JSON terug:
+REGELS voor theorie-lesnamen:
+- Formuleer als de KENNIS/THEORIE die een leerling nodig heeft om de handeling te kunnen uitvoeren
+- NIET de handeling zelf benoemen (dus NIET "Klantgesprek voeren", maar de theorie erachter)
+- Voorbeelden van goede omzetting:
+  * "Klantgesprek voeren en klantwensen filteren" → "Communicatie en klantgericht werken"
+  * "Werktekening lezen en interpreteren" → "Technisch tekenen en symbolen"
+  * "Materialen selecteren voor de opdracht" → "Materiaalkennis en eigenschappen"
+  * "Veilig werken met gereedschap" → "Veiligheidsvoorschriften en ARBO-regels"
+  * "Budget berekenen voor een project" → "Calculatie en kostenberekening"
+- Titels zijn kort en herkenbaar (3-8 woorden), geschikt voor VMBO-niveau
+- Sla toetsmomenten OVER: D-toets, Deeltoets, Eindtoets, assessment, examen, proeve van bekwaamheid
+- Sla inhoudsopgaven, voorwoorden en administratieve teksten over
+- Sla lessen over die al een eindtoets bevatten als enige inhoud
+
+Geef ALLEEN geldige JSON terug zonder uitleg of markdown:
 {
-  "naam": "naam van het profieldeel of keuzedeel (max 60 tekens)",
+  "naam": "officiële naam van het profieldeel of keuzedeel uit het document (max 60 tekens)",
   "type": "profieldeel of keuzedeel",
-  "stappen": ["naam stap 1", "naam stap 2", ...]
+  "stappen": ["theorie-lesnaam 1", "theorie-lesnaam 2", ...]
 }
 
-Tekst:
+Tekst uit het document:
 ${bronTekst.slice(0, 12000)}`;
 
     const resultaat = await chatJson({
-      system: 'Je leest onderwijsdocumenten en geeft altijd alleen geldig JSON terug.',
+      system: 'Je bent een VMBO-onderwijsspecialist. Je zet syllabuscompetences om naar theorie-lesnamen voor VMBO-leerlingen. Je geeft altijd alleen geldig JSON terug, zonder markdown of uitleg.',
       user: prompt,
       maxTokens: 2000,
       model: 'claude-sonnet-4-6'
