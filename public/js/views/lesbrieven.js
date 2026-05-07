@@ -555,6 +555,8 @@ async function lbGenereerAI() {
         profielNaam: info.profielNaam || '',
         weekThema: info.weekThema || '',
         syllabuscodes: info.syllabus || '',
+        niveau: info.niveau || _lb.data.klas || '',
+        vak: info.vak || _lb.data.vak || '',
         huidigData: _lb.data,
       }),
     });
