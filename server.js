@@ -884,8 +884,8 @@ CONTEXT:
 REGELS voor theorie-lesnamen:
 - Formuleer als de KENNIS/THEORIE die een leerling nodig heeft om de handeling te kunnen uitvoeren
 - NIET de handeling zelf benoemen (dus NIET "Klantgesprek voeren", maar de theorie erachter)
+- VERWIJDER alle stappen over klantcontact, klantgericht werken, klantgesprekken, klantwensen of communicatie met klanten — deze worden niet gebruikt
 - Voorbeelden van goede omzetting:
-  * "Klantgesprek voeren en klantwensen filteren" → "Communicatie en klantgericht werken"
   * "Werktekening lezen en interpreteren" → "Technisch tekenen en symbolen"
   * "Materialen selecteren voor de opdracht" → "Materiaalkennis en eigenschappen"
   * "Veilig werken met gereedschap" → "Veiligheidsvoorschriften en ARBO-regels"
@@ -893,7 +893,8 @@ REGELS voor theorie-lesnamen:
 - Titels zijn kort en herkenbaar (3-8 woorden), geschikt voor VMBO-niveau
 - Sla toetsmomenten OVER: D-toets, Deeltoets, Eindtoets, assessment, examen, proeve van bekwaamheid
 - Sla inhoudsopgaven, voorwoorden en administratieve teksten over
-- Sla lessen over die al een eindtoets bevatten als enige inhoud
+- Maximum aantal stappen: bij "keuzedeel" maximaal 8 stappen, bij "profieldeel" maximaal 12 stappen
+- Kies de meest inhoudelijk relevante stappen als er meer zijn dan het maximum
 
 Geef ALLEEN geldige JSON terug zonder uitleg of markdown:
 {
@@ -916,7 +917,7 @@ ${bronTekst.slice(0, 12000)}`;
       success: true,
       naam: resultaat.naam || req.file.originalname.replace(/\.[^.]+$/, ''),
       type: resultaat.type || 'profieldeel',
-      stappen: Array.isArray(resultaat.stappen) ? resultaat.stappen.filter(Boolean) : [],
+      stappen: Array.isArray(resultaat.stappen) ? resultaat.stappen.filter(Boolean).slice(0, (resultaat.type || '').toLowerCase().includes('keuzedeel') ? 8 : 12) : [],
       bronBestand: req.file.originalname
     });
   } catch (e) {
