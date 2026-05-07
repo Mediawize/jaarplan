@@ -31,17 +31,117 @@ async function openLesbrief(profielId, weekIdx, actIdx, activiteitInfo) {
     if (lijst && lijst.length > 0) {
       _lb.data = lijst[0];
       _lb.id = lijst[0].id;
-    } else {
-      _lb.id = null;
-      _lb.data = lbLeeg();
+      lbToonOverzicht();  // bestaande lesbrief → overzicht tonen
+      return;
     }
-  } catch {
-    _lb.id = null;
-    _lb.data = lbLeeg();
+  } catch { /* geen lesbrief gevonden */ }
+
+  _lb.id = null;
+  _lb.data = lbLeeg();
+  renderLb();  // nieuwe lesbrief → wizard openen
+}
+
+// ============================================================
+// OVERZICHT (lees-modus)
+// ============================================================
+function lbToonOverzicht() {
+  const d = _lb.data;
+  const info = _lb.activiteitInfo || {};
+
+  function blok(label, tekst) {
+    if (!tekst || !tekst.trim()) return '';
+    return `<div style="margin-bottom:18px">
+      <div style="font-weight:700;font-size:12px;color:var(--accent);text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px">${label}</div>
+      <div style="font-size:13px;white-space:pre-wrap;line-height:1.6">${escHtml(tekst)}</div>
+    </div>`;
   }
 
+  const faseringHtml = (d.fasering || []).length ? `
+    <div style="margin-bottom:18px">
+      <div style="font-weight:700;font-size:12px;color:var(--accent);text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px">Fasering van de les</div>
+      <div style="overflow-x:auto">
+        <table style="width:100%;border-collapse:collapse;font-size:12px">
+          <thead>
+            <tr style="background:var(--accent);color:#fff">
+              <th style="padding:7px 10px;text-align:left;font-weight:600">Fasering</th>
+              <th style="padding:7px 10px;text-align:left;font-weight:600;white-space:nowrap">Tijd</th>
+              <th style="padding:7px 10px;text-align:left;font-weight:600">Activiteit leraar</th>
+              <th style="padding:7px 10px;text-align:left;font-weight:600">Activiteit leerlingen</th>
+              <th style="padding:7px 10px;text-align:left;font-weight:600">Hulpmiddelen</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${(d.fasering).map((f, i) => `
+              <tr style="background:${i % 2 === 0 ? '#f3f9f5' : '#fff'}">
+                <td style="padding:8px 10px;border-bottom:1px solid var(--border);font-weight:600;font-size:12px">${escHtml(f.fase||'')}</td>
+                <td style="padding:8px 10px;border-bottom:1px solid var(--border);white-space:nowrap;color:var(--ink-muted)">${escHtml(f.tijd||'')}</td>
+                <td style="padding:8px 10px;border-bottom:1px solid var(--border)">${escHtml(f.activiteitLeraar||'')}</td>
+                <td style="padding:8px 10px;border-bottom:1px solid var(--border)">${escHtml(f.activiteitLeerling||'')}</td>
+                <td style="padding:8px 10px;border-bottom:1px solid var(--border)">${escHtml(f.hulpmiddelen||'')}</td>
+              </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>` : '';
+
+  openModal(`
+    <div style="margin:-4px -4px 0">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;padding-bottom:12px;border-bottom:1px solid var(--border);margin-bottom:16px">
+        <div>
+          <h2 style="margin:0 0 4px;font-size:18px">📋 Lesbrief</h2>
+          <div style="font-size:13px;color:var(--ink-muted)">
+            ${info.type ? `<span style="background:var(--accent-dim);color:var(--accent);border-radius:4px;padding:1px 7px;font-size:12px;font-weight:600;margin-right:6px">${escHtml(info.type)}</span>` : ''}
+            ${escHtml(info.omschrijving || info.naam || '')}${info.uren ? ` · ${info.uren} lesuren` : ''}
+          </div>
+        </div>
+        <div style="display:flex;gap:6px;flex-shrink:0">
+          <button class="btn btn-sm" onclick="lbBewerken()">✏️ Bewerken</button>
+          <button class="btn btn-primary btn-sm" onclick="lbDownload()">⬇ Download</button>
+        </div>
+      </div>
+
+      <!-- Identificatieblok -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px 20px;background:#f9fafb;border:1px solid var(--border);border-radius:8px;padding:12px 16px;margin-bottom:18px;font-size:13px">
+        ${d.kandidaat ? `<div><span style="color:var(--ink-muted)">Kandidaat:</span> <strong>${escHtml(d.kandidaat)}</strong></div>` : ''}
+        ${d.datumLes  ? `<div><span style="color:var(--ink-muted)">Datum:</span> <strong>${escHtml(d.datumLes)}</strong></div>` : ''}
+        ${d.vak       ? `<div><span style="color:var(--ink-muted)">Vak:</span> ${escHtml(d.vak)}</div>` : ''}
+        ${d.klas      ? `<div><span style="color:var(--ink-muted)">Klas:</span> ${escHtml(d.klas)}</div>` : ''}
+        ${d.school    ? `<div><span style="color:var(--ink-muted)">School:</span> ${escHtml(d.school)}</div>` : ''}
+        ${d.lokaal    ? `<div><span style="color:var(--ink-muted)">Lokaal:</span> ${escHtml(d.lokaal)}</div>` : ''}
+        ${d.werkplekbegeleider ? `<div><span style="color:var(--ink-muted)">WPB:</span> ${escHtml(d.werkplekbegeleider)}</div>` : ''}
+        ${d.methode   ? `<div><span style="color:var(--ink-muted)">Methode:</span> ${escHtml(d.methode)}</div>` : ''}
+        ${d.onderwerp ? `<div style="grid-column:1/-1"><span style="color:var(--ink-muted)">Onderwerp:</span> <strong>${escHtml(d.onderwerp)}</strong></div>` : ''}
+      </div>
+
+      <div style="max-height:55vh;overflow-y:auto;padding-right:4px">
+        ${blok('1) Lesdoel', d.lesdoel)}
+        ${blok('Beginsituatie', d.beginsituatie)}
+        ${blok('2) Wat doe ik? (en waarom)', d.watDoekIk)}
+        ${blok('Wat doet de leerling? (waartoe)', d.watDoetDeLeerling)}
+        ${blok('3) Evaluatie', d.evaluatie)}
+        ${blok('4) Resultaat & Reflectie', d.reflectie)}
+        ${faseringHtml}
+      </div>
+
+      <div class="modal-actions">
+        <button class="btn" onclick="closeModalDirect()">Sluiten</button>
+        <button class="btn btn-sm" onclick="lbBewerken()">✏️ Bewerken</button>
+        <button class="btn btn-primary" onclick="lbDownload()">⬇ Download</button>
+      </div>
+    </div>
+  `);
+
+  setTimeout(() => {
+    const box = document.querySelector('#modal-overlay .modal-box');
+    if (box) box.style.maxWidth = '900px';
+  }, 0);
+}
+
+function lbBewerken() {
+  _lb.stap = 1;
   renderLb();
 }
+
 
 function lbLeeg() {
   const info = _lb.activiteitInfo || {};
@@ -135,10 +235,7 @@ function renderLb() {
         }
         ${s < totaal
           ? `<button class="btn btn-primary" onclick="lbVolgendeStap()">Volgende →</button>`
-          : `
-            ${_lb.id ? `<button class="btn btn-sm" onclick="lbDownload()">⬇ Download</button>` : ''}
-            <button class="btn" onclick="closeModalDirect()">Sluiten</button>
-          `
+          : `<button class="btn btn-primary" onclick="lbOpslaan()">💾 Opslaan</button>`
         }
       </div>
     </div>
@@ -420,9 +517,8 @@ async function lbOpslaan() {
       const data = await res.json();
       if (data.id) _lb.id = data.id;
     }
-    if (statusEl) statusEl.innerHTML = `<span style="color:var(--accent)">✓ Opgeslagen</span>`;
-    setTimeout(() => { if (statusEl) statusEl.innerHTML = ''; }, 2000);
-    if (isNieuw && _lb.id) renderLb();
+    // Na opslaan altijd overzicht tonen
+    setTimeout(() => lbToonOverzicht(), 400);
   } catch (e) {
     if (statusEl) statusEl.innerHTML = `<span style="color:var(--red)">Fout: ${escHtml(e.message)}</span>`;
   } finally {
