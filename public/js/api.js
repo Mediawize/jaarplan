@@ -108,6 +108,9 @@ const API = {
   async afvinken(id) { return this._fetch(`/api/opdrachten/${id}/afvinken`, { method: 'POST' }); },
   async setOpmerking(id, opmerking) { return this._fetch(`/api/opdrachten/${id}/opmerking`, { method: 'POST', body: { opmerking } }); },
 
+  // LES MODULES
+  async getLesModules() { return this._fetch('/api/les-modules'); },
+
   // LESPROFIELEN
   async getLesprofielen() { return this._fetch('/api/lesprofielen'); },
   async addLesprofiel(data) { return this._fetch('/api/lesprofielen', { method: 'POST', body: data }); },

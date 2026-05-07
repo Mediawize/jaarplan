@@ -167,6 +167,7 @@ function renderAppShell() {
         <a class="nav-item" data-view="schooljaren" onclick="showView('schooljaren');closeSidebar()"><svg viewBox="0 0 20 20" fill="none"><rect x="2" y="3" width="16" height="15" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M6 2v2M14 2v2M2 8h16" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>Schooljaren</a>
         <a class="nav-item" data-view="gebruikers" onclick="showView('gebruikers');closeSidebar()"><svg viewBox="0 0 20 20" fill="none"><circle cx="10" cy="6" r="3.5" stroke="currentColor" stroke-width="1.5"/><path d="M3 18c0-4 3-6 7-6s7 2 7 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>Gebruikers</a>
         <a class="nav-item" data-view="vakken" onclick="showView('vakken');closeSidebar()"><svg viewBox="0 0 20 20" fill="none"><path d="M10 2l2.5 5H18l-4.5 3.5 1.5 5.5L10 13l-5 3 1.5-5.5L2 7h5.5L10 2z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>Vakken</a>
+        <a class="nav-item" data-view="lesmodules" onclick="showView('lesmodules');closeSidebar()"><svg viewBox="0 0 20 20" fill="none"><path d="M4 4h12v2H4zM4 9h8v2H4zM4 14h10v2H4z" fill="currentColor"/></svg>Les Modules</a>
         <a class="nav-item" onclick="closeSidebar();openInstellingenModal()"><svg viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="3" stroke="currentColor" stroke-width="1.5"/><path d="M10 2v2M10 16v2M2 10h2M16 10h2M4.22 4.22l1.42 1.42M14.36 14.36l1.42 1.42M4.22 15.78l1.42-1.42M14.36 5.64l1.42-1.42" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>Instellingen</a>
       </div>
       <div class="sidebar-footer">
@@ -186,6 +187,7 @@ function renderAppShell() {
       <div id="view-schooljaren" class="view" style="display:none"></div>
       <div id="view-gebruikers" class="view" style="display:none"></div>
       <div id="view-vakken" class="view" style="display:none"></div>
+      <div id="view-lesmodules" class="view" style="display:none"></div>
     </main>
     <!-- Bottom nav: op mobiel alleen dashboard knop -->
     <nav class="bottom-nav" id="bottom-nav">
@@ -229,7 +231,7 @@ function showView(view) {
     view = 'dashboard';
   }
 
-  const views = ['dashboard','klassen','rooster','jaarplanning','lesprofielen','taken','opdrachten','toetsen','schooljaren','gebruikers','vakken'];
+  const views = ['dashboard','klassen','rooster','jaarplanning','lesprofielen','taken','opdrachten','toetsen','schooljaren','gebruikers','vakken','lesmodules'];
   views.forEach(v => {
     const el = document.getElementById('view-' + v);
     if (el) el.style.display = v === view ? 'block' : 'none';
@@ -249,7 +251,8 @@ function showView(view) {
     toetsen: renderToetsen,
     schooljaren: renderSchooljaren,
     gebruikers: renderGebruikers,
-    vakken: renderVakken
+    vakken: renderVakken,
+    lesmodules: renderLesModules
   };
   if (renderers[view]) renderers[view]();
 }
