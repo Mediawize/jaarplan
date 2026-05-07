@@ -2085,10 +2085,15 @@ app.post('/api/lesbrieven/genereer', requireCanEdit, async (req, res) => {
 
   // Tijdsindeling op basis van aantal lesuren (1 lesuur = 45 min)
   const lesuren = Number(activiteitUren) || 1;
-  const aantalBlokken = lesuren >= 2 ? 6 : 5;  // meer fases bij 2+ uur
   const extraTijdTip = lesuren >= 2
     ? `De les duurt ${lesuren} lesuren (${minuten} min). Verdeel de tijd ruimer: meer tijd voor zelfstandig werken en verdieping.`
     : `De les duurt ${lesuren} lesuur (${minuten} min). Houd het strak en efficiënt.`;
+
+  // Bereken faseringen vooraf zodat de promptstring geen berekeningen bevat
+  const t = (frac) => { const m = Math.round(minuten * frac); return Math.floor(m/60) + ':' + String(m % 60).padStart(2,'0'); };
+  const faseringVoorbeeld = lesuren >= 2
+    ? `[{"fase":"Fase 1 — Leerdoelen","tijd":"0:00–${t(0.06)}","activiteitLeraar":"...","activiteitLeerling":"...","hulpmiddelen":"..."},{"fase":"Fase 2 — Voorkennis activeren","tijd":"${t(0.06)}–${t(0.18)}","activiteitLeraar":"...","activiteitLeerling":"...","hulpmiddelen":"..."},{"fase":"Fase 3 — Instructie","tijd":"${t(0.18)}–${t(0.40)}","activiteitLeraar":"...","activiteitLeerling":"...","hulpmiddelen":"..."},{"fase":"Fase 4 — Zelfstandig verwerken","tijd":"${t(0.40)}–${t(0.72)}","activiteitLeraar":"...","activiteitLeerling":"...","hulpmiddelen":"..."},{"fase":"Fase 5 — Terugkoppeling","tijd":"${t(0.72)}–${t(0.88)}","activiteitLeraar":"...","activiteitLeerling":"...","hulpmiddelen":"..."},{"fase":"Fase 6 — Afsluiting","tijd":"${t(0.88)}–${t(1.0)}","activiteitLeraar":"...","activiteitLeerling":"...","hulpmiddelen":"..."}]`
+    : `[{"fase":"Fase 1 — Leerdoelen","tijd":"0:00–${t(0.11)}","activiteitLeraar":"...","activiteitLeerling":"...","hulpmiddelen":"..."},{"fase":"Fase 2 — Voorkennis activeren","tijd":"${t(0.11)}–${t(0.27)}","activiteitLeraar":"...","activiteitLeerling":"...","hulpmiddelen":"..."},{"fase":"Fase 3 — Instructie","tijd":"${t(0.27)}–${t(0.55)}","activiteitLeraar":"...","activiteitLeerling":"...","hulpmiddelen":"..."},{"fase":"Fase 4 — Zelfstandig verwerken","tijd":"${t(0.55)}–${t(0.80)}","activiteitLeraar":"...","activiteitLeerling":"...","hulpmiddelen":"..."},{"fase":"Fase 5 — Afsluiting","tijd":"${t(0.80)}–${t(1.0)}","activiteitLeraar":"...","activiteitLeerling":"...","hulpmiddelen":"..."}]`;
 
   // Niveau-specifieke didactische context
   const niveauContext = {
@@ -2128,30 +2133,23 @@ ${niveauContext}
 
 BELANGRIJK: Alle inhoud moet direct aansluiten op de lesomschrijving "${activiteitNaam}". Geen generieke teksten.
 
-Geef ALLEEN geldige JSON terug:
+Geef ALLEEN geldige JSON terug met exact deze sleutels:
 {
-  "lesdoel": "3-5 concrete lesdoelen over '${activiteitNaam}' als 'Leerlingen kunnen...' of 'Leerlingen kennen...'. Niveau: ${niveauLabel}.",
-  "beginsituatie": "Wat weet de klas al over dit onderwerp, wat zijn relevante aandachtspunten voor deze les. 2-3 zinnen.",
-  "watDoekIk": "Eerste persoon. Hoe geef ik deze ${activiteitType || 'les'} over '${activiteitNaam}': opening, werkvorm, begeleiding. Afgestemd op ${niveauLabel}. 4-6 zinnen.",
-  "watDoetDeLeerling": "Wat doen leerlingen concreet in deze les en waarom. Passend bij ${niveauLabel} en het type ${activiteitType || 'les'}. 2-4 zinnen.",
-  "evaluatie": "Eerste persoon. Hoe controleer ik of leerlingen '${activiteitNaam}' beheersen. Concreet en observeerbaar. 3-4 punten.",
-  "reflectie": "Eerste persoon. Wat wil ik als docent laten zien in deze les en hoe reflecteer ik achteraf. 2 zinnen.",
-  "fasering": [
-    { "fase": "Fase 1 — Docent geeft leerdoelen aan", "tijd": "0:00–05:00", "activiteitLeraar": "Eerste persoon, specifiek voor '${activiteitNaam}'.", "activiteitLeerling": "Wat doen leerlingen.", "hulpmiddelen": "Digibord" },
-    { "fase": "Fase 2 — Docent activeert voorkennis", "tijd": "05:00–12:00", "activiteitLeraar": "...", "activiteitLeerling": "...", "hulpmiddelen": "..." },
-    { "fase": "Fase 3 — Docent geeft instructie / demonstreert", "tijd": "12:00–${Math.round(minuten * 0.45)}:00", "activiteitLeraar": "...", "activiteitLeerling": "...", "hulpmiddelen": "..." },
-    { "fase": "Fase 4 — Leerlingen verwerken / oefenen", "tijd": "${Math.round(minuten * 0.45)}:00–${Math.round(minuten * 0.78)}:00", "activiteitLeraar": "...", "activiteitLeerling": "...", "hulpmiddelen": "..." },
-    { "fase": "Fase 5 — Docent koppelt leerdoelen terug", "tijd": "${Math.round(minuten * 0.78)}:00–${Math.round(minuten * 0.9)}:00", "activiteitLeraar": "...", "activiteitLeerling": "...", "hulpmiddelen": "..." },
-    { "fase": "Fase 6 — Afsluiting en reflectie", "tijd": "${Math.round(minuten * 0.9)}:00–${minuten}:00", "activiteitLeraar": "...", "activiteitLeerling": "...", "hulpmiddelen": "..." }
-  ]
+  "lesdoel": "3-5 lesdoelen over '${activiteitNaam}' als 'Leerlingen kunnen...' (niveau: ${niveauLabel})",
+  "beginsituatie": "Wat weet de klas al over dit onderwerp, aandachtspunten. 2-3 zinnen.",
+  "watDoekIk": "Eerste persoon. Opening, werkvorm, begeleiding voor deze ${activiteitType || 'les'} over '${activiteitNaam}'. Niveau: ${niveauLabel}. 4-6 zinnen.",
+  "watDoetDeLeerling": "Concreet wat leerlingen doen en waarom. Passend bij ${niveauLabel}. 2-4 zinnen.",
+  "evaluatie": "Eerste persoon. Hoe controleer ik of '${activiteitNaam}' is begrepen. 3-4 concrete punten.",
+  "reflectie": "Eerste persoon. Wat wil ik laten zien als docent, hoe reflecteer ik achteraf. 2 zinnen.",
+  "fasering": ${faseringVoorbeeld}
 }
 
 Regels:
-- Tijden in fasering lopen cumulatief door tot precies ${minuten} minuten
-- activiteitLeraar altijd in eerste persoon
-- Alle tekst specifiek over '${activiteitNaam}', niet generiek
-- Werkvormen passend bij ${activiteitType || 'Theorie'} + ${niveauLabel}`,
-      maxTokens: 2500,
+- Vul de fasering volledig in (alle "..." vervangen door echte tekst)
+- Tijden staan vast zoals opgegeven, pas alleen activiteitLeraar/Leerling/hulpmiddelen in
+- activiteitLeraar altijd in eerste persoon ("Ik...")
+- Alle inhoud specifiek over '${activiteitNaam}', niet generiek`,
+      maxTokens: 4000,
       temperature: 0.3
     });
     res.json({ success: true, data });
