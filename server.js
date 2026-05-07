@@ -868,10 +868,10 @@ app.post('/api/les-modules/analyseer', requireAdmin, upload.single('bestand'), a
     } else {
       const { analyseSyllabusPdf } = require('./services/syllabusGenerator');
       const analyse = await analyseSyllabusPdf(req.file.path);
-      bronTekst = analyse.rawText || '';
+      bronTekst = analyse.sourceText || analyse.rawText || '';
     }
 
-    if (!bronTekst.trim()) return res.status(422).json({ error: 'Kon geen tekst lezen uit het bestand.' });
+    if (!bronTekst.trim()) return res.status(422).json({ error: 'Kon geen tekst lezen uit het bestand. Controleer of het een doorzoekbare PDF is (geen scan). Probeer het bestand te openen en de tekst te selecteren — als dat niet lukt, is het een gescande PDF.' });
 
     const prompt = `Je bent een VMBO/MBO onderwijsexpert die een syllabus of profieldeel-document analyseert.
 
