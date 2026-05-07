@@ -701,7 +701,7 @@ app.post('/api/genereer-lesprofiel-wizard', requireCanEdit, async (req, res) => 
     naam, vakId, niveau, aantalWeken, urenPerWeek, beschrijving,
     syllabusUploadToken, syllabusModuleCode,
     aiWeekthemas, aiActiviteiten,
-    lesModuleId
+    lesModuleId, feedback
   } = req.body || {};
 
   try {
@@ -767,9 +767,13 @@ app.post('/api/genereer-lesprofiel-wizard', requireCanEdit, async (req, res) => 
       ? `\n\nDe volgende theoriestappen uit de les module "${gekoppeldeModule.naam}" moeten als basis dienen. Verdeel ze logisch over de ${weken} weken als weekthema's:\n${extraStappen.map((s, i) => `${i + 1}. ${s}`).join('\n')}`
       : '';
 
+    const feedbackContext = feedback && String(feedback).trim()
+      ? `\n\nDe docent heeft de volgende aanpassing gevraagd ten opzichte van de vorige versie:\n"${String(feedback).trim()}"\nVerwerk dit nadrukkelijk in het nieuwe lesprofiel.`
+      : '';
+
     const prompt = `Je bent een ervaren VMBO/MBO docent die lesplannen opstelt.
 Maak een lesprofiel voor: "${naam || vakNaam}", vak "${vakNaam}", niveau ${niv}, ${weken} weken, ${uren} uur/week (${urenTheorie} uur theorie + ${urenPraktijk} uur praktijk).
-${beschrijving ? `Onderwerp/context: ${beschrijving}` : ''}${stappenContext}
+${beschrijving ? `Onderwerp/context: ${beschrijving}` : ''}${stappenContext}${feedbackContext}
 
 Geef ALLEEN geldige JSON terug in dit formaat:
 {
