@@ -2070,44 +2070,43 @@ app.post('/api/werkboekjes/pdf-materiaal', requireCanEdit, async (req, res) => {
 });
 
 app.post('/api/lesbrieven/genereer', requireCanEdit, async (req, res) => {
-  const { activiteitNaam, activiteitType, activiteitUren, profielNaam, weekThema, syllabuscodes } = req.body;
+  const { activiteitNaam, activiteitType, activiteitUren, profielNaam, weekThema, syllabuscodes, huidigData } = req.body;
+  const minuten = Math.round((activiteitUren || 1) * 60);
   try {
     const data = await chatJson({
-      system: 'Je maakt docentenlesbrieven voor Nederlandse MBO/VMBO docenten. Geef altijd alleen geldig JSON terug.',
-      user: `Maak een lesbrief voor een docent op basis van deze activiteit:
-- Naam: ${activiteitNaam || 'onbekend'}
-- Type: ${activiteitType || 'les'}
-- Duur: ${activiteitUren || 1} uur
-- Thema: ${weekThema || ''}
+      system: 'Je maakt lesvoorbereidingsformulieren voor Nederlandse VMBO/MBO docenten. Geef altijd alleen geldig JSON terug.',
+      user: `Maak een lesvoorbereidingsformulier voor een docent op basis van:
+- Activiteit: ${activiteitNaam || 'onbekend'}
+- Type: ${activiteitType || 'Theorie'}
+- Duur: ${activiteitUren || 1} uur (${minuten} min)
+- Weekthema: ${weekThema || ''}
 - Lesprofiel: ${profielNaam || ''}
 - Syllabuscodes: ${syllabuscodes || ''}
+${huidigData?.vak ? '- Vak: ' + huidigData.vak : ''}
+${huidigData?.klas ? '- Klas: ' + huidigData.klas : ''}
 
 Geef ALLEEN geldige JSON terug in dit formaat:
 {
-  "voorbereiding": "Beschrijf wat de docent moet voorbereiden (materialen, lokaal, apparatuur). Max 3-4 zinnen.",
-  "benodigdheden": ["Materiaal 1", "Materiaal 2"],
-  "lesverloop": [
-    { "fase": "Introductie", "minuten": 10, "beschrijving": "Wat doet de docent in deze fase." },
-    { "fase": "Instructie", "minuten": 20, "beschrijving": "Hoe legt de docent de stof uit." },
-    { "fase": "Verwerking", "minuten": 30, "beschrijving": "Wat doen leerlingen, wat doet de docent." },
-    { "fase": "Afsluiting", "minuten": 5, "beschrijving": "Hoe sluit de docent de les af." }
-  ],
-  "stappenplan": [
-    { "stap": 1, "instructie": "Concrete instructie voor de docent." }
-  ],
-  "aandachtspunten": ["Veiligheidsaandachtspunt of didactische tip.", "..."],
-  "differentiatie": {
-    "snel": "Tips voor leerlingen die snel klaar zijn.",
-    "langzaam": "Tips voor leerlingen die extra tijd nodig hebben."
-  },
-  "opmerkingen": ""
+  "lesdoel": "Formuleer 3-5 lesdoelen als 'Leerlingen kunnen...' of 'Leerlingen kennen...'. Gebruik actiewerkwoorden.",
+  "beginsituatie": "Beschrijf de klas: niveau, eerdere kennis, bijzonderheden. 2-3 zinnen.",
+  "watDoekIk": "Beschrijf de aanpak van de docent: hoe open je de les, welke werkvormen, hoe begeleid je? 3-5 zinnen.",
+  "watDoetDeLeerling": "Beschrijf wat leerlingen doen en waartoe. 2-4 zinnen.",
+  "evaluatie": "Hoe controleer je of leerdoelen bereikt zijn? 3-4 punten als doorlopende tekst.",
+  "reflectie": "Wat wil de docent laten zien? Reflectie op eigen handelen. 2-3 zinnen.",
+  "fasering": [
+    { "fase": "Fase 1 — Docent geeft leerdoelen aan", "tijd": "0:00–05:00", "activiteitLeraar": "Wat doet de docent.", "activiteitLeerling": "Wat doen leerlingen.", "hulpmiddelen": "Digibord" },
+    { "fase": "Fase 2 — Docent activeert voorkennis", "tijd": "05:00–15:00", "activiteitLeraar": "...", "activiteitLeerling": "...", "hulpmiddelen": "..." },
+    { "fase": "Fase 3 — Docent geeft instructie", "tijd": "15:00–25:00", "activiteitLeraar": "...", "activiteitLeerling": "...", "hulpmiddelen": "..." },
+    { "fase": "Fase 4 — Leerlingen werken zelfstandig", "tijd": "25:00–35:00", "activiteitLeraar": "...", "activiteitLeerling": "...", "hulpmiddelen": "..." },
+    { "fase": "Fase 5 — Docent koppelt leerdoelen terug", "tijd": "35:00–40:00", "activiteitLeraar": "...", "activiteitLeerling": "...", "hulpmiddelen": "..." },
+    { "fase": "Fase 6 — Reflectie op product en proces", "tijd": "40:00–${minuten}:00", "activiteitLeraar": "...", "activiteitLeerling": "...", "hulpmiddelen": "..." }
+  ]
 }
 
 Regels:
-- Lesverloop: tijden moeten optellen tot ${Math.round((activiteitUren || 1) * 60)} minuten
-- Max 6 stappen in stappenplan
-- Max 4 aandachtspunten
-- Schrijf in aanspreekvorm voor de docent (bijv. "Zorg ervoor dat...", "Controleer of...")`,
+- Fasering: tijden lopen door tot ${minuten} minuten totaal
+- Schrijf in aanspreekvorm voor de docent ("Zorg ervoor dat...", "Controleer of...")
+- VMBO/MBO niveau, praktisch en concreet`,
       maxTokens: 2500,
       temperature: 0.3
     });
@@ -2146,215 +2145,160 @@ async function bouwLesbriefDocx(lb, schoolnaam) {
     Document, Packer, Paragraph, TextRun,
     Header, Footer, AlignmentType, BorderStyle,
     Table, TableRow, TableCell, WidthType,
-    TabStopType, TabStopPosition, PageNumber,
-    PageBreak
+    TabStopType, TabStopPosition, PageNumber
   } = require('docx');
 
-  const GROEN = '2D5A3D', GROEN_DIM = 'EAF4EE', GRIJS = 'D1D5DB', TEKST = '1F2937', WIT = 'FFFFFF', AMBER = '92400E';
-  const CEL_RAND = { style: BorderStyle.SINGLE, size: 1, color: GRIJS };
+  const GROEN = '2D5A3D', GROEN_DIM = 'EAF4EE', GRIJS = 'D1D5DB', TEKST = '1F2937', WIT = 'FFFFFF';
   const RAND_GEEN = { style: BorderStyle.NONE, size: 0, color: 'auto' };
+  const CEL_RAND = { style: BorderStyle.SINGLE, size: 4, color: GRIJS };
 
-  // Sectiekop met gekleurde achtergrond + linker accentlijn
   function sectieKop(tekst, paginaBreak = false) {
     return new Paragraph({
       pageBreakBefore: paginaBreak,
-      spacing: { before: paginaBreak ? 0 : 400, after: 120 },
+      spacing: { before: paginaBreak ? 0 : 360, after: 100 },
       shading: { type: 'clear', fill: GROEN_DIM },
       border: { left: { style: BorderStyle.SINGLE, size: 20, color: GROEN, space: 8 } },
       indent: { left: 120 },
-      children: [new TextRun({ text: tekst, font: 'Arial', size: 26, bold: true, color: GROEN })]
+      children: [new TextRun({ text: tekst, font: 'Arial', size: 24, bold: true, color: GROEN })]
     });
   }
 
-  function alinea(tekst, bold = false, kleur = TEKST) {
+  function vraagKop(nr, tekst) {
     return new Paragraph({
-      spacing: { before: 80, after: 80 },
-      children: [new TextRun({ text: tekst || '', font: 'Arial', size: 20, bold, color: kleur })]
+      spacing: { before: 280, after: 60 },
+      shading: { type: 'clear', fill: GROEN },
+      indent: { left: 100, right: 100 },
+      children: [
+        new TextRun({ text: nr + '  ', font: 'Arial', size: 20, bold: true, color: WIT }),
+        new TextRun({ text: tekst, font: 'Arial', size: 20, bold: true, color: WIT })
+      ]
     });
   }
 
-  function bullet(tekst) {
+  function sublabel(tekst) {
+    return new Paragraph({
+      spacing: { before: 120, after: 40 },
+      children: [new TextRun({ text: tekst, font: 'Arial', size: 20, bold: true, color: GROEN })]
+    });
+  }
+
+  function alinea(tekst) {
     return new Paragraph({
       spacing: { before: 60, after: 60 },
-      indent: { left: 400, hanging: 240 },
-      children: [new TextRun({ text: '•  ' + (tekst || ''), font: 'Arial', size: 20, color: TEKST })]
+      children: [new TextRun({ text: tekst || '', font: 'Arial', size: 20, color: TEKST })]
     });
   }
 
-  function ruimte(voor = 200, na = 0) {
-    return new Paragraph({ spacing: { before: voor, after: na }, children: [new TextRun({ text: '' })] });
+  function ruimte(h = 160) {
+    return new Paragraph({ spacing: { before: h, after: 0 }, children: [new TextRun('')] });
   }
 
-  const info = lb;
+  function metaRij(label, waarde, label2, waarde2) {
+    const cel = (l, w) => new TableCell({
+      width: { size: 25, type: WidthType.PERCENTAGE },
+      margins: { top: 60, bottom: 60, left: 100, right: 80 },
+      borders: { top: CEL_RAND, bottom: CEL_RAND, left: CEL_RAND, right: CEL_RAND },
+      children: [new Paragraph({ children: [
+        new TextRun({ text: l + ': ', font: 'Arial', size: 19, bold: true, color: GROEN }),
+        new TextRun({ text: w || '—', font: 'Arial', size: 19, color: TEKST })
+      ]})]
+    });
+    const rij = [cel(label, waarde)];
+    if (label2 !== undefined) rij.push(cel(label2, waarde2));
+    return new TableRow({ children: rij });
+  }
+
   const children = [];
 
-  // ---- TITELPAGINA BLOK ----
+  // ---- TITEL ----
   children.push(new Paragraph({
-    spacing: { before: 0, after: 80 },
-    children: [new TextRun({ text: 'Lesbrief', font: 'Arial', size: 52, bold: true, color: GROEN })]
+    spacing: { before: 0, after: 60 },
+    children: [new TextRun({ text: 'Lesvoorbereidingsformulier', font: 'Arial', size: 48, bold: true, color: GROEN })]
   }));
-
-  const naam = lb.activiteitNaam || '';
-  const type = lb.activiteitType || '';
-  const uren = lb.activiteitUren || '';
-  if (naam || type) {
-    children.push(new Paragraph({
-      spacing: { before: 0, after: 40 },
-      children: [
-        ...(type ? [new TextRun({ text: type + '  —  ', font: 'Arial', size: 22, color: '6B7280' })] : []),
-        new TextRun({ text: naam, font: 'Arial', size: 22, bold: true, color: TEKST }),
-        ...(uren ? [new TextRun({ text: `   ·   ${uren} uur`, font: 'Arial', size: 22, color: '6B7280' })] : []),
-      ]
-    }));
-  }
   children.push(new Paragraph({
     spacing: { before: 0, after: 0 },
-    border: { bottom: { style: BorderStyle.SINGLE, size: 8, color: GROEN, space: 8 } },
-    children: [new TextRun({ text: '' })]
+    border: { bottom: { style: BorderStyle.SINGLE, size: 8, color: GROEN, space: 6 } },
+    children: [new TextRun('')]
   }));
+  children.push(ruimte(120));
 
-  // ---- 1. VOORBEREIDING + BENODIGDHEDEN ----
-  if (info.voorbereiding || (info.benodigdheden && info.benodigdheden.length)) {
-    children.push(ruimte(320));
-    children.push(sectieKop('Voorbereiding'));
-    if (info.voorbereiding) {
-      children.push(alinea(info.voorbereiding));
+  // ---- IDENTIFICATIETABEL ----
+  const metaTabel = new Table({
+    width: { size: 100, type: WidthType.PERCENTAGE },
+    rows: [
+      metaRij('Kandidaat', lb.kandidaat, 'Datum les', lb.datumLes),
+      metaRij('Vak', lb.vak || lb.activiteitNaam, 'Klas', lb.klas),
+      metaRij('School', lb.school, 'Lokaal', lb.lokaal),
+      metaRij('Werkplekbegeleider', lb.werkplekbegeleider, 'Methode', lb.methode),
+      new TableRow({ children: [new TableCell({
+        columnSpan: 2,
+        margins: { top: 60, bottom: 60, left: 100, right: 80 },
+        borders: { top: CEL_RAND, bottom: CEL_RAND, left: CEL_RAND, right: CEL_RAND },
+        children: [new Paragraph({ children: [
+          new TextRun({ text: 'Onderwerp / Hoofdstuk: ', font: 'Arial', size: 19, bold: true, color: GROEN }),
+          new TextRun({ text: lb.onderwerp || '—', font: 'Arial', size: 19, color: TEKST })
+        ]})]
+      })]})
+    ]
+  });
+  children.push(metaTabel);
+
+  // ---- VRAAG 1: LESDOEL ----
+  children.push(vraagKop('1)', 'Wat wil ik de leerlingen leren? — Lesdoel'));
+  if (lb.lesdoel) { children.push(sublabel('Lesdoel(en)')); children.push(alinea(lb.lesdoel)); }
+  if (lb.beginsituatie) { children.push(sublabel('Beginsituatie')); children.push(alinea(lb.beginsituatie)); }
+
+  // ---- VRAAG 2: DIDACTIEK ----
+  children.push(vraagKop('2)', 'Hoe bereik ik dat? — Didactiek'));
+  if (lb.watDoekIk) { children.push(sublabel('Wat doe ik? (en waarom)')); children.push(alinea(lb.watDoekIk)); }
+  if (lb.watDoetDeLeerling) { children.push(sublabel('Wat doet de leerling/student? (waartoe)')); children.push(alinea(lb.watDoetDeLeerling)); }
+
+  // ---- VRAAG 3: EVALUATIE ----
+  children.push(vraagKop('3)', 'Hoe controleer en evalueer ik of leerlingen geleerd hebben? — Evaluatie'));
+  if (lb.evaluatie) children.push(alinea(lb.evaluatie));
+
+  // ---- VRAAG 4: REFLECTIE ----
+  children.push(vraagKop('4)', 'Wat wil ik laten zien? — Resultaat & Reflectie'));
+  if (lb.reflectie) children.push(alinea(lb.reflectie));
+
+  // ---- FASERING TABEL ----
+  if (lb.fasering && lb.fasering.length) {
+    children.push(sectieKop('Fasering van de les', true));
+    children.push(ruimte(80));
+
+    function faseCol(tekst, breedte, isHeader = false, bg = null) {
+      return new TableCell({
+        width: { size: breedte, type: WidthType.PERCENTAGE },
+        shading: bg ? { type: 'clear', fill: bg } : undefined,
+        margins: { top: 80, bottom: 80, left: 100, right: 80 },
+        borders: { top: CEL_RAND, bottom: CEL_RAND, left: CEL_RAND, right: CEL_RAND },
+        children: [new Paragraph({ children: [new TextRun({ text: tekst || '', font: 'Arial', size: isHeader ? 19 : 18, bold: isHeader, color: isHeader ? WIT : TEKST })] })]
+      });
     }
-    if (info.benodigdheden && info.benodigdheden.length) {
-      children.push(ruimte(160));
-      children.push(alinea('Benodigdheden', true));
-      info.benodigdheden.forEach(b => children.push(bullet(b)));
-    }
-  }
 
-  // ---- 2. LESVERLOOP (eigen pagina als veel fases) ----
-  if (info.lesverloop && info.lesverloop.length) {
-    const totaal = info.lesverloop.reduce((t, f) => t + (parseInt(f.minuten) || 0), 0);
-    const veelFases = info.lesverloop.length > 4;
-    children.push(sectieKop('Lesverloop', veelFases));
-    if (!veelFases) children.push(ruimte(0));
-    children.push(alinea(`Totaal: ${totaal} minuten`, false, '6B7280'));
-    children.push(ruimte(120));
-
-    const tabelRijen = [
+    const rijen = [
       new TableRow({
         tableHeader: true,
         children: [
-          new TableCell({
-            width: { size: 22, type: WidthType.PERCENTAGE },
-            shading: { type: 'clear', fill: GROEN },
-            margins: { top: 80, bottom: 80, left: 120, right: 80 },
-            borders: { top: RAND_GEEN, bottom: RAND_GEEN, left: RAND_GEEN, right: { style: BorderStyle.SINGLE, size: 1, color: '4B9A61' } },
-            children: [new Paragraph({ children: [new TextRun({ text: 'Fase', font: 'Arial', size: 19, bold: true, color: WIT })] })]
-          }),
-          new TableCell({
-            width: { size: 11, type: WidthType.PERCENTAGE },
-            shading: { type: 'clear', fill: GROEN },
-            margins: { top: 80, bottom: 80, left: 80, right: 80 },
-            borders: { top: RAND_GEEN, bottom: RAND_GEEN, left: RAND_GEEN, right: { style: BorderStyle.SINGLE, size: 1, color: '4B9A61' } },
-            children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Min.', font: 'Arial', size: 19, bold: true, color: WIT })] })]
-          }),
-          new TableCell({
-            width: { size: 67, type: WidthType.PERCENTAGE },
-            shading: { type: 'clear', fill: GROEN },
-            margins: { top: 80, bottom: 80, left: 120, right: 80 },
-            borders: { top: RAND_GEEN, bottom: RAND_GEEN, left: RAND_GEEN, right: RAND_GEEN },
-            children: [new Paragraph({ children: [new TextRun({ text: 'Beschrijving', font: 'Arial', size: 19, bold: true, color: WIT })] })]
-          }),
+          faseCol('Fasering van de les', 22, true, GROEN),
+          faseCol('Tijd', 11, true, GROEN),
+          faseCol('Activiteit leraar', 23, true, GROEN),
+          faseCol('Activiteit leerlingen', 23, true, GROEN),
+          faseCol('Hulpmiddelen', 21, true, GROEN),
         ]
       }),
-      ...info.lesverloop.map((f, i) => {
-        const RIJ_BG = i % 2 === 0 ? 'F3F9F5' : WIT;
-        const onderrand = i < info.lesverloop.length - 1
-          ? { style: BorderStyle.SINGLE, size: 1, color: 'E5E7EB' }
-          : RAND_GEEN;
-        return new TableRow({
-          children: [
-            new TableCell({
-              shading: { type: 'clear', fill: RIJ_BG },
-              margins: { top: 100, bottom: 100, left: 120, right: 80 },
-              borders: { top: RAND_GEEN, bottom: onderrand, left: RAND_GEEN, right: { style: BorderStyle.SINGLE, size: 1, color: GRIJS } },
-              children: [new Paragraph({ children: [new TextRun({ text: f.fase || '', font: 'Arial', size: 19, bold: true, color: GROEN })] })]
-            }),
-            new TableCell({
-              shading: { type: 'clear', fill: RIJ_BG },
-              margins: { top: 100, bottom: 100, left: 80, right: 80 },
-              borders: { top: RAND_GEEN, bottom: onderrand, left: RAND_GEEN, right: { style: BorderStyle.SINGLE, size: 1, color: GRIJS } },
-              children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: String(f.minuten || 0), font: 'Arial', size: 19, color: TEKST })] })]
-            }),
-            new TableCell({
-              shading: { type: 'clear', fill: RIJ_BG },
-              margins: { top: 100, bottom: 100, left: 120, right: 80 },
-              borders: { top: RAND_GEEN, bottom: onderrand, left: RAND_GEEN, right: RAND_GEEN },
-              children: [new Paragraph({ children: [new TextRun({ text: f.beschrijving || '', font: 'Arial', size: 19, color: TEKST })] })]
-            }),
-          ]
-        });
+      ...lb.fasering.map((f, i) => {
+        const bg = i % 2 === 0 ? 'F3F9F5' : WIT;
+        return new TableRow({ children: [
+          faseCol(f.fase, 22, false, bg),
+          faseCol(f.tijd, 11, false, bg),
+          faseCol(f.activiteitLeraar, 23, false, bg),
+          faseCol(f.activiteitLeerling, 23, false, bg),
+          faseCol(f.hulpmiddelen, 21, false, bg),
+        ]});
       })
     ];
-    children.push(new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, rows: tabelRijen }));
-  }
-
-  // ---- 3. STAPPENPLAN ----
-  if (info.stappenplan && info.stappenplan.length) {
-    children.push(sectieKop('Stappenplan'));
-    info.stappenplan.forEach((s, i) => {
-      children.push(new Paragraph({
-        spacing: { before: 100, after: 80 },
-        children: [
-          new TextRun({ text: `Stap ${i + 1}`, font: 'Arial', size: 20, bold: true, color: GROEN }),
-          new TextRun({ text: '   ' + (s.instructie || ''), font: 'Arial', size: 20, color: TEKST }),
-        ]
-      }));
-      if (i < info.stappenplan.length - 1) {
-        children.push(new Paragraph({
-          spacing: { before: 0, after: 0 },
-          border: { bottom: { style: BorderStyle.SINGLE, size: 1, color: 'F3F4F6', space: 0 } },
-          children: [new TextRun({ text: '' })]
-        }));
-      }
-    });
-  }
-
-  // ---- 4. AANDACHTSPUNTEN ----
-  if (info.aandachtspunten && info.aandachtspunten.length) {
-    children.push(sectieKop('Aandachtspunten'));
-    info.aandachtspunten.forEach(p => {
-      children.push(new Paragraph({
-        spacing: { before: 80, after: 80 },
-        indent: { left: 200 },
-        children: [new TextRun({ text: '! ', font: 'Arial', size: 20, bold: true, color: AMBER }),
-                   new TextRun({ text: p || '', font: 'Arial', size: 20, color: AMBER })]
-      }));
-    });
-  }
-
-  // ---- 5. DIFFERENTIATIE ----
-  const diff = info.differentiatie;
-  if (diff && (diff.snel || diff.langzaam)) {
-    children.push(sectieKop('Differentiatie'));
-    if (diff.snel) {
-      children.push(alinea('Snel klaar', true, '065F46'));
-      children.push(new Paragraph({
-        spacing: { before: 60, after: 120 },
-        indent: { left: 280 },
-        children: [new TextRun({ text: diff.snel, font: 'Arial', size: 20, color: TEKST })]
-      }));
-    }
-    if (diff.langzaam) {
-      children.push(alinea('Extra tijd nodig', true, AMBER));
-      children.push(new Paragraph({
-        spacing: { before: 60, after: 120 },
-        indent: { left: 280 },
-        children: [new TextRun({ text: diff.langzaam, font: 'Arial', size: 20, color: TEKST })]
-      }));
-    }
-  }
-
-  // ---- 6. OPMERKINGEN ----
-  if (info.opmerkingen) {
-    children.push(sectieKop('Opmerkingen'));
-    children.push(alinea(info.opmerkingen));
+    children.push(new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, rows: rijen }));
   }
 
   const doc = new Document({
