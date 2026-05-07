@@ -190,6 +190,19 @@ input, select, textarea { font-family: var(--font); }
   -webkit-appearance: none;
 }
 
+/* Checkboxes en radio buttons moeten native blijven */
+.form-field input[type="checkbox"],
+.form-field input[type="radio"] {
+  width: auto;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  -webkit-appearance: auto;
+  appearance: auto;
+  cursor: pointer;
+}
+
 .form-field input:focus,
 .form-field select:focus,
 .form-field textarea:focus {
@@ -1369,4 +1382,97 @@ input, select, textarea { font-family: var(--font); }
   .werkboekje-modal-box .form-grid-3 {
     grid-template-columns: 1fr;
   }
+}
+
+/* ============================================================
+   DOCENT VAK-SELECTOR (meerdere vakken)
+   ============================================================ */
+.vak-select-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+.vak-select-header label {
+  font-weight: 600;
+  font-size: 14px;
+}
+.vak-select-count {
+  font-size: 12px;
+  color: var(--ink-muted);
+  background: var(--surface-2);
+  padding: 2px 10px;
+  border-radius: 20px;
+  border: 1px solid var(--border);
+}
+.vak-select-search {
+  margin-bottom: 8px;
+}
+.vak-select-search input {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1.5px solid var(--border-2);
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  background: var(--surface);
+  color: var(--ink);
+  outline: none;
+}
+.vak-select-search input:focus {
+  border-color: var(--accent);
+}
+.vak-select-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 6px;
+  max-height: 240px;
+  overflow-y: auto;
+  border: 1.5px solid var(--border-2);
+  border-radius: var(--radius-sm);
+  padding: 8px;
+  background: var(--surface);
+}
+.vak-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1.5px solid var(--border);
+  background: var(--cream);
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+  font-size: 13px;
+}
+.vak-option:hover {
+  border-color: var(--accent);
+  background: #f0fdf4;
+}
+.vak-option.is-selected {
+  border-color: var(--accent);
+  background: #dcfce7;
+}
+.vak-option input[type="checkbox"] {
+  margin-top: 2px;
+  flex-shrink: 0;
+}
+.vak-option-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+.vak-option-text strong {
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.vak-option-text span {
+  font-size: 11px;
+  color: var(--ink-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
