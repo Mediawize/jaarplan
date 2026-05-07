@@ -684,6 +684,7 @@ async function openProfielDetail(profielId) {
   ]);
   const p = profielen.find(x => x.id === profielId);
   if (!p) return;
+  window._lpVakken = vakken;
   const vak = vakken.find(v => v.id === p.vakId);
 
   const gekoppeldeKlasIds = [...new Set(alleOpd.filter(o => o.profielId === profielId).map(o => o.klasId))];
@@ -802,6 +803,8 @@ function renderActiviteitenHTML(p, weekIdx) {
       syllabus: a.syllabus || '',
       profielNaam: p.naam || '',
       weekThema: (w.thema || ''),
+      niveau: p.niveau || '',
+      vak: (window._lpVakken || []).find(v => v.id === p.vakId)?.naam || '',
     };
   });
   return `<table class="data-table">
