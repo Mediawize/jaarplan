@@ -84,9 +84,34 @@ async function openLesModuleModal(moduleId = null) {
 
   openModal(`
     <h2>${m ? 'Les module bewerken' : 'Nieuwe les module'}</h2>
-    <p class="modal-sub">Upload een PDF of Word-bestand. AI haalt de theoriestappen eruit (toetsen worden overgeslagen).</p>
+    <p class="modal-sub">Kies eerst het type en niveau. Upload dan een PDF of Word-bestand — AI haalt de theoriestappen eruit (toetsen worden overgeslagen).</p>
+
+    <div class="form-grid" style="margin-bottom:16px">
+      <div class="form-field"><label>Type *</label>
+        <select id="lm-type">
+          <option value="profieldeel" ${(!m || m.type === 'profieldeel') ? 'selected' : ''}>Profieldeel (max 12 stappen)</option>
+          <option value="keuzedeel" ${m?.type === 'keuzedeel' ? 'selected' : ''}>Keuzedeel (max 8 stappen)</option>
+        </select>
+      </div>
+      <div class="form-field"><label>Niveau *</label>
+        <select id="lm-niveau">
+          ${['BB', 'KB', 'GL', 'TL', 'Havo', 'VWO', ''].map(n => `<option value="${n}" ${(m?.niveau || '') === n ? 'selected' : ''}>${n || 'Alle niveaus'}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-field"><label>Vak</label>
+        <select id="lm-vak">
+          <option value="">Geen specifiek vak</option>
+          ${vakken.map(v => `<option value="${v.id}" ${m?.vakId === v.id ? 'selected' : ''}>${escHtml(v.naam)}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-field form-full"><label>Naam *</label><input id="lm-naam" value="${escHtml(m?.naam || '')}" placeholder="bijv. Profieldeel Wonen - GL"></div>
+      <div class="form-field form-full"><label>Beschrijving</label>
+        <textarea id="lm-beschrijving" rows="2" style="resize:vertical" placeholder="Korte omschrijving van het profiel- of keuzedeel">${escHtml(m?.beschrijving || '')}</textarea>
+      </div>
+    </div>
 
     <div id="lm-upload-sectie" style="${m ? 'display:none' : ''}">
+      <hr style="border:none;border-top:1px solid var(--border);margin:0 0 16px">
       <div class="form-field form-full">
         <label>PDF of Word uploaden</label>
         <input id="lm-bestand" type="file" accept=".pdf,.docx,.doc,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document">
@@ -98,31 +123,7 @@ async function openLesModuleModal(moduleId = null) {
     </div>
     ${m ? `<button class="btn btn-sm" style="margin-bottom:16px" onclick="document.getElementById('lm-upload-sectie').style.display='block';this.remove()">↻ Nieuw bestand analyseren</button>` : ''}
 
-    <div class="form-grid">
-      <div class="form-field form-full"><label>Naam *</label><input id="lm-naam" value="${escHtml(m?.naam || '')}" placeholder="bijv. Profieldeel Wonen - GL"></div>
-      <div class="form-field"><label>Type</label>
-        <select id="lm-type">
-          <option value="profieldeel" ${(!m || m.type === 'profieldeel') ? 'selected' : ''}>Profieldeel</option>
-          <option value="keuzedeel" ${m?.type === 'keuzedeel' ? 'selected' : ''}>Keuzedeel</option>
-        </select>
-      </div>
-      <div class="form-field"><label>Vak</label>
-        <select id="lm-vak">
-          <option value="">Geen specifiek vak</option>
-          ${vakken.map(v => `<option value="${v.id}" ${m?.vakId === v.id ? 'selected' : ''}>${escHtml(v.naam)}</option>`).join('')}
-        </select>
-      </div>
-      <div class="form-field"><label>Niveau</label>
-        <select id="lm-niveau">
-          ${['', 'BB', 'KB', 'GL', 'TL', 'Havo', 'VWO'].map(n => `<option value="${n}" ${(m?.niveau || '') === n ? 'selected' : ''}>${n || 'Alle niveaus'}</option>`).join('')}
-        </select>
-      </div>
-      <div class="form-field form-full"><label>Beschrijving</label>
-        <textarea id="lm-beschrijving" rows="2" style="resize:vertical" placeholder="Korte omschrijving van het profiel- of keuzedeel">${escHtml(m?.beschrijving || '')}</textarea>
-      </div>
-    </div>
-
-    <div style="margin-top:16px">
+    <div style="margin-top:8px">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
         <label style="font-weight:600;font-size:14px">Theoriestappen <span id="lm-stapcount" style="font-size:12px;color:var(--ink-muted);font-weight:400"></span></label>
         <button class="btn btn-sm" onclick="lmVoegStapToe()">+ Stap toevoegen</button>
@@ -187,18 +188,21 @@ async function analyseerLesModuleBestand() {
 
   if (statusEl) statusEl.innerHTML = '<span style="color:var(--ink-muted);font-size:13px">⏳ AI analyseert het bestand...</span>';
 
+  const niveau = document.getElementById('lm-niveau')?.value || '';
+  const type = document.getElementById('lm-type')?.value || 'profieldeel';
+
   const fd = new FormData();
   fd.append('bestand', input.files[0]);
+  fd.append('niveau', niveau);
+  fd.append('type', type);
   try {
     const res = await fetch('/api/les-modules/analyseer', { method: 'POST', credentials: 'same-origin', body: fd });
     const data = await res.json();
     if (!res.ok || data.error) throw new Error(data.error || 'Fout');
 
-    // Vul naam en type automatisch in als nog leeg
+    // Vul naam automatisch in als nog leeg
     const naamEl = document.getElementById('lm-naam');
     if (naamEl && !naamEl.value.trim()) naamEl.value = data.naam || '';
-    const typeEl = document.getElementById('lm-type');
-    if (typeEl && data.type) typeEl.value = data.type;
     document.getElementById('lm-bron-bestand').value = data.bronBestand || '';
 
     // Toon stappen

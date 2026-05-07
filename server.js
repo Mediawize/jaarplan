@@ -873,13 +873,19 @@ app.post('/api/les-modules/analyseer', requireAdmin, upload.single('bestand'), a
 
     if (!bronTekst.trim()) return res.status(422).json({ error: 'Kon geen tekst lezen uit het bestand. Controleer of het een doorzoekbare PDF is (geen scan). Probeer het bestand te openen en de tekst te selecteren — als dat niet lukt, is het een gescande PDF.' });
 
+    const gekozenType = (req.body.type || 'profieldeel').toLowerCase().includes('keuzedeel') ? 'keuzedeel' : 'profieldeel';
+    const gekozenNiveau = (req.body.niveau || '').trim();
+    const maxStappen = gekozenType === 'keuzedeel' ? 8 : 12;
+    const niveauTekst = gekozenNiveau ? `VMBO ${gekozenNiveau}` : 'VMBO (alle niveaus)';
+
     const prompt = `Je bent een VMBO-onderwijsspecialist die een syllabus of profieldeel-document analyseert voor VMBO praktijkonderwijs.
 
 CONTEXT:
-- Dit zijn VMBO-leerlingen (praktijkleerweg) die een praktijkvak leren
+- Dit zijn ${niveauTekst}-leerlingen (praktijkleerweg) die een praktijkvak leren
+- Het betreft een ${gekozenType} — maximaal ${maxStappen} theoriestappen
 - Aan elk praktijkvak is THEORIE gekoppeld die in EloDigitaal als theoriestappen wordt aangeboden
 - De syllabus beschrijft competenties en handelingen die een leerling moet beheersen
-- Jouw taak: zet elke competentie/handeling om naar een passende THEORIE-lesnaam voor VMBO-niveau
+- Jouw taak: zet elke competentie/handeling om naar een passende THEORIE-lesnaam voor ${niveauTekst}-niveau
 
 REGELS voor theorie-lesnamen:
 - Formuleer als de KENNIS/THEORIE die een leerling nodig heeft om de handeling te kunnen uitvoeren
@@ -890,13 +896,11 @@ REGELS voor theorie-lesnamen:
   * "Materialen selecteren voor de opdracht" → "Materiaalkennis en eigenschappen"
   * "Veilig werken met gereedschap" → "Veiligheidsvoorschriften en ARBO-regels"
   * "Budget berekenen voor een project" → "Calculatie en kostenberekening"
-- Titels zijn kort en herkenbaar (3-8 woorden), geschikt voor VMBO-niveau
+- Titels zijn kort en herkenbaar (3-8 woorden), geschikt voor ${niveauTekst}-niveau
 - Sla toetsmomenten OVER: D-toets, Deeltoets, Eindtoets, assessment, examen, proeve van bekwaamheid
 - Sla inhoudsopgaven, voorwoorden en administratieve teksten over
 
-MAXIMUM STAPPEN — dit is een harde grens:
-- "keuzedeel": maximaal 8 stappen
-- "profieldeel": maximaal 12 stappen
+MAXIMUM STAPPEN — harde grens: maximaal ${maxStappen} stappen voor dit ${gekozenType}
 - Als de syllabus meer onderwerpen bevat: GROEPEER verwante onderwerpen slim tot één overkoepelende theorie-lesnaam
 - Voorbeeld groepering: "Zaagmethoden", "Schaventechnieken", "Boren en frezen" → samenvoegen tot "Bewerkingstechnieken hout"
 - Voorbeeld groepering: "Soorten verf kennen", "Ondergronden beoordelen", "Primers toepassen" → "Verfsoorten en ondergronden"
@@ -905,7 +909,7 @@ MAXIMUM STAPPEN — dit is een harde grens:
 Geef ALLEEN geldige JSON terug zonder uitleg of markdown:
 {
   "naam": "officiële naam van het profieldeel of keuzedeel uit het document (max 60 tekens)",
-  "type": "profieldeel of keuzedeel",
+  "type": "${gekozenType}",
   "stappen": ["theorie-lesnaam 1", "theorie-lesnaam 2", ...]
 }
 
@@ -913,7 +917,7 @@ Tekst uit het document:
 ${bronTekst.slice(0, 12000)}`;
 
     const resultaat = await chatJson({
-      system: 'Je bent een VMBO-onderwijsspecialist. Je zet syllabuscompetences om naar theorie-lesnamen voor VMBO-leerlingen. Je geeft altijd alleen geldig JSON terug, zonder markdown of uitleg.',
+      system: `Je bent een VMBO-onderwijsspecialist voor ${niveauTekst}. Je zet syllabuscompetences om naar theorie-lesnamen. Je geeft altijd alleen geldig JSON terug, zonder markdown of uitleg.`,
       user: prompt,
       maxTokens: 2000,
       model: 'claude-sonnet-4-6'
@@ -922,8 +926,8 @@ ${bronTekst.slice(0, 12000)}`;
     return res.json({
       success: true,
       naam: resultaat.naam || req.file.originalname.replace(/\.[^.]+$/, ''),
-      type: resultaat.type || 'profieldeel',
-      stappen: Array.isArray(resultaat.stappen) ? resultaat.stappen.filter(Boolean).slice(0, (resultaat.type || '').toLowerCase().includes('keuzedeel') ? 8 : 12) : [],
+      type: gekozenType,
+      stappen: Array.isArray(resultaat.stappen) ? resultaat.stappen.filter(Boolean).slice(0, maxStappen) : [],
       bronBestand: req.file.originalname
     });
   } catch (e) {
