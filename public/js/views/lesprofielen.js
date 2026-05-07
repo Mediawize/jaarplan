@@ -57,7 +57,7 @@ function resetLesprofielWizard() {
       naam: '', vakId: '', niveau: '', aantalWeken: 8, urenPerWeek: 3, beschrijving: '',
       syllabusUploadToken: '', syllabusBestand: '', syllabusModules: [], syllabusModuleCode: '', syllabusPreview: '',
       aiWeekthemas: true, aiActiviteiten: true, aiBronnen: false, aiDifferentiatie: false, aiOpmerkingen: false,
-      afbeeldingStappen: []  // stappen gelezen uit screenshot via vision
+      lesModuleId: ''
     }
   };
 }
@@ -66,8 +66,8 @@ async function openLesprofielWizard(vakId = null) { resetLesprofielWizard(); if 
 function closeLesprofielWizard() { resetLesprofielWizard(); closeModalDirect(); }
 
 function leesLesprofielWizardStap1() {
-  // Stap 1 is upload/analyse. De data wordt verwerkt in analyseerLesprofielWizardUpload().
   if (!lesprofielWizardState) resetLesprofielWizard();
+  lesprofielWizardState.data.lesModuleId = document.getElementById('lpw-lesmodule')?.value || '';
   const startOpmerkingen = document.getElementById('lpw-ai-opmerkingen-start');
   if (startOpmerkingen) lesprofielWizardState.data.aiOpmerkingen = !!startOpmerkingen.checked;
 }
@@ -96,42 +96,56 @@ function leesLesprofielWizardStap3() {
 
 async function renderLesprofielWizard() {
   if (!lesprofielWizardState) resetLesprofielWizard();
-  const vakken = await API.getVakken();
+  const [vakken, alleModules] = await Promise.all([API.getVakken(), API.getLesModules()]);
   const d = lesprofielWizardState.data;
   const step = lesprofielWizardState.step;
   const progress = Math.round((step / 4) * 100);
 
-  const afbeeldingStappenHtml = (d.afbeeldingStappen || []).length
-    ? `<div style="margin-top:10px;background:#f0fdf4;border:1px solid var(--accent);border-radius:8px;padding:10px 14px">
-        <div style="font-weight:600;font-size:13px;margin-bottom:6px;color:var(--accent)">Gevonden stappen (toetsen overgeslagen):</div>
-        <ol style="margin:0;padding-left:18px;font-size:13px;color:var(--ink)">${(d.afbeeldingStappen).map(s => `<li>${escHtml(s)}</li>`).join('')}</ol>
-        <button class="btn btn-sm" style="margin-top:8px;color:var(--red)" onclick="lesprofielWizardState.data.afbeeldingStappen=[];renderLesprofielWizard()">Verwijderen</button>
+  // Filter modules op vak (als vakId al bekend is)
+  const modules = d.vakId
+    ? alleModules.filter(m => String(m.vakId) === String(d.vakId))
+    : alleModules;
+
+  const geselecteerdeModule = modules.find(m => String(m.id) === String(d.lesModuleId));
+
+  const moduleSelectorHtml = modules.length
+    ? `<select id="lpw-lesmodule" onchange="lesprofielWizardState.data.lesModuleId=this.value;renderLesprofielWizard()" style="width:100%">
+        <option value="">— Geen les module koppelen —</option>
+        ${modules.map(m => {
+          const label = (m.niveau ? m.niveau + ' · ' : '') + escHtml(m.naam) + ' (' + (m.stappen||[]).length + ' stappen)';
+          return '<option value="' + m.id + '" ' + (String(d.lesModuleId) === String(m.id) ? 'selected' : '') + '>' + label + '</option>';
+        }).join('')}
+      </select>`
+    : `<div style="color:var(--ink-muted);font-size:13px;padding:10px 0">Nog geen les modules aangemaakt. Ga naar <strong>Les Modules</strong> in het admin-menu om modules toe te voegen.</div>`;
+
+  const gekoppeldeStappenHtml = geselecteerdeModule && (geselecteerdeModule.stappen||[]).length
+    ? `<div style="margin-top:12px;background:#f0fdf4;border:1px solid var(--accent);border-radius:8px;padding:10px 14px">
+        <div style="font-weight:600;font-size:13px;margin-bottom:6px;color:var(--accent)">${(geselecteerdeModule.stappen).length} theoriestappen uit deze module:</div>
+        <ol style="margin:0;padding-left:18px;font-size:13px;color:var(--ink)">${(geselecteerdeModule.stappen).map(s => '<li>' + escHtml(s) + '</li>').join('')}</ol>
       </div>` : '';
 
   const stap1 = `
-    <div class="alert alert-info" style="margin-bottom:16px"><strong>Optioneel:</strong> upload een syllabus (PDF/Word) of een screenshot van je leerplatform met de theorielessen. De stappen worden automatisch herkend en meegenomen in de AI-generatie. Sla dit over als je zelf een onderwerp wilt invullen.</div>
+    <div class="alert alert-info" style="margin-bottom:16px"><strong>Optioneel:</strong> koppel een les module om de theoriestappen mee te nemen in de AI-generatie. Je kunt dit ook overslaan en zelf een onderwerp invullen.</div>
     <div class="form-grid">
       <div class="form-field form-full">
-        <label>Syllabus uploaden (PDF of Word)</label>
+        <label>Les module koppelen</label>
+        ${moduleSelectorHtml}
+        <small style="color:var(--ink-muted)">Alleen modules${d.vakId ? ' van het gekozen vak' : ''} worden getoond.</small>
+      </div>
+      ${gekoppeldeStappenHtml}
+
+      <div class="form-field form-full">
+        <label>Syllabus uploaden (PDF of Word) <span style="font-weight:400;color:var(--ink-muted)">— alternatief voor les module</span></label>
         <input id="lpw-syllabus-upload" type="file" accept="application/pdf,.pdf,.docx,.doc,application/vnd.openxmlformats-officedocument.wordprocessingml.document" onchange="analyseerLesprofielWizardUpload(this)">
-        <small style="color:var(--ink-muted)">${d.syllabusBestand ? `Geanalyseerd: ${escHtml(d.syllabusBestand)}` : 'Ondersteund: .pdf en .docx (ook taakkaarten met K/PIE-codes).'}</small>
+        <small style="color:var(--ink-muted)">${d.syllabusBestand ? 'Geanalyseerd: ' + escHtml(d.syllabusBestand) : 'Ondersteund: .pdf en .docx'}</small>
       </div>
       <div id="lpw-syllabus-status" class="form-field form-full" style="${d.syllabusBestand || d.syllabusModules?.length ? '' : 'display:none'}">
-        ${d.syllabusModules?.length ? `<div class="alert alert-success">${d.syllabusModules.length} profielmodules gevonden. Kies in de volgende stap welke module je wilt gebruiken.</div>` : ''}
-      </div>
-      ${d.syllabusPreview ? `<div class="form-field form-full"><label>Analyse-preview</label><div style="max-height:120px;overflow:auto;border:1px solid var(--border);border-radius:10px;padding:10px;font-size:12px;background:#fff;color:var(--ink-muted)">${escHtml(d.syllabusPreview)}</div></div>` : ''}
-
-      <div class="form-field form-full" style="border-top:1px solid var(--border);padding-top:16px;margin-top:4px">
-        <label>Screenshot van leerplatform uploaden</label>
-        <small style="color:var(--ink-muted);display:block;margin-bottom:8px">Maak een screenshot van je leerplatform (bijv. Somtoday) met de lijst van theorielessen. Toetsmomenten worden automatisch overgeslagen.</small>
-        <input id="lpw-afbeelding-upload" type="file" accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp" onchange="analyseerLesprofielAfbeelding(this)">
-        <div id="lpw-afbeelding-status"></div>
-        ${afbeeldingStappenHtml}
+        ${d.syllabusModules?.length ? '<div class="alert alert-success">' + d.syllabusModules.length + ' profielmodules gevonden. Kies in de volgende stap welke module je wilt gebruiken.</div>' : ''}
       </div>
 
       <label class="form-field form-full" style="display:flex;gap:10px;align-items:flex-start;cursor:pointer">
         <input id="lpw-ai-opmerkingen-start" type="checkbox" ${d.aiOpmerkingen ? 'checked' : ''} onchange="lesprofielWizardState.data.aiOpmerkingen=this.checked" style="width:auto;margin-top:3px">
-        <span><strong>AI opmerkingen/aandachtspunten laten toevoegen</strong><br><small style="color:var(--ink-muted)">AI verwerkt korte docentopmerkingen, zoals voorbereiding, veiligheid, benodigdheden of aandachtspunten. Deze keuze kun je later nog aanpassen.</small></span>
+        <span><strong>AI opmerkingen/aandachtspunten laten toevoegen</strong><br><small style="color:var(--ink-muted)">AI verwerkt korte docentopmerkingen, zoals voorbereiding, veiligheid, benodigdheden of aandachtspunten.</small></span>
       </label>
     </div>`;
 
