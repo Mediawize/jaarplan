@@ -62,7 +62,7 @@ function resetLesprofielWizard() {
   };
 }
 
-async function openLesprofielWizard() { resetLesprofielWizard(); await renderLesprofielWizard(); }
+async function openLesprofielWizard(vakId = null) { resetLesprofielWizard(); if (vakId) lesprofielWizardState.data.vakId = vakId; await renderLesprofielWizard(); }
 function closeLesprofielWizard() { resetLesprofielWizard(); closeModalDirect(); }
 
 function leesLesprofielWizardStap1() {
@@ -540,7 +540,7 @@ async function renderLesprofielen() {
             return `<div class="card" style="margin-bottom:20px">
               <div class="card-header">
                 <div><h2>${escHtml(vak.naam)} — ${escHtml(vak.volledig)}</h2><div class="card-meta">${vp.length} profiel${vp.length !== 1 ? 'en' : ''}</div></div>
-                <button class="btn btn-sm btn-primary" onclick="openProfielModal('${vak.id}')">+ Profiel voor ${escHtml(vak.naam)}</button>
+                <button class="btn btn-sm btn-primary" onclick="openLesprofielWizard('${vak.id}')">+ Profiel voor ${escHtml(vak.naam)}</button>
               </div>
               ${(() => {
                 const niveauVolgorde = ['BB', 'KB', 'GL', 'TL', 'Havo', 'VWO'];
