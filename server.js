@@ -893,8 +893,14 @@ REGELS voor theorie-lesnamen:
 - Titels zijn kort en herkenbaar (3-8 woorden), geschikt voor VMBO-niveau
 - Sla toetsmomenten OVER: D-toets, Deeltoets, Eindtoets, assessment, examen, proeve van bekwaamheid
 - Sla inhoudsopgaven, voorwoorden en administratieve teksten over
-- Maximum aantal stappen: bij "keuzedeel" maximaal 8 stappen, bij "profieldeel" maximaal 12 stappen
-- Kies de meest inhoudelijk relevante stappen als er meer zijn dan het maximum
+
+MAXIMUM STAPPEN — dit is een harde grens:
+- "keuzedeel": maximaal 8 stappen
+- "profieldeel": maximaal 12 stappen
+- Als de syllabus meer onderwerpen bevat: GROEPEER verwante onderwerpen slim tot één overkoepelende theorie-lesnaam
+- Voorbeeld groepering: "Zaagmethoden", "Schaventechnieken", "Boren en frezen" → samenvoegen tot "Bewerkingstechnieken hout"
+- Voorbeeld groepering: "Soorten verf kennen", "Ondergronden beoordelen", "Primers toepassen" → "Verfsoorten en ondergronden"
+- Kies titels die de gegroepeerde inhoud goed dekken, zodat een leerling weet wat er in de les aan bod komt
 
 Geef ALLEEN geldige JSON terug zonder uitleg of markdown:
 {
