@@ -2381,8 +2381,9 @@ async function bouwLesbriefDocx(lb, schoolnaam) {
 }
 
 app.get('/api/lesbrieven/:id/download', requireAuth, async (req, res) => {
-  const lb = db.getLesbrief(req.params.id);
-  if (!lb) return res.status(404).json({ error: 'Niet gevonden' });
+  const lbRow = db.getLesbrief(req.params.id);
+  if (!lbRow) return res.status(404).json({ error: 'Niet gevonden' });
+  const lb = { ...lbRow, ...(lbRow.data || {}) };
   try {
     const schoolnaam = db.getInstelling('schoolnaam') || '';
     const docxBuffer = await bouwLesbriefDocx(lb, schoolnaam);

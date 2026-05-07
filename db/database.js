@@ -273,6 +273,10 @@ function migreer() {
     db.exec("ALTER TABLE lesbrieven ADD COLUMN activiteitUren REAL DEFAULT 1");
     console.log('Migratie: activiteitNaam/Type/Uren kolommen toegevoegd aan lesbrieven');
   }
+  if (!lbKolommen.includes('data')) {
+    db.exec("ALTER TABLE lesbrieven ADD COLUMN data TEXT DEFAULT '{}'");
+    console.log('Migratie: data kolom toegevoegd aan lesbrieven');
+  }
 
   // Materialen bibliotheek
   const matTabel = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='materialen'").get();
@@ -406,8 +410,8 @@ const Q = {
   getLesbrievenByProfiel: db.prepare('SELECT * FROM lesbrieven WHERE profielId=?'),
   getLesbrief: db.prepare('SELECT * FROM lesbrieven WHERE id=?'),
   getLesbrievBySleutel: db.prepare('SELECT * FROM lesbrieven WHERE profielId=? AND weekIdx=? AND actIdx=?'),
-  insLesbrief: db.prepare('INSERT INTO lesbrieven (id,profielId,weekIdx,actIdx,activiteitNaam,activiteitType,activiteitUren,voorbereiding,benodigdheden,lesverloop,stappenplan,aandachtspunten,differentiatie,opmerkingen) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)'),
-  updLesbrief: db.prepare("UPDATE lesbrieven SET activiteitNaam=?,activiteitType=?,activiteitUren=?,voorbereiding=?,benodigdheden=?,lesverloop=?,stappenplan=?,aandachtspunten=?,differentiatie=?,opmerkingen=?,bijgewerkt=datetime('now') WHERE id=?"),
+  insLesbrief: db.prepare('INSERT INTO lesbrieven (id,profielId,weekIdx,actIdx,activiteitNaam,activiteitType,activiteitUren,data) VALUES (?,?,?,?,?,?,?,?)'),
+  updLesbrief: db.prepare("UPDATE lesbrieven SET activiteitNaam=?,activiteitType=?,activiteitUren=?,data=?,bijgewerkt=datetime('now') WHERE id=?"),
   delLesbrief: db.prepare('DELETE FROM lesbrieven WHERE id=?'),
 
   // Werkboekjes
@@ -569,14 +573,8 @@ module.exports = {
   // LESBRIEVEN
   // ============================================================
   _parseLesbrief(lb) {
-    return {
-      ...lb,
-      benodigdheden: parseJSON(lb.benodigdheden, []),
-      lesverloop: parseJSON(lb.lesverloop, []),
-      stappenplan: parseJSON(lb.stappenplan, []),
-      aandachtspunten: parseJSON(lb.aandachtspunten, []),
-      differentiatie: parseJSON(lb.differentiatie, {}),
-    };
+    const data = parseJSON(lb.data, {});
+    return { ...lb, data };
   },
   getLesbrieven(profielId, weekIdx, actIdx) {
     if (profielId && weekIdx != null && actIdx != null) {
@@ -591,33 +589,23 @@ module.exports = {
   },
   addLesbrief(d) {
     const id = genId();
+    const data = d.data || {};
     Q.insLesbrief.run(
       id, d.profielId, d.weekIdx, d.actIdx,
       d.activiteitNaam || '', d.activiteitType || '', d.activiteitUren || 1,
-      d.voorbereiding || '',
-      JSON.stringify(d.benodigdheden || []),
-      JSON.stringify(d.lesverloop || []),
-      JSON.stringify(d.stappenplan || []),
-      JSON.stringify(d.aandachtspunten || []),
-      JSON.stringify(d.differentiatie || {}),
-      d.opmerkingen || ''
+      JSON.stringify(data)
     );
     return this.getLesbrief(id);
   },
   updateLesbrief(id, d) {
     const lb = this.getLesbrief(id);
     if (!lb) return;
+    const data = d.data !== undefined ? d.data : lb.data;
     Q.updLesbrief.run(
       d.activiteitNaam ?? lb.activiteitNaam ?? '',
       d.activiteitType ?? lb.activiteitType ?? '',
       d.activiteitUren ?? lb.activiteitUren ?? 1,
-      d.voorbereiding ?? lb.voorbereiding,
-      JSON.stringify(d.benodigdheden ?? lb.benodigdheden),
-      JSON.stringify(d.lesverloop ?? lb.lesverloop),
-      JSON.stringify(d.stappenplan ?? lb.stappenplan),
-      JSON.stringify(d.aandachtspunten ?? lb.aandachtspunten),
-      JSON.stringify(d.differentiatie ?? lb.differentiatie),
-      d.opmerkingen ?? lb.opmerkingen,
+      JSON.stringify(data),
       id
     );
   },
