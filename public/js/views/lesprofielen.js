@@ -162,7 +162,7 @@ async function renderLesprofielWizard() {
       <div class="form-field form-full"><label>Naam lesprofiel *</label><input id="lpw-naam" value="${escHtml(d.naam)}" placeholder="bijv. Elektronisch dobbelspel havo 2"></div>
       <div class="form-field"><label>Vak *</label><select id="lpw-vak"><option value="">Kies vak</option>${vakken.map(v => `<option value="${v.id}" ${String(d.vakId) === String(v.id) ? 'selected' : ''}>${escHtml(v.naam)}</option>`).join('')}</select></div>
       <div class="form-field"><label>Niveau</label><select id="lpw-niveau">${['', 'BB', 'KB', 'GL', 'TL', 'Havo', 'VWO'].map(n => `<option value="${n}" ${d.niveau === n ? 'selected' : ''}>${n || 'Alle niveaus'}</option>`).join('')}</select></div>
-      <div class="form-field"><label>Aantal weken *</label><input id="lpw-weken" type="number" min="1" max="40" value="${escHtml(d.aantalWeken)}"></div>
+      <div class="form-field"><label>Aantal stappen *</label><input id="lpw-weken" type="number" min="1" max="40" value="${escHtml(d.aantalWeken)}"></div>
       <div class="form-field"><label>Verhouding theorie:praktijk *</label>
         <select id="lpw-verhouding">
           ${[['1:1','1:1 — gelijk'],['1:2','1:2 — meer praktijk'],['1:3','1:3'],['1:4','1:4 — overwegend praktijk'],['2:3','2:3'],['3:2','3:2 — meer theorie'],['1:0','Alleen theorie'],['0:1','Alleen praktijk']].map(([v,l]) => `<option value="${v}" ${(d.verhouding||'1:1')===v?'selected':''}>${l}</option>`).join('')}
@@ -650,7 +650,7 @@ async function openProfielModal(vakId = null, profielId = null) {
       <div class="form-field"><label>Niveau</label><select id="profiel-niveau">
         ${['', 'BB', 'KB', 'GL', 'TL', 'Havo', 'VWO'].map(n => `<option value="${n}" ${(p?.niveau || '') === n ? 'selected' : ''}>${n || 'Alle niveaus'}</option>`).join('')}
       </select></div>
-      <div class="form-field"><label>Aantal weken *</label><input id="profiel-weken" type="number" min="1" max="40" value="${p?.aantalWeken || 8}"></div>
+      <div class="form-field"><label>Aantal stappen *</label><input id="profiel-weken" type="number" min="1" max="40" value="${p?.aantalWeken || 8}"></div>
       <div class="form-field"><label>Verhouding theorie:praktijk</label><select id="profiel-verhouding">
         ${[['1:1','1:1 — gelijk'],['1:2','1:2 — meer praktijk'],['1:3','1:3'],['1:4','1:4 — overwegend praktijk'],['2:3','2:3'],['3:2','3:2 — meer theorie'],['1:0','Alleen theorie'],['0:1','Alleen praktijk']].map(([v,l]) => `<option value="${v}" ${(p?.verhouding||'1:1')===v?'selected':''}>${l}</option>`).join('')}
       </select></div>
