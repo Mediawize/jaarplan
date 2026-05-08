@@ -760,7 +760,7 @@ app.post('/api/genereer-lesprofiel-wizard', requireCanEdit, async (req, res) => 
     // Les module stappen ophalen als gekoppeld
     const gekoppeldeModule = lesModuleId ? db.getLesModule(lesModuleId) : null;
     const extraStappen = gekoppeldeModule && Array.isArray(gekoppeldeModule.stappen) && gekoppeldeModule.stappen.length
-      ? gekoppeldeModule.stappen.filter(Boolean)
+      ? gekoppeldeModule.stappen.flatMap(s => typeof s === 'string' ? [s] : (s && s.naam ? [s.naam] : []))
       : [];
 
     const stappenContext = extraStappen.length
@@ -881,17 +881,17 @@ app.post('/api/les-modules/analyseer', requireAdmin, upload.single('bestand'), a
 
     const gekozenType = (req.body.type || 'profieldeel').toLowerCase().includes('keuzedeel') ? 'keuzedeel' : 'profieldeel';
     const gekozenNiveau = (req.body.niveau || '').trim();
-    const maxStappen = gekozenType === 'keuzedeel' ? 8 : 12;
+    const maxHoofdstappen = gekozenType === 'keuzedeel' ? 5 : 7;
     const niveauTekst = gekozenNiveau ? `VMBO ${gekozenNiveau}` : 'VMBO (alle niveaus)';
 
     const prompt = `Je bent een VMBO-onderwijsspecialist die een syllabus of profieldeel-document analyseert voor VMBO praktijkonderwijs.
 
 CONTEXT:
 - Dit zijn ${niveauTekst}-leerlingen (praktijkleerweg) die een praktijkvak leren
-- Het betreft een ${gekozenType} — maximaal ${maxStappen} theoriestappen
+- Het betreft een ${gekozenType} — maximaal ${maxHoofdstappen} hoofdthema's
 - Aan elk praktijkvak is THEORIE gekoppeld die in EloDigitaal als theoriestappen wordt aangeboden
 - De syllabus beschrijft competenties en handelingen die een leerling moet beheersen
-- Jouw taak: zet elke competentie/handeling om naar een passende THEORIE-lesnaam voor ${niveauTekst}-niveau
+- Jouw taak: groepeer de inhoud in maximaal ${maxHoofdstappen} logische HOOFDTHEMA'S, elk met 1–3 concrete theorie-lesnamen
 
 REGELS voor theorie-lesnamen:
 - Formuleer als de KENNIS/THEORIE die een leerling nodig heeft om de handeling te kunnen uitvoeren
@@ -906,34 +906,47 @@ REGELS voor theorie-lesnamen:
 - Sla toetsmomenten OVER: D-toets, Deeltoets, Eindtoets, assessment, examen, proeve van bekwaamheid
 - Sla inhoudsopgaven, voorwoorden en administratieve teksten over
 
-MAXIMUM STAPPEN — harde grens: maximaal ${maxStappen} stappen voor dit ${gekozenType}
-- Als de syllabus meer onderwerpen bevat: GROEPEER verwante onderwerpen slim tot één overkoepelende theorie-lesnaam
-- Voorbeeld groepering: "Zaagmethoden", "Schaventechnieken", "Boren en frezen" → samenvoegen tot "Bewerkingstechnieken hout"
-- Voorbeeld groepering: "Soorten verf kennen", "Ondergronden beoordelen", "Primers toepassen" → "Verfsoorten en ondergronden"
-- Kies titels die de gegroepeerde inhoud goed dekken, zodat een leerling weet wat er in de les aan bod komt
+HOOFDTHEMA'S — harde grens: maximaal ${maxHoofdstappen} hoofdthema's voor dit ${gekozenType}
+- Groepeer verwante onderwerpen in één logisch hoofdthema
+- Elk hoofdthema krijgt een overkoepelende naam (3-6 woorden) en 1–3 concrete theorie-lesnamen als sub-lessen
+- Voorbeeld:
+  * Hoofdthema: "Bewerkingstechnieken hout"
+    - Lessen: ["Zagen en schaven", "Boren en frezen", "Verbindingen en bevestigingen"]
+  * Hoofdthema: "Verfsoorten en ondergronden"
+    - Lessen: ["Soorten verf en eigenschappen", "Ondergronden beoordelen en voorbereiden"]
 
 Geef ALLEEN geldige JSON terug zonder uitleg of markdown:
 {
   "naam": "officiële naam van het profieldeel of keuzedeel uit het document (max 60 tekens)",
   "type": "${gekozenType}",
-  "stappen": ["theorie-lesnaam 1", "theorie-lesnaam 2", ...]
+  "stappen": [
+    { "naam": "Naam van hoofdthema 1", "lessen": ["Les 1", "Les 2", "Les 3"] },
+    { "naam": "Naam van hoofdthema 2", "lessen": ["Les A", "Les B"] }
+  ]
 }
 
 Tekst uit het document:
 ${bronTekst.slice(0, 12000)}`;
 
     const resultaat = await chatJson({
-      system: `Je bent een VMBO-onderwijsspecialist voor ${niveauTekst}. Je zet syllabuscompetences om naar theorie-lesnamen. Je geeft altijd alleen geldig JSON terug, zonder markdown of uitleg.`,
+      system: `Je bent een VMBO-onderwijsspecialist voor ${niveauTekst}. Je zet syllabuscompetences om naar gestructureerde hoofdthema's met theorie-lesnamen. Je geeft altijd alleen geldig JSON terug, zonder markdown of uitleg.`,
       user: prompt,
-      maxTokens: 2000,
+      maxTokens: 2500,
       model: 'claude-sonnet-4-6'
     });
+
+    const stappen = Array.isArray(resultaat.stappen)
+      ? resultaat.stappen
+          .filter(s => s && typeof s === 'object' && s.naam)
+          .slice(0, maxHoofdstappen)
+          .map(s => ({ naam: String(s.naam).trim(), lessen: Array.isArray(s.lessen) ? s.lessen.filter(Boolean).slice(0, 3) : [] }))
+      : [];
 
     return res.json({
       success: true,
       naam: resultaat.naam || req.file.originalname.replace(/\.[^.]+$/, ''),
       type: gekozenType,
-      stappen: Array.isArray(resultaat.stappen) ? resultaat.stappen.filter(Boolean).slice(0, maxStappen) : [],
+      stappen,
       bronBestand: req.file.originalname
     });
   } catch (e) {
