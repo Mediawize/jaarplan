@@ -207,7 +207,7 @@ async function renderLesprofielWizard() {
   const stap4 = preview ? `
     ${lesprofielWizardState.warning ? `<div class="alert" style="background:var(--amber-light);color:var(--amber);margin-bottom:12px">${escHtml(lesprofielWizardState.warning)}</div>` : ''}
     <div class="alert alert-success" style="margin-bottom:16px">Voorbeeld is gemaakt. Kies <strong>Opslaan</strong> om het lesprofiel echt aan te maken.</div>
-    <div class="card" style="margin-bottom:12px;padding:16px"><h3 style="margin-top:0">${escHtml(preview.naam)}</h3><div style="font-size:13px;color:var(--ink-muted);margin-bottom:8px">${escHtml(preview.niveau || 'Alle niveaus')} · ${preview.aantalWeken} weken · ${preview.urenPerWeek} uur/week</div><div style="font-size:13px">${escHtml(preview.beschrijving || '')}</div></div>
+    <div class="card" style="margin-bottom:12px;padding:16px"><h3 style="margin-top:0">${escHtml(preview.naam)}</h3><div style="font-size:13px;color:var(--ink-muted);margin-bottom:8px">${escHtml(preview.niveau || 'Alle niveaus')} · ${preview.aantalWeken} stappen · verhouding ${escHtml(preview.verhouding || '1:1')}</div><div style="font-size:13px">${escHtml(preview.beschrijving || '')}</div></div>
     <div style="max-height:300px;overflow:auto;border:1px solid var(--border);border-radius:12px;background:#fff;margin-bottom:16px">
       ${(preview.weken || []).map((w, i) => `<div style="padding:12px 14px;border-bottom:1px solid var(--border)"><strong>Week ${i + 1}: ${escHtml(w.thema || '')}</strong><ul style="margin:8px 0 0 18px;padding:0;font-size:13px">${(w.activiteiten || []).map(a => `<li><strong>${escHtml(a.type || 'Activiteit')}</strong> · ${escHtml(a.uren || '')} uur · ${escHtml(a.omschrijving || '')}${a.syllabus ? ` <span style="color:var(--ink-muted)">(${escHtml(a.syllabus)})</span>` : ''}</li>`).join('')}</ul></div>`).join('')}
     </div>
@@ -340,7 +340,7 @@ async function volgendeLesprofielWizardStap() {
     const d = lesprofielWizardState.data;
     if (!d.naam || !d.vakId || !d.beschrijving) { alert('Vul naam, vak en beschrijving in.'); return; }
     if (!d.aantalWeken || d.aantalWeken < 1 || d.aantalWeken > 40) { alert('Aantal weken moet tussen 1 en 40 zijn.'); return; }
-    if (!d.urenPerWeek || d.urenPerWeek < 1) { alert('Uren per week is verplicht.'); return; }
+    if (!d.verhouding) { alert('Selecteer een verhouding theorie:praktijk.'); return; }
     lesprofielWizardState.step = 3;
     await renderLesprofielWizard();
   }
@@ -615,7 +615,7 @@ async function renderLesprofielen() {
                             <div style="margin-bottom:8px">
                               <div style="font-weight:600;font-size:14px">${escHtml(p.naam)}</div>
                             </div>
-                            <div style="font-size:12px;color:var(--ink-muted);margin-bottom:10px">${p.aantalWeken} weken · ${aantalActs} activiteiten · ${p.urenPerWeek} uur/week</div>
+                            <div style="font-size:12px;color:var(--ink-muted);margin-bottom:10px">${p.aantalWeken} stappen · ${aantalActs} activiteiten · ${escHtml(p.verhouding || '1:1')} T:P</div>
                             <div style="display:flex;gap:6px;flex-wrap:wrap">
                               ${(p.weken || []).slice(0, 4).map((w, i) => `<span style="font-size:10px;padding:2px 7px;border-radius:4px;background:var(--cream);border:1px solid var(--border);color:var(--ink-muted)">W${i+1}: ${(w.activiteiten || []).map(a => a.type[0]).join('+') || '—'}</span>`).join('')}
                               ${p.aantalWeken > 4 ? `<span style="font-size:10px;color:var(--ink-muted)">+${p.aantalWeken - 4}</span>` : ''}
@@ -651,7 +651,9 @@ async function openProfielModal(vakId = null, profielId = null) {
         ${['', 'BB', 'KB', 'GL', 'TL', 'Havo', 'VWO'].map(n => `<option value="${n}" ${(p?.niveau || '') === n ? 'selected' : ''}>${n || 'Alle niveaus'}</option>`).join('')}
       </select></div>
       <div class="form-field"><label>Aantal weken *</label><input id="profiel-weken" type="number" min="1" max="40" value="${p?.aantalWeken || 8}"></div>
-      <div class="form-field"><label>Uren per week *</label><input id="profiel-uren" type="number" min="1" value="${p?.urenPerWeek || 3}"></div>
+      <div class="form-field"><label>Verhouding theorie:praktijk</label><select id="profiel-verhouding">
+        ${[['1:1','1:1 — gelijk'],['1:2','1:2 — meer praktijk'],['1:3','1:3'],['1:4','1:4 — overwegend praktijk'],['2:3','2:3'],['3:2','3:2 — meer theorie'],['1:0','Alleen theorie'],['0:1','Alleen praktijk']].map(([v,l]) => `<option value="${v}" ${(p?.verhouding||'1:1')===v?'selected':''}>${l}</option>`).join('')}
+      </select></div>
       <div class="form-field form-full"><label>Beschrijving</label><input id="profiel-beschrijving" value="${escHtml(p?.beschrijving || '')}" placeholder="Korte omschrijving"></div>
     </div>
     <div class="modal-actions">
@@ -666,7 +668,7 @@ async function slaProfielOp(profielId) {
   const vakId = document.getElementById('profiel-vak').value;
   const niveau = document.getElementById('profiel-niveau').value;
   const aantalWeken = parseInt(document.getElementById('profiel-weken').value);
-  const urenPerWeek = parseInt(document.getElementById('profiel-uren').value);
+  const verhouding = document.getElementById('profiel-verhouding')?.value || '1:1';
   const beschrijving = document.getElementById('profiel-beschrijving').value.trim();
   if (!naam) { alert('Naam is verplicht.'); return; }
   if (!aantalWeken || aantalWeken < 1 || aantalWeken > 40) { alert('Aantal weken moet tussen 1 en 40 zijn.'); return; }
@@ -681,8 +683,8 @@ async function slaProfielOp(profielId) {
 
   try {
     let id = profielId;
-    if (profielId) { await API.updateLesprofiel(profielId, { naam, vakId, niveau, aantalWeken, urenPerWeek, beschrijving, weken }); }
-    else { const r = await API.addLesprofiel({ naam, vakId, niveau, aantalWeken, urenPerWeek, beschrijving, weken }); id = r.id; }
+    if (profielId) { await API.updateLesprofiel(profielId, { naam, vakId, niveau, aantalWeken, verhouding, beschrijving, weken }); }
+    else { const r = await API.addLesprofiel({ naam, vakId, niveau, aantalWeken, verhouding, beschrijving, weken }); id = r.id; }
     closeModalDirect();
     openProfielDetail(id);
   } catch(e) { showError(e.message); }
@@ -741,7 +743,7 @@ async function openProfielDetail(profielId) {
         <div class="card-header">
           <div>
             <h2>Gekoppelde klassen</h2>
-            <div class="card-meta">${escHtml(vak?.naam || '')} · ${p.aantalWeken} weken · ${p.urenPerWeek} uur/week${p.niveau ? ' · ' + p.niveau : ''}</div>
+            <div class="card-meta">${escHtml(vak?.naam || '')} · ${p.aantalWeken} stappen · ${escHtml(p.verhouding || '1:1')} T:P${p.niveau ? ' · ' + p.niveau : ''}</div>
           </div>
           <div style="font-size:12px;color:var(--ink-muted)">${gekoppeldeKlassen.length ? gekoppeldeKlassen.length + ' gekoppeld' : 'Nog niet gekoppeld'}</div>
         </div>
