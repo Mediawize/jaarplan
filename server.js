@@ -698,7 +698,7 @@ Zet elke gevonden les- of theoriestap als aparte string in de array. Gebruik de 
 
 app.post('/api/genereer-lesprofiel-wizard', requireCanEdit, async (req, res) => {
   const {
-    naam, vakId, niveau, aantalWeken, urenPerWeek, beschrijving,
+    naam, vakId, niveau, aantalWeken, verhouding, beschrijving,
     syllabusUploadToken, syllabusModuleCode,
     aiWeekthemas, aiActiviteiten,
     lesModuleId, feedback
@@ -709,7 +709,9 @@ app.post('/api/genereer-lesprofiel-wizard', requireCanEdit, async (req, res) => 
     const vakNaam = vak ? (vak.volledig || vak.naam) : (naam || 'Techniek');
     const niv = String(niveau || 'BB').toUpperCase();
     const weken = Math.max(1, Number(aantalWeken) || 8);
-    const uren = Math.max(1, Number(urenPerWeek) || 3);
+    const verh = String(verhouding || '1:1');
+    const [tDeel, pDeel] = verh.split(':').map(n => Math.max(0, Number(n) || 0));
+    const totaalDelen = tDeel + pDeel || 2;
 
     // ── Pad 1: syllabus-gebaseerd ──────────────────────────────
     if (syllabusUploadToken && syllabusModuleCode) {
@@ -719,8 +721,8 @@ app.post('/api/genereer-lesprofiel-wizard', requireCanEdit, async (req, res) => 
           moduleCode: String(syllabusModuleCode),
           niveau: niv,
           aantalWeken: weken,
-          urenTheorie: Math.ceil(uren / 2),
-          urenPraktijk: Math.floor(uren / 2) || 1,
+          urenTheorie: tDeel,
+          urenPraktijk: pDeel,
           naam: naam || undefined,
           vakId,
           vakCode: vak?.naam || '',
@@ -738,7 +740,7 @@ app.post('/api/genereer-lesprofiel-wizard', requireCanEdit, async (req, res) => 
               vakId,
               niveau: niv,
               aantalWeken: gegenereerd.aantalWeken,
-              urenPerWeek: gegenereerd.urenPerWeek,
+              verhouding: verh,
               beschrijving: beschrijving || gegenereerd.beschrijving || '',
               weken: gegenereerd.weken || []
             },
@@ -754,8 +756,11 @@ app.post('/api/genereer-lesprofiel-wizard', requireCanEdit, async (req, res) => 
     // ── Pad 2: AI-generatie op basis van metadata ──────────────
     // (ook als Pad 1 niets opleverde)
     const syllabusNietGebruikt = !!(syllabusUploadToken && syllabusModuleCode);
-    const urenTheorie = Math.ceil(uren / 2);
-    const urenPraktijk = Math.floor(uren / 2) || 1;
+    const verhTekst = tDeel > 0 && pDeel > 0
+      ? `verhouding ${tDeel}:${pDeel} theorie:praktijk`
+      : tDeel === 0 ? 'alleen praktijk' : 'alleen theorie';
+    const heeftPraktijk = pDeel > 0;
+    const heeftTheorie = tDeel > 0;
 
     // Les module stappen ophalen als gekoppeld
     const gekoppeldeModule = lesModuleId ? db.getLesModule(lesModuleId) : null;
@@ -771,8 +776,14 @@ app.post('/api/genereer-lesprofiel-wizard', requireCanEdit, async (req, res) => 
       ? `\n\nDe docent heeft de volgende aanpassing gevraagd ten opzichte van de vorige versie:\n"${String(feedback).trim()}"\nVerwerk dit nadrukkelijk in het nieuwe lesprofiel.`
       : '';
 
+    const actTypeJson = heeftTheorie && heeftPraktijk
+      ? `        { "type": "Theorie", "uren": 1, "omschrijving": "Concrete omschrijving. Begin met werkwoord.", "syllabus": "", "link": "", "bestand": null },\n        { "type": "Praktijk", "uren": 1, "omschrijving": "Concrete omschrijving. Begin met werkwoord.", "syllabus": "", "link": "", "bestand": null }`
+      : heeftTheorie
+      ? `        { "type": "Theorie", "uren": 1, "omschrijving": "Concrete omschrijving. Begin met werkwoord.", "syllabus": "", "link": "", "bestand": null }`
+      : `        { "type": "Praktijk", "uren": 1, "omschrijving": "Concrete omschrijving. Begin met werkwoord.", "syllabus": "", "link": "", "bestand": null }`;
+
     const prompt = `Je bent een ervaren VMBO/MBO docent die lesplannen opstelt.
-Maak een lesprofiel voor: "${naam || vakNaam}", vak "${vakNaam}", niveau ${niv}, ${weken} weken, ${uren} uur/week (${urenTheorie} uur theorie + ${urenPraktijk} uur praktijk).
+Maak een lesprofiel voor: "${naam || vakNaam}", vak "${vakNaam}", niveau ${niv}, ${weken} weken, ${verhTekst}.
 ${beschrijving ? `Onderwerp/context: ${beschrijving}` : ''}${stappenContext}${feedbackContext}
 
 Geef ALLEEN geldige JSON terug in dit formaat:
@@ -782,8 +793,7 @@ Geef ALLEEN geldige JSON terug in dit formaat:
       "weekIndex": 1,
       "thema": "kort weekthema (3-5 woorden)",
       "activiteiten": [
-        { "type": "Theorie", "uren": ${urenTheorie}, "omschrijving": "Concrete omschrijving. Begin met werkwoord.", "syllabus": "", "link": "", "bestand": null },
-        { "type": "Praktijk", "uren": ${urenPraktijk}, "omschrijving": "Concrete omschrijving. Begin met werkwoord.", "syllabus": "", "link": "", "bestand": null }
+${actTypeJson}
       ]
     }
   ]
@@ -791,7 +801,7 @@ Geef ALLEEN geldige JSON terug in dit formaat:
 
 Regels:
 - Genereer precies ${weken} weken
-- Elke week heeft 1 Theorie- en 1 Praktijk-activiteit
+- Elke week heeft ${heeftTheorie && heeftPraktijk ? '1 Theorie- en 1 Praktijk-activiteit' : heeftTheorie ? '1 Theorie-activiteit' : '1 Praktijk-activiteit'}
 - Omschrijvingen zijn kort (1 zin), actiegericht en vakspecifiek
 ${extraStappen.length ? '- Gebruik de opgegeven stappen als weekthema\'s in de gegeven volgorde' : '- Weekthema\'s zijn oplopend qua complexiteit'}
 - Schrijf in aanspreekvorm voor de docent`;
@@ -811,7 +821,10 @@ ${extraStappen.length ? '- Gebruik de opgegeven stappen als weekthema\'s in de g
       const msg = aiErr.message || '';
       if (msg.includes('429') || msg.includes('quota') || msg.includes('insufficient') || msg.includes('ANTHROPIC_API_KEY')) {
         warning = 'AI niet beschikbaar — lege weekplanning aangemaakt. Vul zelf de weken in.';
-        aiData = { weken: Array.from({ length: weken }, (_, i) => ({ weekIndex: i + 1, thema: `Week ${i + 1}`, activiteiten: [{ type: 'Theorie', uren: urenTheorie, omschrijving: '', syllabus: '', link: '', bestand: null }, { type: 'Praktijk', uren: urenPraktijk, omschrijving: '', syllabus: '', link: '', bestand: null }] })) };
+        const fallbackAct = [];
+        if (heeftTheorie) fallbackAct.push({ type: 'Theorie', uren: 1, omschrijving: '', syllabus: '', link: '', bestand: null });
+        if (heeftPraktijk) fallbackAct.push({ type: 'Praktijk', uren: 1, omschrijving: '', syllabus: '', link: '', bestand: null });
+        aiData = { weken: Array.from({ length: weken }, (_, i) => ({ weekIndex: i + 1, thema: `Week ${i + 1}`, activiteiten: fallbackAct })) };
       } else throw aiErr;
     }
 
@@ -822,7 +835,7 @@ ${extraStappen.length ? '- Gebruik de opgegeven stappen als weekthema\'s in de g
         vakId,
         niveau: niv,
         aantalWeken: (aiData.weken || []).length || weken,
-        urenPerWeek: uren,
+        verhouding: verh,
         beschrijving: beschrijving || '',
         weken: aiData.weken || []
       },
