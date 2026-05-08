@@ -894,7 +894,7 @@ app.post('/api/les-modules/analyseer', requireAdmin, upload.single('bestand'), a
 
     const gekozenType = (req.body.type || 'profieldeel').toLowerCase().includes('keuzedeel') ? 'keuzedeel' : 'profieldeel';
     const gekozenNiveau = (req.body.niveau || '').trim();
-    const maxHoofdstappen = gekozenType === 'keuzedeel' ? 5 : 7;
+    const maxHoofdstappen = gekozenType === 'keuzedeel' ? 5 : 8;
     const niveauTekst = gekozenNiveau ? `VMBO ${gekozenNiveau}` : 'VMBO (alle niveaus)';
 
     const prompt = `Je bent een VMBO-onderwijsspecialist die een syllabus of profieldeel-document analyseert voor VMBO praktijkonderwijs.
