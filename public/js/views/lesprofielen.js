@@ -617,7 +617,7 @@ async function renderLesprofielen() {
                             </div>
                             <div style="font-size:12px;color:var(--ink-muted);margin-bottom:10px">${p.aantalWeken} stappen · ${aantalActs} activiteiten · ${escHtml(p.verhouding || '1:1')} T:P</div>
                             <div style="display:flex;gap:6px;flex-wrap:wrap">
-                              ${(p.weken || []).slice(0, 4).map((w, i) => `<span style="font-size:10px;padding:2px 7px;border-radius:4px;background:var(--cream);border:1px solid var(--border);color:var(--ink-muted)">W${i+1}: ${(w.activiteiten || []).map(a => a.type[0]).join('+') || '—'}</span>`).join('')}
+                              ${(p.weken || []).slice(0, 4).map((w, i) => `<span style="font-size:10px;padding:2px 7px;border-radius:4px;background:var(--cream);border:1px solid var(--border);color:var(--ink-muted)">S${i+1}: ${(w.activiteiten || []).map(a => a.type[0]).join('+') || '—'}</span>`).join('')}
                               ${p.aantalWeken > 4 ? `<span style="font-size:10px;color:var(--ink-muted)">+${p.aantalWeken - 4}</span>` : ''}
                             </div>
                             <div style="display:flex;gap:6px;margin-top:12px">
@@ -754,7 +754,7 @@ async function openProfielDetail(profielId) {
         <div class="card" style="margin-bottom:16px">
           <div class="card-header">
             <div>
-              <h3 style="margin:0;font-size:15px">Week ${wi + 1}</h3>
+              <h3 style="margin:0;font-size:15px">Stap ${wi + 1}</h3>
               <div id="thema-display-${p.id}-${wi}" style="font-size:13px;color:var(--ink-muted);margin-top:2px;cursor:pointer" onclick="editProfielWeekThema('${p.id}',${wi},this)">${w.thema ? escHtml(w.thema) : '<span style="opacity:.5">+ Thema toevoegen</span>'}</div>
             </div>
             <button class="btn btn-sm" onclick="openActiviteitModal('${p.id}',${wi})">+ Activiteit</button>
@@ -822,11 +822,10 @@ function renderActiviteitenHTML(p, weekIdx) {
     };
   });
   return `<table class="data-table">
-    <thead><tr><th>Type</th><th>Uren</th><th>Omschrijving</th><th>Syllabus</th><th>Link / bestand</th><th style="width:140px"></th></tr></thead>
+    <thead><tr><th>Type</th><th>Omschrijving</th><th>Syllabus</th><th>Link / bestand</th><th style="width:140px"></th></tr></thead>
     <tbody>
       ${w.activiteiten.map((a, ai) => `<tr>
         <td><span class="badge ${kleuren[a.type] || 'badge-gray'}">${escHtml(a.type)}</span></td>
-        <td style="font-size:13px;font-weight:500">${a.uren} uur</td>
         <td style="font-size:13px">${escHtml(a.omschrijving || '—')}</td>
         <td style="font-size:12px;color:#78716C">${escHtml(a.syllabus || '—')}</td>
         <td>
