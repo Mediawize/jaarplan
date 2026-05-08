@@ -54,7 +54,7 @@ function resetLesprofielWizard() {
     warning: '',
     upload: null,
     data: {
-      naam: '', vakId: '', niveau: '', aantalWeken: 8, urenPerWeek: 3, beschrijving: '',
+      naam: '', vakId: '', niveau: '', aantalWeken: 8, verhouding: '1:1', beschrijving: '',
       syllabusUploadToken: '', syllabusBestand: '', syllabusModules: [], syllabusModuleCode: '', syllabusPreview: '',
       aiWeekthemas: true, aiActiviteiten: true, aiBronnen: false, aiDifferentiatie: false, aiOpmerkingen: false,
       lesModuleId: '', feedback: ''
@@ -79,7 +79,7 @@ function leesLesprofielWizardStap2() {
   d.vakId = document.getElementById('lpw-vak')?.value || '';
   d.niveau = document.getElementById('lpw-niveau')?.value || '';
   d.aantalWeken = Number(document.getElementById('lpw-weken')?.value || 0);
-  d.urenPerWeek = Number(document.getElementById('lpw-uren')?.value || 0);
+  d.verhouding = document.getElementById('lpw-verhouding')?.value || '1:1';
   d.beschrijving = document.getElementById('lpw-beschrijving')?.value?.trim() || '';
   d.syllabusModuleCode = document.getElementById('lpw-syllabus-module')?.value || d.syllabusModuleCode || '';
 }
@@ -163,7 +163,11 @@ async function renderLesprofielWizard() {
       <div class="form-field"><label>Vak *</label><select id="lpw-vak"><option value="">Kies vak</option>${vakken.map(v => `<option value="${v.id}" ${String(d.vakId) === String(v.id) ? 'selected' : ''}>${escHtml(v.naam)}</option>`).join('')}</select></div>
       <div class="form-field"><label>Niveau</label><select id="lpw-niveau">${['', 'BB', 'KB', 'GL', 'TL', 'Havo', 'VWO'].map(n => `<option value="${n}" ${d.niveau === n ? 'selected' : ''}>${n || 'Alle niveaus'}</option>`).join('')}</select></div>
       <div class="form-field"><label>Aantal weken *</label><input id="lpw-weken" type="number" min="1" max="40" value="${escHtml(d.aantalWeken)}"></div>
-      <div class="form-field"><label>Uren per week *</label><input id="lpw-uren" type="number" min="1" max="20" value="${escHtml(d.urenPerWeek)}"></div>
+      <div class="form-field"><label>Verhouding theorie:praktijk *</label>
+        <select id="lpw-verhouding">
+          ${[['1:1','1:1 — gelijk'],['1:2','1:2 — meer praktijk'],['1:3','1:3'],['1:4','1:4 — overwegend praktijk'],['2:3','2:3'],['3:2','3:2 — meer theorie'],['1:0','Alleen theorie'],['0:1','Alleen praktijk']].map(([v,l]) => `<option value="${v}" ${(d.verhouding||'1:1')===v?'selected':''}>${l}</option>`).join('')}
+        </select>
+      </div>
       ${d.syllabusModules?.length ? `<div class="form-field form-full"><label>Module uit syllabus</label><select id="lpw-syllabus-module"><option value="">Gebruik hele syllabus / geen specifieke module</option>${d.syllabusModules.map(m => `<option value="${escHtml(m.code)}" ${d.syllabusModuleCode === m.code ? 'selected' : ''}>Module ${escHtml(m.code)} ${escHtml(m.naam || '')} (${escHtml(m.taskCount || 0)} onderdelen)</option>`).join('')}</select></div>` : ''}
       <div class="form-field form-full">
         <label>Beschrijving / onderwerp *</label>
@@ -244,7 +248,7 @@ async function genereerLesprofielBeschrijvingAI() {
     vak: vakNaam,
     niveau: d.niveau,
     aantalWeken: d.aantalWeken,
-    urenPerWeek: d.urenPerWeek,
+    verhouding: d.verhouding,
     huidigeBeschrijving: d.beschrijving,
     syllabusModuleCode: d.syllabusModuleCode,
     syllabusPreview: d.syllabusPreview ? String(d.syllabusPreview).slice(0, 2500) : ''
@@ -385,7 +389,7 @@ async function slaLesprofielWizardOp() {
   const p = lesprofielWizardState?.preview;
   if (!p) return;
   try {
-    const r = await API.addLesprofiel({ naam: p.naam, vakId: p.vakId, niveau: p.niveau || '', aantalWeken: p.aantalWeken, urenPerWeek: p.urenPerWeek, beschrijving: p.beschrijving || '', weken: p.weken || [] });
+    const r = await API.addLesprofiel({ naam: p.naam, vakId: p.vakId, niveau: p.niveau || '', aantalWeken: p.aantalWeken, verhouding: p.verhouding || '1:1', beschrijving: p.beschrijving || '', weken: p.weken || [] });
     Cache.invalidateAll();
     closeLesprofielWizard();
     await renderLesprofielen();
@@ -976,6 +980,7 @@ async function openKoppelModal(profielId) {
   const gekoppeldeKlassen = [...new Set(alGekoppeld.map(o => o.klasId))];
   const gekoppeldeKlasNamen = gekoppeldeKlassen.map(id => klassen.find(k => k.id === id)?.naam).filter(Boolean);
 
+  const verhouding = p.verhouding || '1:1';
   openModal(`
     <h2>Profiel koppelen aan planning</h2>
     <p class="modal-sub">Koppel "<strong>${escHtml(p.naam)}</strong>" (${p.aantalWeken} weken) aan een startweek.</p>
@@ -991,6 +996,30 @@ async function openKoppelModal(profielId) {
           : relevante.map(k => `<option value="${k.id}">${escHtml(k.naam)} — ${escHtml(k.schooljaar)}</option>`).join('')}
       </select></div>
       <div class="form-field"><label>Startweek *</label><select id="koppel-startweek"><option value="">— Selecteer klas eerst —</option></select></div>
+      <div class="form-field"><label>Uren per week *</label>
+        <input id="koppel-uren" type="number" min="1" max="20" value="4" oninput="koppelBerekenUrenPreview('${escHtml(verhouding)}')">
+      </div>
+      <div class="form-field" style="align-self:flex-end;padding-bottom:2px">
+        <div id="koppel-uren-preview" style="font-size:12px;color:var(--ink-muted)"></div>
+        <div style="font-size:11px;color:var(--ink-muted);margin-top:2px">Verhouding: ${escHtml(verhouding)} theorie:praktijk</div>
+      </div>
+    </div>
+    <label style="display:flex;gap:10px;align-items:center;margin-top:8px;cursor:pointer;font-size:13px">
+      <input type="checkbox" id="koppel-split" onchange="koppelToggleSplit('${profielId}',${p.aantalWeken})">
+      <span>Splitsen in twee periodes</span>
+    </label>
+    <div id="koppel-split-sectie" style="display:none;margin-top:10px">
+      <div class="form-grid">
+        <div class="form-field"><label>Split na week</label>
+          <select id="koppel-splitpunt" onchange="laadKoppelWeken('${p.id}')">
+            ${Array.from({length: p.aantalWeken - 1}, (_, i) => `<option value="${i+1}">Na week ${i+1} (periode 2 start bij week ${i+2})</option>`).join('')}
+          </select>
+        </div>
+        <div class="form-field"><label>Startweek periode 2 *</label>
+          <select id="koppel-startweek2"><option value="">— Selecteer klas + startweek 1 eerst —</option></select>
+        </div>
+      </div>
+      <div id="koppel-preview2" style="margin-top:6px"></div>
     </div>
     <div id="koppel-preview" style="margin-top:12px"></div>
     <div class="modal-actions">
@@ -999,6 +1028,23 @@ async function openKoppelModal(profielId) {
     </div>
   `);
   setTimeout(() => laadKoppelWeken(profielId), 100);
+}
+
+function koppelBerekenUrenPreview(verhouding) {
+  const uren = Number(document.getElementById('koppel-uren')?.value || 0);
+  const el = document.getElementById('koppel-uren-preview');
+  if (!el || !uren) return;
+  const [t, p] = (verhouding || '1:1').split(':').map(Number);
+  if (t + p === 0) return;
+  const uT = Math.round(uren * t / (t + p)) || (t > 0 ? uren : 0);
+  const uP = uren - uT;
+  el.textContent = `→ ${uT}u theorie + ${uP}u praktijk`;
+}
+
+function koppelToggleSplit(profielId, aantalWeken) {
+  const sectie = document.getElementById('koppel-split-sectie');
+  if (sectie) sectie.style.display = document.getElementById('koppel-split')?.checked ? 'block' : 'none';
+  laadKoppelWeken(profielId);
 }
 
 async function laadKoppelWeken(profielId) {
@@ -1012,56 +1058,105 @@ async function laadKoppelWeken(profielId) {
   if (!sel) return;
   const profielen = await API.getLesprofielen();
   const p = profielen.find(x => x.id === profielId);
-  sel.innerHTML = `<option value="">— Selecteer startweek —</option>` + weken.map(w => `<option value="${w.weeknummer}">Wk ${w.weeknummer} · ${w.van} – ${w.tot}${w.thema ? ' · ' + w.thema : ''}</option>`).join('');
-  sel.onchange = () => {
+  const weekOpties = `<option value="">— Selecteer startweek —</option>` + weken.map(w => `<option value="${w.weeknummer}">Wk ${w.weeknummer} · ${w.van} – ${w.tot}${w.thema ? ' · ' + w.thema : ''}</option>`).join('');
+  sel.innerHTML = weekOpties;
+
+  const isSplit = document.getElementById('koppel-split')?.checked;
+  const sel2 = document.getElementById('koppel-startweek2');
+  if (sel2) sel2.innerHTML = weekOpties.replace('— Selecteer startweek —', '— Startweek periode 2 —');
+
+  const updatePreview = () => {
     const sw = parseInt(sel.value);
     if (!sw || !p) return;
-    const schoolWeken = weken.filter(w => Number(w.weeknummer) >= sw).slice(0, p.aantalWeken);
-    document.getElementById('koppel-preview').innerHTML = `<div class="alert alert-success">Profiel wordt gekoppeld aan week ${schoolWeken[0]?.weeknummer || sw} t/m ${schoolWeken[schoolWeken.length - 1]?.weeknummer || sw + p.aantalWeken - 1}<br><small style="opacity:.7">${schoolWeken.length} schoolweken</small></div>`;
+    const splitPunt = isSplit ? parseInt(document.getElementById('koppel-splitpunt')?.value || 0) : p.aantalWeken;
+    const aantalP1 = isSplit ? splitPunt : p.aantalWeken;
+    const schoolWekenP1 = weken.filter(w => Number(w.weeknummer) >= sw).slice(0, aantalP1);
+    const preview1 = `Periode 1: week ${schoolWekenP1[0]?.weeknummer || sw} t/m ${schoolWekenP1[schoolWekenP1.length - 1]?.weeknummer || '?'} (${aantalP1} profielweken)`;
+    document.getElementById('koppel-preview').innerHTML = `<div class="alert alert-success">${preview1}</div>`;
+
+    if (isSplit && sel2) {
+      const sw2 = parseInt(sel2.value);
+      if (sw2) {
+        const aantalP2 = p.aantalWeken - splitPunt;
+        const schoolWekenP2 = weken.filter(w => Number(w.weeknummer) >= sw2).slice(0, aantalP2);
+        document.getElementById('koppel-preview2').innerHTML = `<div class="alert alert-success">Periode 2: week ${schoolWekenP2[0]?.weeknummer || sw2} t/m ${schoolWekenP2[schoolWekenP2.length - 1]?.weeknummer || '?'} (${aantalP2} profielweken)</div>`;
+      }
+    }
   };
+
+  sel.onchange = updatePreview;
+  if (sel2) sel2.onchange = updatePreview;
+  document.getElementById('koppel-splitpunt')?.addEventListener('change', updatePreview);
+  koppelBerekenUrenPreview(p?.verhouding || '1:1');
 }
 
 async function slaKoppelingOp(profielId) {
   const klasId = document.getElementById('koppel-klas').value;
   const startweek = parseInt(document.getElementById('koppel-startweek').value);
+  const urenPerWeek = Number(document.getElementById('koppel-uren')?.value || 4);
   if (!klasId || !startweek) { alert('Selecteer een klas en startweek.'); return; }
+
+  const isSplit = document.getElementById('koppel-split')?.checked;
+  const splitPunt = isSplit ? parseInt(document.getElementById('koppel-splitpunt')?.value || 0) : 0;
+  const startweek2 = isSplit ? parseInt(document.getElementById('koppel-startweek2')?.value || 0) : 0;
+  if (isSplit && (!splitPunt || !startweek2)) { alert('Selecteer splitpunt en startweek voor periode 2.'); return; }
+
   const [profielen, klassen, vakken] = await Promise.all([API.getLesprofielen(), API.getKlassen(), API.getVakken()]);
   const p = profielen.find(x => x.id === profielId);
   const klas = klassen.find(k => k.id === klasId);
   const vak = vakken.find(v => v.id === klas?.vakId) || null;
+
+  // Bereken uren per activiteitstype op basis van verhouding
+  const [tDeel, pDeel] = (p.verhouding || '1:1').split(':').map(Number);
+  const totaalDelen = (tDeel || 0) + (pDeel || 0);
+  const urenTheorie = totaalDelen > 0 ? (Math.round(urenPerWeek * (tDeel || 0) / totaalDelen) || (tDeel > 0 ? urenPerWeek : 0)) : urenPerWeek;
+  const urenPraktijk = urenPerWeek - urenTheorie || (pDeel > 0 ? 1 : 0);
 
   const bestaandeOpd = await API.getOpdrachten(klasId);
   const teVerwijderen = bestaandeOpd.filter(o => o.profielId === profielId);
   for (const o of teVerwijderen) { await API.deleteOpdracht(o.id); }
 
   const alleWeken = (await API.getWeken(klas.schooljaar)).filter(w => !w.isVakantie);
-  const startIdx = alleWeken.findIndex(w => Number(w.weeknummer) === startweek);
-  const schoolWeken = alleWeken.slice(startIdx, startIdx + p.aantalWeken);
 
-  for (let i = 0; i < schoolWeken.length; i++) {
-    const sw = schoolWeken[i];
-    const pw = p.weken[i];
-    if (!pw) continue;
-    for (const act of (pw.activiteiten || [])) {
-      await API.addOpdracht({
-        naam: act.omschrijving || `${act.type} — ${p.naam}`,
-        klasId,
-        periode: getPeriodeVoorWeekLP(Number(sw.weeknummer)),
-        weeknummer: Number(sw.weeknummer),
-        weken: String(sw.weeknummer),
-        schooljaar: klas.schooljaar,
-        type: act.type,
-        uren: act.uren,
-        syllabuscodes: lpFormatSyllabusCode(act.syllabus || '', vak),
-        werkboekLink: '',
-        beschrijving: pw.thema
-          ? `${pw.thema} — Uit lesprofiel: ${p.naam} (week ${i + 1} van ${p.aantalWeken})`
-          : `Uit lesprofiel: ${p.naam} (week ${i + 1} van ${p.aantalWeken})`,
-        theorieLink: act.link || '',
-        toetsBestand: act.bestand || null,
-        profielId: p.id,
-      });
+  const maakOpdrachten = async (profielWekenRange, schoolStartWeek) => {
+    const startIdx = alleWeken.findIndex(w => Number(w.weeknummer) === schoolStartWeek);
+    const schoolWeken = alleWeken.slice(startIdx, startIdx + profielWekenRange.length);
+    for (let i = 0; i < schoolWeken.length; i++) {
+      const sw = schoolWeken[i];
+      const pw = p.weken[profielWekenRange[i]];
+      if (!pw) continue;
+      for (const act of (pw.activiteiten || [])) {
+        const urenAct = act.type === 'Praktijk' ? urenPraktijk : urenTheorie;
+        await API.addOpdracht({
+          naam: act.omschrijving || `${act.type} — ${p.naam}`,
+          klasId,
+          periode: getPeriodeVoorWeekLP(Number(sw.weeknummer)),
+          weeknummer: Number(sw.weeknummer),
+          weken: String(sw.weeknummer),
+          schooljaar: klas.schooljaar,
+          type: act.type,
+          uren: urenAct,
+          syllabuscodes: lpFormatSyllabusCode(act.syllabus || '', vak),
+          werkboekLink: '',
+          beschrijving: pw.thema
+            ? `${pw.thema} — Uit lesprofiel: ${p.naam} (week ${profielWekenRange[i] + 1} van ${p.aantalWeken})`
+            : `Uit lesprofiel: ${p.naam} (week ${profielWekenRange[i] + 1} van ${p.aantalWeken})`,
+          theorieLink: act.link || '',
+          toetsBestand: act.bestand || null,
+          profielId: p.id,
+        });
+      }
     }
+  };
+
+  if (isSplit) {
+    const indicesP1 = Array.from({length: splitPunt}, (_, i) => i);
+    const indicesP2 = Array.from({length: p.aantalWeken - splitPunt}, (_, i) => splitPunt + i);
+    await maakOpdrachten(indicesP1, startweek);
+    await maakOpdrachten(indicesP2, startweek2);
+  } else {
+    const indices = Array.from({length: p.aantalWeken}, (_, i) => i);
+    await maakOpdrachten(indices, startweek);
   }
 
   Cache.invalidateAll();
