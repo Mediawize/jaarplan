@@ -136,7 +136,7 @@ async function openLesModuleModal(moduleId = null) {
     <div class="form-grid" style="margin-bottom:16px">
       <div class="form-field"><label>Type *</label>
         <select id="lm-type" onchange="lmOnTypeChange()">
-          <option value="profieldeel" ${(!m || m.type === 'profieldeel') ? 'selected' : ''}>Profieldeel (max 7 hoofdstappen)</option>
+          <option value="profieldeel" ${(!m || m.type === 'profieldeel') ? 'selected' : ''}>Profieldeel (max 8 hoofdstappen)</option>
           <option value="keuzedeel" ${m?.type === 'keuzedeel' ? 'selected' : ''}>Keuzedeel (max 5 hoofdstappen)</option>
         </select>
       </div>
@@ -191,7 +191,7 @@ async function openLesModuleModal(moduleId = null) {
 
 function lmGetMax() {
   const type = document.getElementById('lm-type')?.value || 'profieldeel';
-  return type === 'keuzedeel' ? 5 : 7;
+  return type === 'keuzedeel' ? 5 : 8;
 }
 
 function lmOnTypeChange() {
