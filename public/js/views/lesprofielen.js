@@ -112,16 +112,24 @@ async function renderLesprofielWizard() {
     ? `<select id="lpw-lesmodule" onchange="lesprofielWizardState.data.lesModuleId=this.value;renderLesprofielWizard()" style="width:100%">
         <option value="">— Geen les module koppelen —</option>
         ${modules.map(m => {
-          const label = (m.niveau ? m.niveau + ' · ' : '') + escHtml(m.naam) + ' (' + (m.stappen||[]).length + ' stappen)';
+          const stappen = m.stappen || [];
+          const isLegacy = stappen.length > 0 && typeof stappen[0] === 'string';
+          const stapLabel = isLegacy ? stappen.length + ' stappen' : stappen.length + ' hoofdstappen';
+          const label = (m.niveau ? m.niveau + ' · ' : '') + escHtml(m.naam) + ' (' + stapLabel + ')';
           return '<option value="' + m.id + '" ' + (String(d.lesModuleId) === String(m.id) ? 'selected' : '') + '>' + label + '</option>';
         }).join('')}
       </select>`
     : `<div style="color:var(--ink-muted);font-size:13px;padding:10px 0">Nog geen les modules aangemaakt. Ga naar <strong>Les Modules</strong> in het admin-menu om modules toe te voegen.</div>`;
 
-  const gekoppeldeStappenHtml = geselecteerdeModule && (geselecteerdeModule.stappen||[]).length
+  const _modStappen = geselecteerdeModule?.stappen || [];
+  const _modLegacy = _modStappen.length > 0 && typeof _modStappen[0] === 'string';
+  const _modStappenLijst = _modLegacy
+    ? _modStappen.map(s => '<li>' + escHtml(s) + '</li>').join('')
+    : _modStappen.map(s => `<li><strong>${escHtml(s.naam)}</strong>${s.lessen?.length ? ': ' + s.lessen.map(l => escHtml(l)).join(', ') : ''}</li>`).join('');
+  const gekoppeldeStappenHtml = geselecteerdeModule && _modStappen.length
     ? `<div style="margin-top:12px;background:#f0fdf4;border:1px solid var(--accent);border-radius:8px;padding:10px 14px">
-        <div style="font-weight:600;font-size:13px;margin-bottom:6px;color:var(--accent)">${(geselecteerdeModule.stappen).length} theoriestappen uit deze module:</div>
-        <ol style="margin:0;padding-left:18px;font-size:13px;color:var(--ink)">${(geselecteerdeModule.stappen).map(s => '<li>' + escHtml(s) + '</li>').join('')}</ol>
+        <div style="font-weight:600;font-size:13px;margin-bottom:6px;color:var(--accent)">${_modStappen.length} ${_modLegacy ? 'theoriestappen' : 'hoofdstappen'} uit deze module:</div>
+        <ol style="margin:0;padding-left:18px;font-size:13px;color:var(--ink)">${_modStappenLijst}</ol>
       </div>` : '';
 
   const stap1 = `
