@@ -21,16 +21,16 @@ async function renderToetsen() {
     const renderMateriaalRijen = (lijst) => lijst.map(m => {
       const datum = m.aangemaakt ? m.aangemaakt.slice(0, 10) : '';
       return `
-        <div style="padding:10px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-          <div style="flex:1;min-width:120px">
-            <div style="font-weight:500;font-size:13px">${escHtml(m.naam)}</div>
-            ${m.vak ? `<div style="font-size:11px;color:var(--ink-muted)">${escHtml(m.vak)}</div>` : ''}
+        <div class="tw-mat-rij">
+          <div class="tw-mat-naam">
+            <strong>${escHtml(m.naam)}</strong>
+            ${m.vak ? `<span style="font-size:11px;color:var(--ink-muted)">${escHtml(m.vak)}</span>` : ''}
           </div>
-          <div style="font-size:12px;color:var(--ink-muted);white-space:nowrap">${datum}</div>
+          <div class="tw-mat-meta">${datum}</div>
           <a href="/uploads/${encodeURIComponent(m.bestandsnaam)}" target="_blank" download="${escHtml(m.bestandsnaam)}"
              class="btn btn-sm">⬇ Download</a>
           ${!readonly ? `<button class="btn btn-sm" onclick="matKoppelAanActiviteit('${m.id}','${escHtml(m.naam)}','${escHtml(m.bestandsnaam)}')">Koppelen</button>` : ''}
-          ${!readonly ? `<button class="btn btn-sm" style="color:var(--red)" onclick="matVerwijder('${m.id}')">Verwijderen</button>` : ''}
+          ${!readonly ? `<button class="tw-del-btn" onclick="matVerwijder('${m.id}')">Verwijderen</button>` : ''}
         </div>`;
     }).join('');
 
@@ -39,12 +39,8 @@ async function renderToetsen() {
         <div class="page-header-left"><h1>Toetsen & Materialen</h1></div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
           ${!readonly ? `
-            <button class="btn" onclick="openWerkboekjeWizard()" style="display:inline-flex;align-items:center;gap:6px">
-              <span style="font-size:15px">📓</span> Werkboekje maken
-            </button>
-            <button class="btn" onclick="openToetsGenerator()" style="display:inline-flex;align-items:center;gap:6px">
-              <span style="font-size:15px">📝</span> Toets genereren
-            </button>
+            <button class="btn" onclick="openWerkboekjeWizard()">📓 Werkboekje maken</button>
+            <button class="btn btn-primary" onclick="openToetsGenerator()">📝 Toets genereren</button>
           ` : ''}
         </div>
       </div>
@@ -75,13 +71,13 @@ async function renderToetsen() {
           ? `<div class="empty-state"><p>Geen gekoppelde toetsbestanden in opdrachten.</p></div>`
           : metToets.map(o => {
               const klas = klassen.find(k => k.id === o.klasId);
-              return `<div style="padding:10px 16px;border-bottom:1px solid var(--border);display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-                <div style="flex:2;min-width:120px">
+              return `<div class="tw-mat-rij">
+                <div class="tw-mat-naam" style="flex:2">
                   <a href="/uploads/${escHtml(o.toetsBestand)}" target="_blank" style="color:var(--accent);font-size:13px">${escHtml(o.toetsBestand)}</a>
-                  <div style="font-size:12px;color:var(--ink-muted)">${escHtml(o.naam || '')}</div>
+                  <span style="font-size:12px;color:var(--ink-muted)">${escHtml(o.naam || '')}</span>
                 </div>
                 <div style="font-size:13px">${escHtml(klas?.naam || '—')}</div>
-                <div style="font-size:12px;color:var(--ink-muted)">Week ${o.weeknummer || '—'}</div>
+                <div class="tw-mat-meta">Week ${o.weeknummer || '—'}</div>
               </div>`;
             }).join('')}
       </div>
@@ -216,10 +212,11 @@ function toonBestandsnaamInZone(input, zoneId) {
   const file = input.files[0];
   if (!file) return;
   const zone = document.getElementById(zoneId);
-  zone.innerHTML = `<div style="font-size:20px">📄</div>
-    <div style="font-weight:500;margin-bottom:4px;color:var(--accent)">${escHtml(file.name)}</div>
-    <div style="font-size:12px">${(file.size / 1024 / 1024).toFixed(2)} MB — klik om te wijzigen</div>`;
+  zone.innerHTML = `<div style="font-size:22px;margin-bottom:6px">📄</div>
+    <div style="font-weight:600;margin-bottom:4px;color:var(--accent)">${escHtml(file.name)}</div>
+    <div style="font-size:12px;color:var(--ink-muted)">${(file.size / 1024 / 1024).toFixed(2)} MB — klik om te wijzigen</div>`;
   zone.style.borderColor = 'var(--accent)';
+  zone.style.background = 'var(--accent-dim)';
 }
 
 // ============================================================
@@ -251,10 +248,10 @@ async function openInstellingenModal() {
       <button class="btn btn-primary" onclick="slaInstellingenOp()">Opslaan</button>
     </div>
     ${Auth.isAdmin() ? `
-    <hr style="margin:20px 0;border:none;border-top:1px solid var(--border)">
-    <h3 style="font-size:14px;font-weight:600;margin-bottom:4px">Databeheer</h3>
-    <p style="font-size:12px;color:var(--ink-muted);margin-bottom:10px">Verwijder verweesde data van profielen die al zijn verwijderd.</p>
-    <div id="cleanup-result" style="font-size:13px;margin-bottom:8px"></div>
+    <hr style="margin:22px 0;border:none;border-top:1px solid var(--border)">
+    <h3 style="font-size:14px;font-weight:700;margin:0 0 4px">Databeheer</h3>
+    <p class="lb-progress-label" style="margin:0 0 12px">Verwijder verweesde data van profielen die al zijn verwijderd.</p>
+    <div id="cleanup-result" style="font-size:13px;margin-bottom:10px"></div>
     <button class="btn" onclick="cleanupProfielen()">🗑 Opschonen verwijderde profielen</button>
     ` : ''}
   `);
@@ -332,20 +329,16 @@ async function openToetsGenerator() {
          </div>` : ''
     }
 
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:8px">
-      <div onclick="openToetsUpload()"
-           style="border:1.5px solid var(--border-2);border-radius:var(--radius);padding:20px 16px;cursor:pointer;text-align:center;transition:border-color .15s"
-           onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border-2)'">
-        <div style="font-size:28px;margin-bottom:8px">📤</div>
-        <div style="font-weight:600;font-size:14px;margin-bottom:4px">Bestand uploaden</div>
-        <div style="font-size:12px;color:var(--ink-muted)">AI maakt een toets in examen-stijl op basis van je lesmateriaal</div>
+    <div class="tw-keuze-grid">
+      <div class="tw-keuze-kaart" onclick="openToetsUpload()">
+        <div class="tw-keuze-icoon">📤</div>
+        <div class="tw-keuze-titel">Bestand uploaden</div>
+        <div class="tw-keuze-sub">AI maakt een toets in examen-stijl op basis van je lesmateriaal</div>
       </div>
-      <div onclick="openToetsWizard()"
-           style="border:1.5px solid var(--border-2);border-radius:var(--radius);padding:20px 16px;cursor:pointer;text-align:center;transition:border-color .15s"
-           onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border-2)'">
-        <div style="font-size:28px;margin-bottom:8px">✏️</div>
-        <div style="font-weight:600;font-size:14px;margin-bottom:4px">Nieuw aanmaken</div>
-        <div style="font-size:12px;color:var(--ink-muted)">Stap voor stap invullen — bronnen, open vragen en meerkeuze</div>
+      <div class="tw-keuze-kaart" onclick="openToetsWizard()">
+        <div class="tw-keuze-icoon">✏️</div>
+        <div class="tw-keuze-titel">Nieuw aanmaken</div>
+        <div class="tw-keuze-sub">Stap voor stap invullen — bronnen, open vragen en meerkeuze</div>
       </div>
     </div>
 
@@ -589,17 +582,19 @@ function renderToetsWizardStap() {
 
   else if (s === 2) {
     inhoud = _toetsWizard.data.secties.map((sectie, si) => `
-      <div style="border:1px solid var(--border);border-radius:var(--radius-sm);padding:14px;margin-bottom:12px">
-        <div style="font-weight:600;font-size:13px;color:var(--accent);margin-bottom:10px">Sectie ${si + 1}</div>
+      <div class="tw-sectie">
+        <div class="tw-sectie-header">
+          <span>Sectie ${si + 1}</span>
+        </div>
         <div class="form-field">
           <label>Thema-titel (bijv. Weer en klimaat)</label>
           <input id="tw-sec-titel-${si}" value="${escHtml(sectie.titel)}" placeholder="Bijv. Bevolking en ruimte">
         </div>
         ${sectie.bronnen.map((bron, bi) => `
-          <div style="background:var(--surface-2);border-radius:var(--radius-sm);padding:10px;margin-bottom:8px">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-              <span style="font-weight:600;font-size:12px">bron ${bron.nummer}</span>
-              ${sectie.bronnen.length > 1 ? `<button onclick="twVerwijderBron(${si},${bi})" style="color:var(--red);border:none;background:none;cursor:pointer;font-size:12px">Verwijderen</button>` : ''}
+          <div class="tw-bron-blok">
+            <div class="tw-bron-header">
+              <span class="tw-bron-nr">bron ${bron.nummer}</span>
+              ${sectie.bronnen.length > 1 ? `<button class="tw-bron-del" onclick="twVerwijderBron(${si},${bi})">Verwijderen</button>` : ''}
             </div>
             <div class="form-field" style="margin-bottom:6px">
               <label style="font-size:12px">Ondertitel</label>
@@ -607,14 +602,14 @@ function renderToetsWizardStap() {
             </div>
             <div class="form-field">
               <label style="font-size:12px">Brontekst (gebruik Enter voor nieuwe regels)</label>
-              <textarea id="tw-bron-tekst-${si}-${bi}" rows="4" style="width:100%;padding:8px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:12px;resize:vertical">${escHtml(bron.tekst)}</textarea>
+              <textarea id="tw-bron-tekst-${si}-${bi}" rows="4" class="tw-mini-textarea">${escHtml(bron.tekst)}</textarea>
             </div>
             <div class="form-field" style="margin-bottom:0">
               <label style="font-size:12px">Figuur / afbeelding (optioneel)</label>
               ${bron.figuurBase64
                 ? `<div style="display:flex;align-items:center;gap:10px;margin-top:4px">
                      <img src="${bron.figuurBase64}" style="max-height:60px;max-width:120px;border:1px solid var(--border);border-radius:4px" alt="figuur">
-                     <button onclick="twVerwijderFiguur(${si},${bi})" style="font-size:12px;color:var(--red);border:none;background:none;cursor:pointer">Verwijder figuur</button>
+                     <button class="tw-bron-del" onclick="twVerwijderFiguur(${si},${bi})">Verwijder figuur</button>
                    </div>`
                 : `<input type="file" accept="image/*" style="font-size:12px" onchange="twLaadFiguur(${si},${bi},this)">`
               }
@@ -631,52 +626,51 @@ function renderToetsWizardStap() {
   else if (s === 3) {
     inhoud = _toetsWizard.data.secties.map((sectie, si) => `
       <div style="margin-bottom:16px">
-        <div style="font-weight:600;font-size:13px;margin-bottom:8px;color:var(--accent)">
+        <div style="font-weight:700;font-size:13px;margin-bottom:10px;color:var(--accent)">
           ${escHtml(sectie.titel || `Sectie ${si + 1}`)}
         </div>
         ${sectie.vragen.map((v, vi) => `
-          <div style="border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px;margin-bottom:8px">
-            <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap">
-              <select id="tw-v-type-${si}-${vi}" style="font-size:12px;padding:4px 8px" onchange="twWijzigVraagType(${si},${vi},this.value)">
+          <div class="tw-vraag-blok">
+            <div class="tw-vraag-acties">
+              <select id="tw-v-type-${si}-${vi}" class="tw-mini-select" onchange="twWijzigVraagType(${si},${vi},this.value)">
                 <option value="open" ${v.type==='open'?'selected':''}>Open vraag</option>
                 <option value="meerkeuze" ${v.type==='meerkeuze'?'selected':''}>Meerkeuze</option>
               </select>
-              <select id="tw-v-punten-${si}-${vi}" style="font-size:12px;padding:4px 8px">
+              <select id="tw-v-punten-${si}-${vi}" class="tw-mini-select">
                 ${[1,2,3,4,5,6].map(n => `<option value="${n}" ${(v.punten||1)===n?'selected':''}>${n} punt${n>1?'en':''}</option>`).join('')}
               </select>
-              <input id="tw-v-ctx-${si}-${vi}" value="${escHtml(v.context||'')}" placeholder="bijv. Lees bron 1." style="flex:1;min-width:120px;font-size:12px;padding:4px 8px;border:1px solid var(--border);border-radius:4px">
-              ${sectie.vragen.length > 1 ? `<button onclick="twVerwijderVraag(${si},${vi})" style="color:var(--red);border:none;background:none;cursor:pointer;font-size:14px">✕</button>` : ''}
+              <input id="tw-v-ctx-${si}-${vi}" class="tw-mini-input" value="${escHtml(v.context||'')}" placeholder="bijv. Lees bron 1.">
+              ${sectie.vragen.length > 1 ? `<button class="tw-vraag-del" onclick="twVerwijderVraag(${si},${vi})">✕</button>` : ''}
             </div>
-            <textarea id="tw-v-vraag-${si}-${vi}" rows="2" placeholder="${v.type==='meerkeuze'?'Vraagstelling (bijv. Welke uitspraak is juist?)':'Vraagstelling hier invullen...'}" style="width:100%;padding:8px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:12px;resize:vertical;margin-bottom:6px">${escHtml(v.vraag||'')}</textarea>
-            <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
-              <button onclick="twAiAdviseerVraag(${si},${vi})" class="btn btn-sm" style="font-size:11px">
-                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2a10 10 0 1 0 10 10"/><path d="M12 8v4l3 3"/></svg>
-                AI-advies
-              </button>
+            <textarea id="tw-v-vraag-${si}-${vi}" rows="2" class="tw-mini-textarea" placeholder="${v.type==='meerkeuze'?'Vraagstelling (bijv. Welke uitspraak is juist?)':'Vraagstelling hier invullen...'}">${escHtml(v.vraag||'')}</textarea>
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+              <button onclick="twAiAdviseerVraag(${si},${vi})" class="btn btn-sm" style="font-size:11px">✨ AI-advies</button>
               <span id="tw-ai-status-${si}-${vi}" style="font-size:11px;color:var(--ink-muted)"></span>
             </div>
-            <div id="tw-ai-advies-${si}-${vi}" style="display:none;background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px;margin-bottom:8px;font-size:12px"></div>
+            <div id="tw-ai-advies-${si}-${vi}" class="tw-ai-advies-blok"></div>
             ${v.type === 'meerkeuze' ? `
-              <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+              <div class="tw-mk-grid">
                 ${(v.opties||[{letter:'A',tekst:''},{letter:'B',tekst:''},{letter:'C',tekst:''},{letter:'D',tekst:''}]).map((opt,oi) => `
-                  <div style="display:flex;gap:4px;align-items:center">
-                    <span style="font-weight:700;font-size:12px;min-width:16px">${opt.letter}</span>
-                    <input id="tw-v-opt-${si}-${vi}-${oi}" value="${escHtml(opt.tekst||'')}" placeholder="Optie ${opt.letter}" style="flex:1;font-size:12px;padding:4px 6px;border:1px solid var(--border);border-radius:4px">
+                  <div class="tw-mk-opt">
+                    <span class="tw-mk-letter">${opt.letter}</span>
+                    <input id="tw-v-opt-${si}-${vi}-${oi}" class="tw-mini-input" value="${escHtml(opt.tekst||'')}" placeholder="Optie ${opt.letter}">
                   </div>
                 `).join('')}
               </div>
             ` : `
               <div style="display:flex;align-items:center;gap:8px">
                 <label style="font-size:12px;color:var(--ink-muted)">Antwoordregels:</label>
-                <select id="tw-v-regels-${si}-${vi}" style="font-size:12px;padding:3px 6px">
+                <select id="tw-v-regels-${si}-${vi}" class="tw-mini-select">
                   ${[2,3,4,5,6].map(n => `<option value="${n}" ${(v.antwoordRegels||3)===n?'selected':''}>${n}</option>`).join('')}
                 </select>
               </div>
             `}
           </div>
         `).join('')}
-        <button class="btn btn-sm" onclick="twVoegVraagToe(${si},'open')" style="margin-right:6px">+ Open vraag</button>
-        <button class="btn btn-sm" onclick="twVoegVraagToe(${si},'meerkeuze')">+ Meerkeuze</button>
+        <div style="display:flex;gap:6px;margin-top:4px">
+          <button class="btn btn-sm" onclick="twVoegVraagToe(${si},'open')">+ Open vraag</button>
+          <button class="btn btn-sm" onclick="twVoegVraagToe(${si},'meerkeuze')">+ Meerkeuze</button>
+        </div>
       </div>
     `).join('');
   }
@@ -685,9 +679,9 @@ function renderToetsWizardStap() {
     const aantalVragen = _toetsWizard.data.secties.reduce((t,s) => t + (s.vragen||[]).length, 0);
     const maxPunten = _toetsWizard.data.secties.reduce((t,s) => t + (s.vragen||[]).reduce((tt,v) => tt + (parseInt(v.punten)||1), 0), 0);
     inhoud = `
-      <div style="background:var(--surface-2);border-radius:var(--radius-sm);padding:14px;margin-bottom:12px">
-        <div style="font-size:13px;font-weight:600;margin-bottom:8px">Overzicht</div>
-        <div style="font-size:13px;display:grid;grid-template-columns:1fr 1fr;gap:6px">
+      <div class="tw-ovz-blok">
+        <div class="tw-ovz-titel">Overzicht</div>
+        <div class="tw-ovz-grid">
           <div><span style="color:var(--ink-muted)">Vak:</span> ${escHtml(_toetsWizard.data.vak)}</div>
           <div><span style="color:var(--ink-muted)">Niveau:</span> ${escHtml(_toetsWizard.data.niveauLabel)}</div>
           <div><span style="color:var(--ink-muted)">Datum:</span> ${escHtml(_toetsWizard.data.datum||'—')}</div>
@@ -696,17 +690,17 @@ function renderToetsWizardStap() {
           <div><span style="color:var(--ink-muted)">Max punten:</span> ${maxPunten}</div>
         </div>
       </div>
-      <div style="font-size:13px;color:var(--ink-muted)">Klik op Toets aanmaken om de toets te genereren als .docx bestand in officiële examen-stijl.</div>
+      <p class="lb-progress-label">Klik op Toets aanmaken om de toets te genereren als .docx bestand in officiële examen-stijl.</p>
     `;
   }
 
   openModal(`
-    <h2>✏️ Nieuwe toets — stap ${s} van ${totaal}: ${stapTitels[s-1]}</h2>
-    <div style="margin-bottom:16px">
-      <div style="display:flex;gap:4px;margin-bottom:6px">
-        ${stapTitels.map((_,i) => `<div style="flex:1;height:4px;border-radius:2px;background:${i<s?'var(--accent)':'var(--border)'}"></div>`).join('')}
+    <h2 style="margin:0 0 4px;font-size:19px;font-weight:700;letter-spacing:-0.3px">✏️ Nieuwe toets — ${stapTitels[s-1]}</h2>
+    <div class="lb-progress-wrap">
+      <div class="lb-progress-bar">
+        ${stapTitels.map((t,i) => `<div class="lb-progress-seg${i < s ? ' actief' : ''}" title="${t}"></div>`).join('')}
       </div>
-      <div style="font-size:12px;color:var(--ink-muted)">Stap ${s} van ${totaal}</div>
+      <div class="lb-progress-label">Stap ${s} van ${totaal} — ${stapTitels[s-1]}</div>
     </div>
     ${inhoud}
     <div id="tw-result" style="margin-top:8px;font-size:13px"></div>
@@ -887,11 +881,11 @@ async function twAiAdviseerVraag(si, vi) {
     const verbeterd = sug.vraag || sug.verbeterdVraag || null;
 
     adviesEl.innerHTML = `
-      <div style="font-weight:600;margin-bottom:4px;color:var(--accent)">AI-advies:</div>
+      <div class="tw-ai-advies-titel">AI-advies:</div>
       <div style="margin-bottom:8px">${escHtml(adviesTekst)}</div>
       ${verbeterd ? `
         <div style="font-weight:600;margin-bottom:4px">Verbeterde vraag:</div>
-        <div style="background:var(--surface);border:1px solid var(--border-2);border-radius:4px;padding:8px;margin-bottom:8px;font-style:italic">${escHtml(verbeterd)}</div>
+        <div class="tw-ai-verbeterd">${escHtml(verbeterd)}</div>
         <button onclick="twNeemAdviesOver(${si},${vi})" class="btn btn-sm btn-primary" style="font-size:11px">Advies overnemen</button>
       ` : ''}
     `;
