@@ -426,29 +426,59 @@ async function laadKoppelWeken(profielId) {
   };
 }
 
+function lpRenderVerdelingPreview() {
+  const preview = document.getElementById('koppel-verdeling-preview');
+  if (!preview || !_lpVerdelingPreview) return;
+  const n = _lpVerdelingPreview.length;
+  preview.innerHTML = `
+    <div style="background:var(--cream);border:1px solid var(--border);border-radius:8px;padding:12px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <span style="font-weight:600;font-size:13px">Weekverdeling (${n} weken) — versleep of gebruik pijltjes om te herschikken</span>
+      </div>
+      <div style="max-height:340px;overflow-y:auto" id="lp-verdeling-weken">
+        ${_lpVerdelingPreview.map((w, i) => `
+          <div style="display:flex;align-items:stretch;gap:6px;margin-bottom:6px;background:#fff;border:1px solid var(--border);border-radius:6px;overflow:hidden">
+            <div style="display:flex;flex-direction:column;gap:0;border-right:1px solid var(--border)">
+              <button onclick="lpVerschuifWeek(${i},-1)" ${i === 0 ? 'disabled' : ''}
+                style="flex:1;border:none;background:none;cursor:${i === 0 ? 'default' : 'pointer'};padding:2px 7px;font-size:12px;color:${i === 0 ? 'var(--border)' : 'var(--ink-muted)'};line-height:1">▲</button>
+              <button onclick="lpVerschuifWeek(${i},1)" ${i === n - 1 ? 'disabled' : ''}
+                style="flex:1;border:none;background:none;cursor:${i === n - 1 ? 'default' : 'pointer'};padding:2px 7px;font-size:12px;color:${i === n - 1 ? 'var(--border)' : 'var(--ink-muted)'};line-height:1">▼</button>
+            </div>
+            <div style="padding:7px 10px;flex:1;min-width:0">
+              <div style="font-weight:600;font-size:12px;margin-bottom:3px">
+                <span style="color:var(--ink-muted);font-weight:400">Week ${i + 1}</span>
+                ${w.thema ? ` — ${escHtml(w.thema)}` : ''}
+              </div>
+              ${(w.theorie || []).map(t => `<div style="font-size:11px;color:var(--blue)">📖 ${escHtml(t.stapNaam || t.omschrijving || '')}${t.uren ? ` (${t.uren}u)` : ''}</div>`).join('')}
+              ${(w.praktijk || []).map(t => `<div style="font-size:11px;color:var(--accent)">🔧 ${escHtml(t.naam || t.omschrijving || '')}${t.uren ? ` (${t.uren}u)` : ''}</div>`).join('')}
+            </div>
+          </div>`).join('')}
+      </div>
+    </div>`;
+}
+
+function lpVerschuifWeek(idx, richting) {
+  if (!_lpVerdelingPreview) return;
+  const nieuw = idx + richting;
+  if (nieuw < 0 || nieuw >= _lpVerdelingPreview.length) return;
+  const tmp = _lpVerdelingPreview[idx];
+  _lpVerdelingPreview[idx] = _lpVerdelingPreview[nieuw];
+  _lpVerdelingPreview[nieuw] = tmp;
+  lpRenderVerdelingPreview();
+}
+
 async function genereerVerdeling(profielId) {
   const aantalWeken = parseInt(document.getElementById('koppel-weken')?.value || 8);
   const klasId = document.getElementById('koppel-klas')?.value || null;
   const btn = document.getElementById('koppel-ai-btn');
-  const preview = document.getElementById('koppel-verdeling-preview');
   if (btn) { btn.disabled = true; btn.textContent = '⏳ Genereren…'; }
   try {
     const data = await API.genereerLesprofielVerdeling(profielId, { aantalWeken, klasId });
     _lpVerdelingPreview = data.weken || [];
     _lpVerdelingStappen = data.stappen || [];
-    if (preview) {
-      preview.innerHTML = `
-        <div style="background:var(--cream);border:1px solid var(--border);border-radius:8px;padding:12px;max-height:300px;overflow-y:auto">
-          <div style="font-weight:600;font-size:13px;margin-bottom:8px">Preview weekverdeling (${_lpVerdelingPreview.length} weken)</div>
-          ${_lpVerdelingPreview.map(w => `
-            <div style="margin-bottom:8px;padding-bottom:8px;border-bottom:1px solid var(--border)">
-              <div style="font-weight:600;font-size:12px">Week ${w.weekIndex} — ${escHtml(w.thema || '')}</div>
-              ${(w.theorie || []).map(t => `<div style="font-size:11px;color:var(--blue)">📖 ${escHtml(t.stapNaam || '')} (${t.uren || 1}u)</div>`).join('')}
-              ${(w.praktijk || []).map(t => `<div style="font-size:11px;color:var(--accent)">🔧 ${escHtml(t.naam || '')} (${t.uren || 1}u)</div>`).join('')}
-            </div>`).join('')}
-        </div>`;
-    }
+    lpRenderVerdelingPreview();
   } catch(e) {
+    const preview = document.getElementById('koppel-verdeling-preview');
     if (preview) preview.innerHTML = `<div class="alert" style="background:var(--red-light);color:var(--red)">Fout: ${escHtml(e.message)}</div>`;
   } finally {
     if (btn) { btn.disabled = false; btn.textContent = '🤖 AI genereer weekverdeling'; }
