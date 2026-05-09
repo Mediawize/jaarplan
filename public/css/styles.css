@@ -1065,24 +1065,28 @@ input, select, textarea { font-family: var(--font); }
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 12px;
-  margin-bottom: 20px;
+  margin-bottom: 24px;
 }
 
 .jp-stat {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 14px 18px;
+  border-radius: var(--radius-lg);
+  padding: 18px 20px;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 4px;
+  box-shadow: var(--shadow-sm);
+  transition: box-shadow 0.15s;
 }
+.jp-stat:hover { box-shadow: var(--shadow); }
 
 .jp-stat-val {
-  font-size: 24px;
+  font-size: 28px;
   font-weight: 700;
   color: var(--ink);
   line-height: 1;
+  letter-spacing: -0.5px;
 }
 
 .jp-stat-lbl {
@@ -1094,40 +1098,46 @@ input, select, textarea { font-family: var(--font); }
 #jp-grid {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
 }
 
 .jp-week {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 14px 20px;
+  border-radius: var(--radius-lg);
+  padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  transition: box-shadow 0.15s;
+  gap: 0;
+  transition: box-shadow 0.15s, border-color 0.15s;
   width: 100%;
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
 }
 
 .jp-week:hover {
   box-shadow: var(--shadow);
+  border-color: rgba(28,25,23,0.12);
 }
 
 .jp-week-huidig {
   border-color: var(--accent);
-  box-shadow: 0 0 0 2px var(--accent-dim);
+  box-shadow: 0 0 0 2px var(--accent-dim), var(--shadow-sm);
 }
 
 .jp-week-vakantie {
   background: var(--amber-dim);
   border-color: rgba(217,119,6,0.2);
-  opacity: 0.7;
+  opacity: 0.75;
 }
 
 .jp-week-header {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
+  padding: 12px 18px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-2);
 }
 
 .jp-week-nr {
@@ -1135,7 +1145,8 @@ input, select, textarea { font-family: var(--font); }
   font-weight: 700;
   color: var(--ink);
   white-space: nowrap;
-  min-width: 60px;
+  min-width: 64px;
+  letter-spacing: -0.1px;
 }
 
 .jp-week-datum {
@@ -1155,32 +1166,35 @@ input, select, textarea { font-family: var(--font); }
 .jp-opdrachten {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
+  padding: 14px 18px;
 }
 
 .jp-leeg {
   font-size: 12px;
   color: var(--ink-4);
-  padding: 4px 0;
+  padding: 6px 0;
+  font-style: italic;
 }
 
 .jp-opdracht {
-  background: var(--surface-2);
+  background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-  padding: 10px 12px;
+  padding: 0;
   display: flex;
-  flex-direction: column;
-  gap: 4px;
-  transition: background 0.1s;
+  gap: 0;
+  overflow: hidden;
+  transition: box-shadow 0.12s, border-color 0.12s;
 }
 
 .jp-opdracht:hover {
-  background: var(--surface-3);
+  box-shadow: var(--shadow-sm);
+  border-color: var(--border-2);
 }
 
 .jp-opdracht-afgevinkt {
-  opacity: 0.6;
+  opacity: 0.55;
 }
 
 .jp-opdracht-top {
@@ -1188,13 +1202,15 @@ input, select, textarea { font-family: var(--font); }
   align-items: center;
   justify-content: space-between;
   gap: 6px;
+  margin-bottom: 6px;
 }
 
 .jp-opdracht-naam {
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
   color: var(--ink);
-  line-height: 1.3;
+  line-height: 1.35;
+  letter-spacing: -0.1px;
 }
 
 .jp-opdracht-naam.line-through {
@@ -1203,9 +1219,28 @@ input, select, textarea { font-family: var(--font); }
 }
 
 .jp-opdracht-desc {
-  font-size: 12px;
+  font-size: 12.5px;
   color: var(--ink-3);
-  line-height: 1.4;
+  line-height: 1.45;
+  margin-bottom: 4px;
+}
+
+.jp-opdracht-meta {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  align-items: center;
+  margin-top: 6px;
+}
+
+.jp-opdracht-acties {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
 }
 
 @media (max-width: 768px) {

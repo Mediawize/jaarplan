@@ -69,7 +69,7 @@ async function renderJaarplanning() {
           </h1>
         </div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-          <select id="jp-klas-select" onchange="jpSwitchKlas(this.value)" style="padding:8px 12px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:13px;background:#fff">
+          <select id="jp-klas-select" onchange="jpSwitchKlas(this.value)" style="padding:10px 14px;border:1.5px solid var(--border-2);border-radius:var(--radius-sm);font-size:14px;background:var(--surface);font-family:var(--font);min-height:42px;color:var(--ink);font-weight:500">
             ${klassen.map(k => `<option value="${k.id}" ${k.id === geselecteerdeKlas.id ? 'selected' : ''}>${escHtml(k.naam)}${k.roulatie ? ' ⟳' : ''}</option>`).join('')}
           </select>
           ${!readonly ? `<button class="btn btn-primary" onclick="openOpdrachtModal()">+ Opdracht</button>` : ''}
@@ -149,18 +149,17 @@ function renderJpGrid(weken, opdrachten, klas, cw, readonly) {
 
     return `<div class="jp-week ${isHuidig ? 'jp-week-huidig' : ''}">
       <div class="jp-week-header">
-        <span class="jp-week-nr">${isHuidig ? '▶ ' : ''}Wk ${week.weeknummer}</span>
+        <span class="jp-week-nr">${isHuidig ? `<span style="color:var(--accent)">▶</span> ` : ''}Week ${week.weeknummer}</span>
         <span class="jp-week-datum">${week.van||''}</span>
-        <div style="display:flex;align-items:center;gap:4px;margin-left:auto">
-          ${week.thema && weekOpd.length > 0 ? `<span style="font-size:11px;color:var(--ink-3);font-style:italic;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(week.thema)}</span>` : ''}
-          ${!readonly ? `<button class="icon-btn" onclick="openOpdrachtModal(null, ${week.weeknummer})" title="Opdracht toevoegen" style="width:20px;height:20px;opacity:0.5">
-            <svg viewBox="0 0 20 20" fill="none"><path d="M10 4v12M4 10h12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-          </button>` : ''}
-        </div>
+        ${week.thema ? `<span style="font-size:11.5px;color:var(--ink-3);font-style:italic;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;border-left:2px solid var(--border-2);padding-left:8px">${escHtml(week.thema)}</span>` : ''}
+        <span style="margin-left:auto;font-size:11px;color:var(--ink-4)">${weekOpd.length ? `${weekOpd.length} opdracht${weekOpd.length !== 1 ? 'en' : ''}` : ''}</span>
+        ${!readonly ? `<button class="icon-btn" onclick="openOpdrachtModal(null, ${week.weeknummer})" title="Opdracht toevoegen">
+          <svg viewBox="0 0 20 20" fill="none"><path d="M10 4v12M4 10h12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        </button>` : ''}
       </div>
       <div class="jp-opdrachten">
         ${weekOpd.length === 0
-          ? `<div class="jp-leeg">Nog geen opdrachten</div>`
+          ? `<div class="jp-leeg">Nog geen opdrachten voor deze week</div>`
           : weekOpd.map(o => renderOpdrachtKaart(o, readonly, week.weeknummer)).join('')
         }
       </div>
@@ -203,55 +202,51 @@ function renderOpdrachtKaart(o, readonly, weeknummer) {
   }
 
   return `<div class="jp-opdracht ${afgevinkt ? 'jp-opdracht-afgevinkt' : ''}" data-id="${o.id}"
-    style="display:flex;gap:0;padding:0;overflow:hidden;border-radius:var(--radius-sm);border:1px solid ${borderKleur};background:${bgKleur}">
+    style="border-color:${borderKleur};background:${bgKleur}">
 
-    <!-- Gekleurde balk links per type -->
-    <div style="width:4px;flex-shrink:0;background:${kleur};${afgevinkt ? 'opacity:0.5' : ''}"></div>
+    <div style="width:5px;flex-shrink:0;background:${kleur};${afgevinkt ? 'opacity:0.45' : ''}"></div>
 
-    <!-- Inhoud -->
-    <div style="flex:1;padding:10px 12px;min-width:0">
+    <div style="flex:1;padding:12px 14px;min-width:0">
 
-      <!-- Bovenste rij: badge + actieknoppen -->
-      <div class="jp-opdracht-top" style="margin-bottom:5px">
-        <span class="badge ${typeKleur(o.type)}" style="font-size:10px">${escHtml(o.type)}</span>
-        ${!readonly ?
-          `<div style="display:flex;gap:4px;margin-left:auto">
-            <button onclick="openOpmerkingModal('${o.id}')" title="${heeftOpmerking?'Opmerking bekijken':'Opmerking toevoegen'}"
-              style="padding:2px 6px;font-size:11px;border-radius:4px;border:1px solid ${heeftOpmerking?'var(--amber)':'var(--border-2)'};background:${heeftOpmerking?'var(--amber-dim)':'transparent'};cursor:pointer;color:${heeftOpmerking?'var(--amber-text)':'var(--ink-3)'}">
-              ${heeftOpmerking?'💬':'+ notitie'}
-            </button>
-            <button onclick="openOpdrachtModal('${o.id}')" title="Bewerken"
-              style="padding:2px 6px;font-size:11px;border-radius:4px;border:1px solid var(--border-2);background:transparent;cursor:pointer;color:var(--ink-3)">✎</button>
-            <button onclick="deleteOpdracht('${o.id}')" title="Verwijderen"
-              style="padding:2px 6px;font-size:11px;border-radius:4px;border:1px solid var(--border-2);background:transparent;cursor:pointer;color:var(--red)">✕</button>
-          </div>` : ''}
+      <div class="jp-opdracht-top">
+        <span class="badge ${typeKleur(o.type)}">${escHtml(o.type)}</span>
+        ${!readonly ? `<div style="display:flex;gap:4px;margin-left:auto">
+          <button onclick="openOpmerkingModal('${o.id}')" title="${heeftOpmerking ? 'Opmerking bekijken' : 'Opmerking toevoegen'}"
+            style="padding:4px 8px;font-size:12px;border-radius:5px;border:1px solid ${heeftOpmerking ? 'var(--amber)' : 'var(--border-2)'};background:${heeftOpmerking ? 'var(--amber-dim)' : 'transparent'};cursor:pointer;color:${heeftOpmerking ? 'var(--amber-text)' : 'var(--ink-3)'};font-family:var(--font)">
+            ${heeftOpmerking ? '💬 Notitie' : '+ notitie'}
+          </button>
+          <button onclick="openOpdrachtModal('${o.id}')" title="Bewerken"
+            style="padding:4px 8px;font-size:12px;border-radius:5px;border:1px solid var(--border-2);background:transparent;cursor:pointer;color:var(--ink-3);font-family:var(--font)">✎ Bewerk</button>
+          <button onclick="deleteOpdracht('${o.id}')" title="Verwijderen"
+            style="padding:4px 8px;font-size:12px;border-radius:5px;border:1px solid var(--border-2);background:transparent;cursor:pointer;color:var(--red);font-family:var(--font)">✕</button>
+        </div>` : ''}
       </div>
 
-      <!-- Naam -->
       <div class="jp-opdracht-naam ${afgevinkt ? 'line-through' : ''}">${escHtml(o.naam)}</div>
 
-      <!-- Beschrijving -->
       ${o.beschrijving ? `<div class="jp-opdracht-desc">${escHtml(o.beschrijving)}</div>` : ''}
 
-      <!-- Opmerking -->
-      ${heeftOpmerking ? `<div style="font-size:11px;color:var(--amber-text);margin-top:4px;padding:4px 8px;background:var(--amber-dim);border-radius:4px">💬 ${escHtml(o.opmerking)}</div>` : ''}
+      ${heeftOpmerking ? `<div style="font-size:12px;color:var(--amber-text);margin-top:6px;padding:6px 10px;background:var(--amber-dim);border-radius:5px;border-left:2px solid var(--amber)">💬 ${escHtml(o.opmerking)}</div>` : ''}
 
-      <!-- Syllabus + links -->
-      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;align-items:center">
-        ${o.uren ? `<span style="font-size:11px;color:var(--ink-3)">⏱ ${o.uren}u</span>` : ''}
-        ${o.syllabuscodes ? `<span style="font-size:11px;color:var(--ink-3)">${escHtml(jpFormatSyllabusCode(o.syllabuscodes))}</span>` : ''}
-        ${o.theorieLink ? `<a href="${escHtml(o.theorieLink)}" target="_blank" class="text-link" style="font-size:11px" onclick="event.stopPropagation()">📖 Theorie</a>` : ''}
-        ${o.toetsBestand ? `<span style="font-size:11px;color:var(--amber-text)">📄 ${escHtml(o.toetsBestand)}</span>` : ''}
-        ${o.werkboekLink ? `<a href="${escHtml(o.werkboekLink)}" target="_blank" class="text-link" style="font-size:11px" onclick="event.stopPropagation()">📗 Werkboek</a>` : ''}
-        ${o.profielId ? `<span style="font-size:10px;padding:1px 5px;border-radius:3px;background:var(--accent-dim);color:var(--accent-text)">profiel</span>` : ''}
-        ${o.profielId ? `<button onclick="event.stopPropagation();openLesbrief('${o.id}')" title="Lesbrief openen" style="padding:2px 7px;font-size:11px;border-radius:4px;border:1px solid var(--border-2);background:transparent;cursor:pointer;color:var(--ink-3)">📋 Lesbrief</button>` : ''}
+      <div class="jp-opdracht-meta">
+        ${o.uren ? `<span style="font-size:11.5px;color:var(--ink-3);background:var(--surface-2);padding:2px 8px;border-radius:10px;border:1px solid var(--border)">⏱ ${o.uren}u</span>` : ''}
+        ${o.syllabuscodes ? `<span style="font-size:11px;color:var(--ink-3);font-family:var(--font-mono)">${escHtml(jpFormatSyllabusCode(o.syllabuscodes))}</span>` : ''}
+        ${o.theorieLink ? `<a href="${escHtml(o.theorieLink)}" target="_blank" onclick="event.stopPropagation()" style="font-size:11.5px;color:var(--blue-text);text-decoration:none;padding:2px 8px;background:var(--blue-dim);border-radius:10px;border:1px solid rgba(37,99,235,0.15)">📖 Theorie</a>` : ''}
+        ${o.werkboekLink ? `<a href="${escHtml(o.werkboekLink)}" target="_blank" onclick="event.stopPropagation()" style="font-size:11.5px;color:var(--accent-text);text-decoration:none;padding:2px 8px;background:var(--accent-dim);border-radius:10px;border:1px solid rgba(22,163,74,0.15)">📗 Werkboek</a>` : ''}
+        ${o.toetsBestand ? `<span style="font-size:11.5px;color:var(--amber-text);padding:2px 8px;background:var(--amber-dim);border-radius:10px;border:1px solid rgba(217,119,6,0.15)">📄 ${escHtml(o.toetsBestand)}</span>` : ''}
       </div>
 
-      <!-- Afvinken rij -->
-      <div style="display:flex;align-items:center;gap:6px;margin-top:8px">
-        ${afgevinkt ? `<span style="font-size:11px;color:var(--accent-text)">✓ Afgevinkt</span>` : ''}
-        ${afgevinkt && o.afgevinktDoor ? `<span style="font-size:10px;font-weight:700;font-family:monospace;background:var(--accent);color:#fff;padding:1px 5px;border-radius:4px">${escHtml(o.afgevinktDoor)}</span>` : ''}
-        ${!readonly ? `<button onclick="jpAfvinken('${o.id}')" style="margin-left:auto;padding:2px 8px;font-size:11px;border-radius:5px;border:1.5px solid ${afgevinkt ? 'var(--accent)' : 'var(--border-2)'};background:${afgevinkt ? 'var(--accent-dim)' : '#fff'};color:${afgevinkt ? 'var(--accent-text)' : 'var(--ink-3)'};cursor:pointer;font-weight:500">${afgevinkt ? '✓ Klaar' : 'Afvinken'}</button>` : ''}
+      <div class="jp-opdracht-acties">
+        <div style="display:flex;align-items:center;gap:8px">
+          ${afgevinkt ? `<span style="font-size:12px;color:var(--accent-text);font-weight:600">✓ Afgerond</span>` : ''}
+          ${afgevinkt && o.afgevinktDoor ? `<span style="font-size:11px;background:var(--accent);color:#fff;padding:2px 7px;border-radius:10px;font-weight:600">${escHtml(o.afgevinktDoor)}</span>` : ''}
+        </div>
+        <div style="display:flex;gap:6px;align-items:center">
+          ${o.profielId ? `<button onclick="event.stopPropagation();openLesbrief('${o.id}')"
+            style="padding:5px 10px;font-size:12px;border-radius:5px;border:1.5px solid var(--blue);background:var(--blue);color:#fff;cursor:pointer;font-weight:600;font-family:var(--font)">📋 Lesbrief</button>` : ''}
+          ${!readonly ? `<button onclick="jpAfvinken('${o.id}')"
+            style="padding:5px 12px;font-size:12px;font-weight:600;border-radius:5px;border:1.5px solid ${afgevinkt ? 'var(--accent)' : 'var(--border-2)'};background:${afgevinkt ? 'var(--accent-dim)' : 'var(--surface)'};color:${afgevinkt ? 'var(--accent-text)' : 'var(--ink-2)'};cursor:pointer;font-family:var(--font);transition:all 0.12s">${afgevinkt ? '✓ Afgerond' : 'Afvinken'}</button>` : ''}
+        </div>
       </div>
 
     </div>
