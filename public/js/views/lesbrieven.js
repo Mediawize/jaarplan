@@ -95,34 +95,34 @@ function lbToonOverzicht() {
 
   function blok(label, tekst) {
     if (!tekst || !tekst.trim()) return '';
-    return `<div style="margin-bottom:18px">
-      <div style="font-weight:700;font-size:12px;color:var(--accent);text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px">${label}</div>
-      <div style="font-size:13px;white-space:pre-wrap;line-height:1.6">${escHtml(tekst)}</div>
+    return `<div class="lb-blok">
+      <div class="lb-blok-label">${label}</div>
+      <div class="lb-blok-tekst">${escHtml(tekst)}</div>
     </div>`;
   }
 
   const faseringHtml = (d.fasering || []).length ? `
-    <div style="margin-bottom:18px">
-      <div style="font-weight:700;font-size:12px;color:var(--accent);text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px">Fasering van de les</div>
+    <div class="lb-blok">
+      <div class="lb-blok-label">Fasering van de les</div>
       <div style="overflow-x:auto">
-        <table style="width:100%;border-collapse:collapse;font-size:12px">
+        <table class="lb-ovz-tabel">
           <thead>
-            <tr style="background:var(--accent);color:#fff">
-              <th style="padding:7px 10px;text-align:left;font-weight:600">Fasering</th>
-              <th style="padding:7px 10px;text-align:left;font-weight:600;white-space:nowrap">Tijd</th>
-              <th style="padding:7px 10px;text-align:left;font-weight:600">Activiteit leraar</th>
-              <th style="padding:7px 10px;text-align:left;font-weight:600">Activiteit leerlingen</th>
-              <th style="padding:7px 10px;text-align:left;font-weight:600">Hulpmiddelen</th>
+            <tr>
+              <th>Fasering</th>
+              <th>Tijd</th>
+              <th>Activiteit leraar</th>
+              <th>Activiteit leerlingen</th>
+              <th>Hulpmiddelen</th>
             </tr>
           </thead>
           <tbody>
-            ${(d.fasering).map((f, i) => `
-              <tr style="background:${i % 2 === 0 ? '#f3f9f5' : '#fff'}">
-                <td style="padding:8px 10px;border-bottom:1px solid var(--border);font-weight:600;font-size:12px">${escHtml(f.fase||'')}</td>
-                <td style="padding:8px 10px;border-bottom:1px solid var(--border);white-space:nowrap;color:var(--ink-muted)">${escHtml(f.tijd||'')}</td>
-                <td style="padding:8px 10px;border-bottom:1px solid var(--border)">${escHtml(f.activiteitLeraar||'')}</td>
-                <td style="padding:8px 10px;border-bottom:1px solid var(--border)">${escHtml(f.activiteitLeerling||'')}</td>
-                <td style="padding:8px 10px;border-bottom:1px solid var(--border)">${escHtml(f.hulpmiddelen||'')}</td>
+            ${(d.fasering).map((f) => `
+              <tr>
+                <td class="lb-fase-naam">${escHtml(f.fase||'')}</td>
+                <td class="lb-fase-tijd">${escHtml(f.tijd||'')}</td>
+                <td>${escHtml(f.activiteitLeraar||'')}</td>
+                <td>${escHtml(f.activiteitLeerling||'')}</td>
+                <td>${escHtml(f.hulpmiddelen||'')}</td>
               </tr>`).join('')}
           </tbody>
         </table>
@@ -131,34 +131,33 @@ function lbToonOverzicht() {
 
   openModal(`
     <div style="margin:-4px -4px 0">
-      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;padding-bottom:12px;border-bottom:1px solid var(--border);margin-bottom:16px">
+      <div class="lb-overzicht-header">
         <div>
-          <h2 style="margin:0 0 4px;font-size:18px">📋 Lesbrief</h2>
-          <div style="font-size:13px;color:var(--ink-muted)">
-            ${info.type ? `<span style="background:var(--accent-dim);color:var(--accent);border-radius:4px;padding:1px 7px;font-size:12px;font-weight:600;margin-right:6px">${escHtml(info.type)}</span>` : ''}
+          <h2 class="lb-overzicht-title">📋 Lesbrief</h2>
+          <div class="lb-wizard-sub">
+            ${info.type ? `<span class="lb-type-pill">${escHtml(info.type)}</span>` : ''}
             ${escHtml(info.omschrijving || info.naam || '')}${info.uren ? ` · ${info.uren} lesuren` : ''}
           </div>
         </div>
-        <div style="display:flex;gap:6px;flex-shrink:0">
+        <div class="lb-wizard-actions">
           <button class="btn btn-sm" onclick="lbBewerken()">✏️ Bewerken</button>
           <button class="btn btn-primary btn-sm" onclick="lbDownload()">⬇ Download</button>
         </div>
       </div>
 
-      <!-- Identificatieblok -->
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px 20px;background:#f9fafb;border:1px solid var(--border);border-radius:8px;padding:12px 16px;margin-bottom:18px;font-size:13px">
-        ${d.kandidaat ? `<div><span style="color:var(--ink-muted)">Kandidaat:</span> <strong>${escHtml(d.kandidaat)}</strong></div>` : ''}
-        ${d.datumLes  ? `<div><span style="color:var(--ink-muted)">Datum:</span> <strong>${escHtml(d.datumLes)}</strong></div>` : ''}
-        ${d.vak       ? `<div><span style="color:var(--ink-muted)">Vak:</span> ${escHtml(d.vak)}</div>` : ''}
-        ${d.klas      ? `<div><span style="color:var(--ink-muted)">Klas:</span> ${escHtml(d.klas)}</div>` : ''}
-        ${d.school    ? `<div><span style="color:var(--ink-muted)">School:</span> ${escHtml(d.school)}</div>` : ''}
-        ${d.lokaal    ? `<div><span style="color:var(--ink-muted)">Lokaal:</span> ${escHtml(d.lokaal)}</div>` : ''}
-        ${d.werkplekbegeleider ? `<div><span style="color:var(--ink-muted)">WPB:</span> ${escHtml(d.werkplekbegeleider)}</div>` : ''}
-        ${d.methode   ? `<div><span style="color:var(--ink-muted)">Methode:</span> ${escHtml(d.methode)}</div>` : ''}
-        ${d.onderwerp ? `<div style="grid-column:1/-1"><span style="color:var(--ink-muted)">Onderwerp:</span> <strong>${escHtml(d.onderwerp)}</strong></div>` : ''}
+      <div class="lb-id-grid">
+        ${d.kandidaat ? `<div><span class="lb-id-label">Kandidaat:</span> <strong>${escHtml(d.kandidaat)}</strong></div>` : ''}
+        ${d.datumLes  ? `<div><span class="lb-id-label">Datum:</span> <strong>${escHtml(d.datumLes)}</strong></div>` : ''}
+        ${d.vak       ? `<div><span class="lb-id-label">Vak:</span> ${escHtml(d.vak)}</div>` : ''}
+        ${d.klas      ? `<div><span class="lb-id-label">Klas:</span> ${escHtml(d.klas)}</div>` : ''}
+        ${d.school    ? `<div><span class="lb-id-label">School:</span> ${escHtml(d.school)}</div>` : ''}
+        ${d.lokaal    ? `<div><span class="lb-id-label">Lokaal:</span> ${escHtml(d.lokaal)}</div>` : ''}
+        ${d.werkplekbegeleider ? `<div><span class="lb-id-label">WPB:</span> ${escHtml(d.werkplekbegeleider)}</div>` : ''}
+        ${d.methode   ? `<div><span class="lb-id-label">Methode:</span> ${escHtml(d.methode)}</div>` : ''}
+        ${d.onderwerp ? `<div class="full"><span class="lb-id-label">Onderwerp:</span> <strong>${escHtml(d.onderwerp)}</strong></div>` : ''}
       </div>
 
-      <div style="max-height:55vh;overflow-y:auto;padding-right:4px">
+      <div class="lb-scroll">
         ${blok('1) Lesdoel', d.lesdoel)}
         ${blok('Beginsituatie', d.beginsituatie)}
         ${blok('2) Wat doe ik? (en waarom)', d.watDoekIk)}
@@ -248,25 +247,25 @@ function renderLb() {
 
   openModal(`
     <div style="margin:-4px -4px 0">
-      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;padding-bottom:10px">
+      <div class="lb-wizard-header">
         <div>
-          <h2 style="margin:0 0 4px;font-size:18px">📄 Lesbrief — stap ${s} van ${totaal}: ${huidigLabel}</h2>
-          <div style="font-size:13px;color:var(--ink-muted)">
-            ${info.type ? `<span style="background:var(--accent-dim);color:var(--accent);border-radius:4px;padding:1px 7px;font-size:12px;font-weight:600;margin-right:6px">${escHtml(info.type)}</span>` : ''}
+          <h2 class="lb-wizard-title">📄 Lesbrief — stap ${s} van ${totaal}: ${huidigLabel}</h2>
+          <div class="lb-wizard-sub">
+            ${info.type ? `<span class="lb-type-pill">${escHtml(info.type)}</span>` : ''}
             ${escHtml(info.omschrijving || info.naam || '')}${info.uren ? ` · ${info.uren} lesuren (45 min)` : ''}
           </div>
         </div>
-        <div style="display:flex;gap:6px;align-items:center;flex-shrink:0">
+        <div class="lb-wizard-actions">
           ${!ro ? `<button class="btn btn-sm" onclick="lbGenereerAI()" id="lb-ai-btn">✨ AI invullen</button>` : ''}
           ${!ro ? `<button class="btn btn-sm" onclick="lbOpslaan()" id="lb-opslaan-btn">💾 Opslaan</button>` : ''}
         </div>
       </div>
 
-      <div style="margin-bottom:16px">
-        <div style="display:flex;gap:4px;margin-bottom:6px">
-          ${LB_STAPPEN.map((_, i) => `<div style="flex:1;height:4px;border-radius:2px;background:${i < s ? 'var(--accent)' : 'var(--border)'}"></div>`).join('')}
+      <div class="lb-progress-wrap">
+        <div class="lb-progress-bar">
+          ${LB_STAPPEN.map((st, i) => `<div class="lb-progress-seg${i < s ? ' actief' : ''}" title="${st.label}"></div>`).join('')}
         </div>
-        <div style="font-size:12px;color:var(--ink-muted)">Stap ${s} van ${totaal}</div>
+        <div class="lb-progress-label">Stap ${s} van ${totaal} — ${huidigLabel}</div>
       </div>
 
       <div id="lb-ai-status" style="font-size:13px;margin-bottom:8px"></div>
@@ -294,26 +293,7 @@ function renderLb() {
   }, 0);
 }
 
-function lbInjectStijlen() {
-  if (document.getElementById('lb-stijlen')) return;
-  const s = document.createElement('style');
-  s.id = 'lb-stijlen';
-  s.textContent = `
-    .lb-textarea { width:100%;padding:8px 10px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:13px;font-family:inherit;box-sizing:border-box;resize:vertical; }
-    .lb-textarea:focus { outline:none;border-color:var(--accent); }
-    .lb-input { padding:6px 9px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:13px;font-family:inherit;box-sizing:border-box; }
-    .lb-input:focus { outline:none;border-color:var(--accent); }
-    .lb-del-btn { color:var(--red);border:none;background:none;cursor:pointer;font-size:14px;padding:3px 4px;flex-shrink:0; }
-    .lb-fase-tabel { width:100%;border-collapse:collapse;font-size:13px; }
-    .lb-fase-tabel th { background:var(--accent);color:#fff;padding:8px 10px;text-align:left;font-weight:600;font-size:12px; }
-    .lb-fase-tabel td { padding:6px 8px;border-bottom:1px solid var(--border);vertical-align:top; }
-    .lb-fase-tabel tr:nth-child(even) td { background:#f9fafb; }
-    .lb-fase-tabel .lb-td-input { border:none;width:100%;background:transparent;font-size:13px;font-family:inherit;padding:2px 4px;border-radius:4px; }
-    .lb-fase-tabel .lb-td-input:focus { outline:2px solid var(--accent);background:#fff; }
-    .lb-fase-tabel textarea.lb-td-input { resize:vertical;min-height:52px; }
-  `;
-  document.head.appendChild(s);
-}
+function lbInjectStijlen() { /* stijlen staan in styles.css */ }
 
 function lbAutoResizeFasering() {
   document.querySelectorAll('.lb-fase-tabel textarea').forEach(el => {
@@ -337,7 +317,7 @@ function lbRenderTab(tabId, ro) {
   // ---- IDENTIFICATIE ----
   if (tabId === 'identificatie') {
     return `
-      <p style="font-size:12px;color:var(--ink-muted);margin:0 0 14px">Basisgegevens van de les.</p>
+      <p class="lb-progress-label" style="margin:0 0 14px">Basisgegevens van de les.</p>
       <div class="form-grid">
         <div class="form-field"><label>Kandidaat / Docent</label><input id="lb-kandidaat" class="lb-input" style="width:100%" value="${escHtml(d.kandidaat||'')}" ${ro?'readonly':''} placeholder="Naam docent"></div>
         <div class="form-field"><label>Datum les</label><input id="lb-datuml" class="lb-input" style="width:100%" value="${escHtml(d.datumLes||'')}" ${ro?'readonly':''} placeholder="bijv. 28-03-2025"></div>
@@ -354,17 +334,17 @@ function lbRenderTab(tabId, ro) {
   // ---- LESDOEL ----
   if (tabId === 'lesdoel') {
     return `
-      <div style="background:#f0f9ff;border-left:3px solid var(--accent);border-radius:6px;padding:10px 14px;margin-bottom:16px;font-size:12px;color:var(--ink-muted)">
-        <strong style="color:var(--accent)">Vraag 1:</strong> Wat wil ik de leerlingen leren? Wat is het lesdoel voor deze les en hoe verhoudt dat lesdoel zich tot PTA / eindtermen / kwalificatiedossier? (actiewerkwoorden — samenhang — niveau van leren, zichtbaar en meetbaar)
+      <div class="lb-hint">
+        <strong>Vraag 1:</strong> Wat wil ik de leerlingen leren? Wat is het lesdoel voor deze les en hoe verhoudt dat lesdoel zich tot PTA / eindtermen / kwalificatiedossier? (actiewerkwoorden — samenhang — niveau van leren, zichtbaar en meetbaar)
       </div>
       <div class="form-field" style="margin-bottom:14px">
         <label style="font-weight:600">Lesdoel(en)</label>
-        <p style="font-size:12px;color:var(--ink-muted);margin:2px 0 6px">Formuleer als "Leerlingen kunnen..." of "Leerlingen kennen...". Gebruik actiewerkwoorden.</p>
+        <p class="lb-progress-label" style="margin:2px 0 6px">Formuleer als "Leerlingen kunnen..." of "Leerlingen kennen...". Gebruik actiewerkwoorden.</p>
         <textarea id="lb-lesdoel" rows="5" class="lb-textarea" ${ro?'readonly':''} placeholder="bijv. Leerlingen kunnen uitleggen wat een elektrische installatie is.&#10;Leerlingen herkennen symbolen in een installatieschema.">${escHtml(d.lesdoel||'')}</textarea>
       </div>
       <div class="form-field">
         <label style="font-weight:600">Beginsituatie</label>
-        <p style="font-size:12px;color:var(--ink-muted);margin:2px 0 6px">Beschrijf de klas: niveau, eerdere kennis, bijzonderheden.</p>
+        <p class="lb-progress-label" style="margin:2px 0 6px">Beschrijf de klas: niveau, eerdere kennis, bijzonderheden.</p>
         <textarea id="lb-beginsituatie" rows="4" class="lb-textarea" ${ro?'readonly':''} placeholder="bijv. VMBO GL3, basis- en kaderniveau, actieve groep. Eerder aan bod geweest: ...">${escHtml(d.beginsituatie||'')}</textarea>
       </div>`;
   }
@@ -372,17 +352,17 @@ function lbRenderTab(tabId, ro) {
   // ---- DIDACTIEK ----
   if (tabId === 'didactiek') {
     return `
-      <div style="background:#f0f9ff;border-left:3px solid var(--accent);border-radius:6px;padding:10px 14px;margin-bottom:16px;font-size:12px;color:var(--ink-muted)">
-        <strong style="color:var(--accent)">Vraag 2:</strong> Hoe kan ik dat bereiken, zó dat alle leerlingen actief meedoen? (aansluiting belevingswereld — betekenis geven — docentrollen — activerende didactiek)
+      <div class="lb-hint">
+        <strong>Vraag 2:</strong> Hoe kan ik dat bereiken, zó dat alle leerlingen actief meedoen? (aansluiting belevingswereld — betekenis geven — docentrollen — activerende didactiek)
       </div>
       <div class="form-field" style="margin-bottom:14px">
         <label style="font-weight:600">Wat doe ik? (en waarom)</label>
-        <p style="font-size:12px;color:var(--ink-muted);margin:2px 0 6px">Beschrijf je aanpak als docent: hoe open je de les, welke werkvormen gebruik je, hoe begeleid je?</p>
+        <p class="lb-progress-label" style="margin:2px 0 6px">Beschrijf je aanpak als docent: hoe open je de les, welke werkvormen gebruik je, hoe begeleid je?</p>
         <textarea id="lb-watdoeik" rows="5" class="lb-textarea" ${ro?'readonly':''} placeholder="bijv. Ik start met een herkenbaar praktijkvoorbeeld om voorkennis te activeren. Via gerichte vragen laat ik leerlingen zelf verbanden leggen...">${escHtml(d.watDoekIk||'')}</textarea>
       </div>
       <div class="form-field">
         <label style="font-weight:600">Wat doet de leerling? (waartoe)</label>
-        <p style="font-size:12px;color:var(--ink-muted);margin:2px 0 6px">Beschrijf wat leerlingen doen en wat het doel daarvan is.</p>
+        <p class="lb-progress-label" style="margin:2px 0 6px">Beschrijf wat leerlingen doen en wat het doel daarvan is.</p>
         <textarea id="lb-watdoetll" rows="5" class="lb-textarea" ${ro?'readonly':''} placeholder="bijv. Leerlingen denken mee, herkennen begrippen, verwerken technische termen in hun schema...">${escHtml(d.watDoetDeLeerling||'')}</textarea>
       </div>`;
   }
@@ -390,12 +370,12 @@ function lbRenderTab(tabId, ro) {
   // ---- EVALUATIE ----
   if (tabId === 'evaluatie') {
     return `
-      <div style="background:#f0f9ff;border-left:3px solid var(--accent);border-radius:6px;padding:10px 14px;margin-bottom:16px;font-size:12px;color:var(--ink-muted)">
-        <strong style="color:var(--accent)">Vraag 3:</strong> Hoe controleer en evalueer ik of leerlingen geleerd hebben wat ik ze wilde leren? (per les — afsluiter — toetsing)
+      <div class="lb-hint">
+        <strong>Vraag 3:</strong> Hoe controleer en evalueer ik of leerlingen geleerd hebben wat ik ze wilde leren? (per les — afsluiter — toetsing)
       </div>
       <div class="form-field">
         <label style="font-weight:600">Evaluatie</label>
-        <p style="font-size:12px;color:var(--ink-muted);margin:2px 0 6px">Hoe check je tijdens en na de les of de leerdoelen bereikt zijn?</p>
+        <p class="lb-progress-label" style="margin:2px 0 6px">Hoe check je tijdens en na de les of de leerdoelen bereikt zijn?</p>
         <textarea id="lb-evaluatie" rows="8" class="lb-textarea" ${ro?'readonly':''} placeholder="bijv. Tijdens de uitleg stel ik vragen en observeer ik reacties.&#10;Ik luister goed tijdens zelfstandig werken naar hoe leerlingen hun werk verwoorden.&#10;Als leerlingen kunnen uitleggen wat ze doen en waarom, weet ik dat de begrippen zijn blijven hangen.">${escHtml(d.evaluatie||'')}</textarea>
       </div>`;
   }
@@ -403,12 +383,12 @@ function lbRenderTab(tabId, ro) {
   // ---- REFLECTIE ----
   if (tabId === 'reflectie') {
     return `
-      <div style="background:#f0f9ff;border-left:3px solid var(--accent);border-radius:6px;padding:10px 14px;margin-bottom:16px;font-size:12px;color:var(--ink-muted)">
-        <strong style="color:var(--accent)">Vraag 4:</strong> Wat wil ik laten zien? Resultaat: wat moet de assessoren zien? — wat heb ik nodig om resultaat te bereiken? — reflectie op eigen handelen.
+      <div class="lb-hint">
+        <strong>Vraag 4:</strong> Wat wil ik laten zien? Resultaat: wat moet de assessoren zien? — wat heb ik nodig om resultaat te bereiken? — reflectie op eigen handelen.
       </div>
       <div class="form-field">
         <label style="font-weight:600">Resultaat & Reflectie</label>
-        <p style="font-size:12px;color:var(--ink-muted);margin:2px 0 6px">Wat wil je demonstreren als docent? Hoe reflecteer je op je eigen handelen?</p>
+        <p class="lb-progress-label" style="margin:2px 0 6px">Wat wil je demonstreren als docent? Hoe reflecteer je op je eigen handelen?</p>
         <textarea id="lb-reflectie" rows="8" class="lb-textarea" ${ro?'readonly':''} placeholder="bijv. Ik wil laten zien dat ik taalsteun kan bieden in een technische les. Ik gebruik heldere taal, herhaal en verklaar vakbegrippen, en help leerlingen deze woorden te gebruiken...">${escHtml(d.reflectie||'')}</textarea>
       </div>`;
   }
@@ -417,7 +397,7 @@ function lbRenderTab(tabId, ro) {
   if (tabId === 'fasering') {
     const fases = d.fasering && d.fasering.length ? d.fasering : lbLeeg().fasering;
     return `
-      <p style="font-size:12px;color:var(--ink-muted);margin:0 0 12px">Lesplan per fase: wat doe je als docent, wat verwacht je van de leerlingen, welke hulpmiddelen gebruik je?</p>
+      <p class="lb-progress-label" style="margin:0 0 12px">Lesplan per fase: wat doe je als docent, wat verwacht je van de leerlingen, welke hulpmiddelen gebruik je?</p>
       <div style="overflow-x:auto">
         <table class="lb-fase-tabel">
           <thead>
