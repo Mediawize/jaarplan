@@ -15,8 +15,15 @@ async function renderLesModules() {
     const [modules, vakken] = await Promise.all([
       API.getLesModules(), API.getVakken()
     ]);
+
+    // Docenten zien alleen modules van hun eigen vakken; admins zien alles
+    const docentVakken = Auth.currentUser?.vakken || [];
+    const zichtbaar = isAdmin
+      ? modules
+      : modules.filter(m => !m.vakId || docentVakken.includes(m.vakId));
+
     const perType = { profieldeel: [], keuzedeel: [], overig: [] };
-    modules.forEach(m => {
+    zichtbaar.forEach(m => {
       const t = m.type === 'profieldeel' ? 'profieldeel' : m.type === 'keuzedeel' ? 'keuzedeel' : 'overig';
       perType[t].push(m);
     });
@@ -30,10 +37,10 @@ async function renderLesModules() {
         ${isAdmin ? `<button class="btn btn-primary" onclick="openLesModuleModal()">+ Nieuwe les module</button>` : ''}
       </div>
 
-      ${modules.length === 0
+      ${zichtbaar.length === 0
         ? `<div class="card"><div class="empty-state">
-            <h3>Nog geen les modules</h3>
-            ${isAdmin ? `<p>Upload een syllabus PDF of Word-bestand. AI haalt de theoriestappen automatisch eruit.</p><button class="btn btn-primary" onclick="openLesModuleModal()">Eerste module aanmaken</button>` : '<p>Er zijn nog geen les modules beschikbaar.</p>'}
+            <h3>Geen les modules</h3>
+            ${isAdmin ? `<p>Upload een syllabus PDF of Word-bestand. AI haalt de theoriestappen automatisch eruit.</p><button class="btn btn-primary" onclick="openLesModuleModal()">Eerste module aanmaken</button>` : '<p>Er zijn nog geen les modules beschikbaar voor jouw vakken.</p>'}
            </div></div>`
         : ['profieldeel', 'keuzedeel', 'overig'].map(type => {
             const lijst = perType[type];
