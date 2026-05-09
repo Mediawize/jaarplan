@@ -2369,3 +2369,340 @@ input, select, textarea { font-family: var(--font); }
   overflow: auto;
   font-family: inherit;
 }
+
+/* ============================================================
+   Klassen (docenten picker + roulatie)
+   ============================================================ */
+.klas-docent-chips { display: flex; gap: 4px; margin-top: 8px; flex-wrap: wrap; }
+.klas-docent-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 500;
+}
+.klas-docent-avatar {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9px;
+  font-weight: 700;
+  font-family: monospace;
+  flex-shrink: 0;
+}
+.docenten-picker-rij {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background 0.1s;
+}
+.docenten-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  font-family: monospace;
+  flex-shrink: 0;
+}
+.klas-roulatie-blok {
+  margin-top: 20px;
+  padding: 16px;
+  background: var(--surface-2);
+  border-radius: var(--radius);
+  border: 1.5px solid var(--border);
+}
+.klas-roulatie-preview {
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--ink-muted);
+  padding: 8px 10px;
+  background: #fff;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+}
+
+/* ============================================================
+   Rooster
+   ============================================================ */
+.rooster-table { width: 100%; border-collapse: collapse; min-width: 600px; }
+.rooster-table th {
+  text-align: left;
+  padding: 12px 20px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-2);
+}
+.rooster-table th.center { text-align: center; padding: 12px 16px; }
+.rooster-table td { padding: 14px 20px; border-bottom: 1px solid var(--border); }
+.rooster-table td.center { text-align: center; padding: 14px 16px; }
+.rooster-table tr:nth-child(even) td { background: var(--surface-2); }
+.rooster-klas-naam { font-weight: 600; font-size: 14px; }
+.rooster-klas-sub { font-size: 11px; color: var(--ink-muted); }
+.rooster-snel-balk {
+  padding: 14px 20px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.rooster-preview-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  background: var(--accent-dim);
+  border: 1px solid rgba(22,163,74,0.2);
+  border-radius: var(--radius-sm);
+}
+.rooster-preview-naam { font-weight: 600; font-size: 13px; color: var(--accent-text); }
+.rooster-preview-sub { font-size: 11px; color: var(--accent-text); opacity: 0.7; }
+
+/* ============================================================
+   Taken
+   ============================================================ */
+.taak-rij {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--border);
+}
+.taak-cirkel {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 2px solid var(--border);
+  background: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-top: 3px;
+  transition: all 0.15s;
+  cursor: pointer;
+}
+.taak-cirkel.is-button { border: none; }
+.taak-cirkel.afgerond { border-color: var(--accent); background: var(--accent); }
+.taak-inhoud { flex: 1; min-width: 0; }
+.taak-naam-rij { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 4px; }
+.taak-naam { font-size: 14px; font-weight: 600; }
+.taak-naam.afgerond { text-decoration: line-through; color: var(--ink-muted); }
+.taak-beschrijving { font-size: 13px; color: var(--ink-muted); margin-bottom: 7px; line-height: 1.5; }
+.taak-acties { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.taak-initiaal {
+  font-size: 11px;
+  font-weight: 700;
+  font-family: monospace;
+  background: var(--accent);
+  color: #fff;
+  padding: 2px 7px;
+  border-radius: 5px;
+}
+.taak-oppak-btn {
+  font-size: 12px;
+  padding: 4px 11px;
+  border-radius: 6px;
+  border: 1.5px solid var(--border);
+  background: #fff;
+  color: var(--ink-muted);
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.15s;
+  font-family: inherit;
+}
+.taak-oppak-btn.opgepakt {
+  border-color: var(--accent);
+  background: var(--accent-dim);
+  color: var(--accent-text);
+}
+.taak-badge {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+.taak-badge.telaat { color: var(--red); background: var(--red-dim, #fee2e2); }
+.taak-badge.binnenkort { color: var(--amber-text); background: var(--amber-dim); font-weight: 600; }
+.taak-badge.normaal { color: var(--ink-muted); font-weight: 400; }
+
+/* ============================================================
+   Schooljaren
+   ============================================================ */
+.sj-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 24px; }
+.sj-kaart-inhoud { padding: 20px 22px; }
+.sj-kaart-hdr { display: flex; justify-content: space-between; margin-bottom: 12px; align-items: flex-start; }
+.sj-kaart-naam { font-family: 'DM Serif Display', serif; font-size: 22px; }
+.sj-kaart-acties { display: flex; gap: 8px; }
+
+/* ============================================================
+   Gebruikers
+   ============================================================ */
+.geb-initialen {
+  font-family: monospace;
+  font-size: 13px;
+  font-weight: 700;
+  background: var(--accent-dim);
+  color: var(--accent-text);
+  padding: 3px 8px;
+  border-radius: 6px;
+}
+.geb-status {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-weight: 600;
+}
+.geb-status.actief { background: var(--accent-dim); color: var(--accent-text); }
+.geb-status.tijdelijk { background: var(--amber-dim); color: var(--amber-text); }
+.geb-ww-blok {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 16px 20px;
+  margin: 16px 0;
+}
+.geb-ww-label { font-size: 12px; color: var(--ink-muted); margin-bottom: 4px; }
+.geb-ww-waarde { font-weight: 600; font-size: 15px; margin-bottom: 12px; }
+.geb-ww-rij { display: flex; align-items: center; gap: 8px; }
+.geb-ww-code {
+  font-size: 16px;
+  font-weight: 700;
+  background: var(--amber-dim);
+  color: var(--amber-text);
+  padding: 6px 12px;
+  border-radius: 6px;
+  letter-spacing: 0.05em;
+}
+
+/* ============================================================
+   Opdrachten filter
+   ============================================================ */
+.opd-filter-balk {
+  display: flex;
+  gap: 12px;
+  padding: 14px 20px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.opd-filter-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.opd-filter-select {
+  padding: 8px 12px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius);
+  font-family: inherit;
+  font-size: 13px;
+  background: #fff;
+  color: var(--ink);
+  transition: border-color 0.15s;
+}
+.opd-filter-select:focus { outline: none; border-color: var(--accent); }
+
+/* ============================================================
+   Lesprofielen — koppelmodal weekverdeling preview
+   ============================================================ */
+.lp-verdeling-wrap {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px;
+}
+.lp-verdeling-titel { font-weight: 700; font-size: 13px; margin-bottom: 4px; }
+.lp-verdeling-sub { font-size: 11px; color: var(--ink-muted); margin-bottom: 12px; }
+.lp-verdeling-scroll { max-height: 420px; overflow-y: auto; }
+.lp-week-rij {
+  display: flex;
+  align-items: stretch;
+  gap: 6px;
+  margin-bottom: 6px;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.lp-week-pijlen {
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--border);
+  background: var(--surface-2);
+}
+.lp-week-pijl {
+  flex: 1;
+  border: none;
+  background: none;
+  padding: 2px 7px;
+  font-size: 12px;
+  color: var(--ink-muted);
+  line-height: 1;
+  cursor: pointer;
+  transition: color 0.15s;
+}
+.lp-week-pijl:hover:not(:disabled) { color: var(--accent); }
+.lp-week-pijl:disabled { color: var(--border); cursor: default; }
+.lp-week-body { padding: 7px 10px; flex: 1; min-width: 0; }
+.lp-week-label { font-weight: 600; font-size: 12px; margin-bottom: 5px; color: var(--ink-muted); font-weight: 400; }
+.lp-week-label strong { font-weight: 700; color: var(--ink); }
+.lp-drop-zone { min-height: 18px; border-radius: 4px; transition: outline 0.1s; }
+.lp-drop-zone.praktijk { margin-top: 2px; }
+.lp-item-rij {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-bottom: 2px;
+  padding: 2px 4px;
+  border-radius: 3px;
+  border-top: 2px solid transparent;
+  cursor: grab;
+  transition: opacity 0.15s;
+}
+.lp-item-handle { color: var(--border); font-size: 11px; line-height: 1; user-select: none; }
+.lp-item-tekst { font-size: 11px; }
+.lp-koppel-ai-rij {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 12px;
+  flex-wrap: wrap;
+}
+.lp-koppel-ai-sub { font-size: 12px; color: var(--ink-muted); }
+
+/* Taken — extra utilities */
+.taak-lijst { padding: 4px 20px 8px; }
+.taak-lijst.afgerond { opacity: 0.55; }
+.taak-knoppen { display: flex; gap: 4px; flex-shrink: 0; margin-top: 2px; }
+.taak-niemand { font-size: 12px; color: var(--ink-muted); }
+
+/* Schooljaren — week overzicht */
+.sj-periode-hdr { padding: 10px 24px; background: var(--cream); font-size: 12px; font-weight: 700; text-transform: uppercase; color: var(--ink-muted); border-bottom: 1px solid var(--border); }
+.sj-thema-cel { display: inline-block; min-width: 200px; padding: 4px 8px; border-radius: 6px; cursor: pointer; font-size: 13px; }
+.sj-thema-cel.leeg { border: 1px dashed var(--border-med); color: var(--ink-muted); }
+.sj-thema-cel.gevuld { border: 1px dashed transparent; color: var(--ink); }
+.sj-thema-input { padding: 4px 8px; border: 1.5px solid var(--accent); border-radius: 6px; font-size: 13px; font-family: 'DM Sans', sans-serif; min-width: 200px; outline: none; }

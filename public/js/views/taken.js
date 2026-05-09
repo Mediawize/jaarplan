@@ -35,7 +35,7 @@ async function renderTaken() {
         </div>
         ${open.length === 0
           ? `<div class="empty-state" style="padding:36px 20px"><p>Geen open taken. ${!readonly?'Voeg een taak toe via de knop rechtsboven.':''}</p></div>`
-          : `<div style="padding:4px 20px 8px">${open.map(t => renderTaakKaart(t, gebruikers, readonly)).join('')}</div>`
+          : `<div class="taak-lijst">${open.map(t => renderTaakKaart(t, gebruikers, readonly)).join('')}</div>`
         }
       </div>
 
@@ -43,7 +43,7 @@ async function renderTaken() {
       ${afgerond.length > 0 ? `
       <div class="card">
         <div class="card-header"><div><h2>Afgerond</h2><div class="card-meta">${afgerond.length} taken</div></div></div>
-        <div style="padding:4px 20px 8px;opacity:0.55">
+        <div class="taak-lijst afgerond">
           ${afgerond.map(t => renderTaakKaart(t, gebruikers, readonly)).join('')}
         </div>
       </div>` : ''}
@@ -59,47 +59,37 @@ function renderTaakKaart(t, gebruikers, readonly) {
 
   const deadlineHtml = deadline
     ? telaat
-      ? `<span style="font-size:11px;font-weight:700;color:var(--red);background:var(--red-dim);padding:2px 8px;border-radius:10px">⚠ Te laat</span>`
+      ? `<span class="taak-badge telaat">⚠ Te laat</span>`
       : binnenkort
-      ? `<span style="font-size:11px;font-weight:600;color:var(--amber-text);background:var(--amber-dim);padding:2px 8px;border-radius:10px">📅 ${deadline.toLocaleDateString('nl-NL',{day:'numeric',month:'short'})}</span>`
-      : `<span style="font-size:11px;color:var(--ink-3)">📅 ${deadline.toLocaleDateString('nl-NL',{day:'numeric',month:'short'})}</span>`
+      ? `<span class="taak-badge binnenkort">📅 ${deadline.toLocaleDateString('nl-NL',{day:'numeric',month:'short'})}</span>`
+      : `<span class="taak-badge normaal">📅 ${deadline.toLocaleDateString('nl-NL',{day:'numeric',month:'short'})}</span>`
     : '';
 
   const opgepaktDoor = Array.isArray(t.opgepakt) ? t.opgepakt : [];
   const opgepaktGebruikers = opgepaktDoor.map(id => gebruikers.find(u => u.id === id)).filter(Boolean);
   const heeftOpgepakt = opgepaktDoor.includes(Auth.currentUser?.id);
 
-  return `<div style="display:flex;align-items:flex-start;gap:12px;padding:14px 0;border-bottom:1px solid var(--border)">
+  return `<div class="taak-rij">
 
-    <!-- Afvinken cirkel -->
-    ${!readonly ? `<button onclick="taakAfvinken('${t.id}')" title="${t.afgerond?'Heropenen':'Markeer als klaar'}"
-      style="width:26px;height:26px;border-radius:50%;border:2px solid ${t.afgerond?'var(--accent)':'var(--border-2)'};background:${t.afgerond?'var(--accent)':'#fff'};cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:3px;transition:all .15s">
+    <${!readonly ? `button onclick="taakAfvinken('${t.id}')" title="${t.afgerond?'Heropenen':'Markeer als klaar'}"` : 'div'}
+      class="taak-cirkel${t.afgerond?' afgerond':''}${!readonly?' is-button':''}">
       ${t.afgerond?'<svg width="12" height="12" viewBox="0 0 20 20" fill="none"><path d="M4 10l5 5 7-8" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>':''}
-    </button>` : `<div style="width:26px;height:26px;border-radius:50%;border:2px solid ${t.afgerond?'var(--accent)':'var(--border-2)'};background:${t.afgerond?'var(--accent)':'#fff'};display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:3px">
-      ${t.afgerond?'<svg width="12" height="12" viewBox="0 0 20 20" fill="none"><path d="M4 10l5 5 7-8" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>':''}
-    </div>`}
+    </${!readonly ? 'button' : 'div'}>
 
-    <!-- Inhoud -->
-    <div style="flex:1;min-width:0">
-      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px">
-        <span style="font-size:14px;font-weight:600;${t.afgerond?'text-decoration:line-through;color:var(--ink-3)':''}">${escHtml(t.naam)}</span>
+    <div class="taak-inhoud">
+      <div class="taak-naam-rij">
+        <span class="taak-naam${t.afgerond?' afgerond':''}">${escHtml(t.naam)}</span>
         ${deadlineHtml}
       </div>
-      ${t.beschrijving ? `<div style="font-size:13px;color:var(--ink-3);margin-bottom:7px;line-height:1.5">${escHtml(t.beschrijving)}</div>` : ''}
-      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-        <!-- Initialen van docenten die de taak hebben opgepakt -->
-        ${opgepaktGebruikers.map(u => `<span title="${escHtml(u.naam)}" style="font-size:11px;font-weight:700;font-family:monospace;background:var(--accent);color:#fff;padding:2px 7px;border-radius:5px">${escHtml(getInitialen(u))}</span>`).join('')}
-        <!-- Oppakken knop -->
-        ${!readonly && !t.afgerond ? `<button onclick="taakOppakken('${t.id}')"
-          style="font-size:12px;padding:4px 11px;border-radius:6px;border:1.5px solid ${heeftOpgepakt?'var(--accent)':'var(--border-2)'};background:${heeftOpgepakt?'var(--accent-dim)':'#fff'};color:${heeftOpgepakt?'var(--accent-text)':'var(--ink-2)'};cursor:pointer;font-weight:500;transition:all .15s">
-          ${heeftOpgepakt ? '✓ Opgepakt' : '+ Oppakken'}
-        </button>` : ''}
-        ${opgepaktGebruikers.length === 0 && !t.afgerond ? `<span style="font-size:12px;color:var(--ink-4)">Nog niemand opgepakt</span>` : ''}
+      ${t.beschrijving ? `<div class="taak-beschrijving">${escHtml(t.beschrijving)}</div>` : ''}
+      <div class="taak-acties">
+        ${opgepaktGebruikers.map(u => `<span class="taak-initiaal" title="${escHtml(u.naam)}">${escHtml(getInitialen(u))}</span>`).join('')}
+        ${!readonly && !t.afgerond ? `<button onclick="taakOppakken('${t.id}')" class="taak-oppak-btn${heeftOpgepakt?' opgepakt':''}">${heeftOpgepakt ? '✓ Opgepakt' : '+ Oppakken'}</button>` : ''}
+        ${opgepaktGebruikers.length === 0 && !t.afgerond ? `<span class="taak-niemand">Nog niemand opgepakt</span>` : ''}
       </div>
     </div>
 
-    <!-- Bewerken / verwijderen -->
-    ${!readonly ? `<div style="display:flex;gap:4px;flex-shrink:0;margin-top:2px">
+    ${!readonly ? `<div class="taak-knoppen">
       <button class="icon-btn" onclick="openTaakModal('${t.id}')" title="Bewerken">
         <svg viewBox="0 0 20 20" fill="none"><path d="M14.5 3.5l2 2L7 15l-3 1 1-3 9.5-9.5z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
       </button>

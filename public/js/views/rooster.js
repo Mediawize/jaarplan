@@ -24,37 +24,33 @@ async function renderRooster() {
 
       <div class="card">
         <div style="overflow-x:auto">
-          <table style="width:100%;border-collapse:collapse;min-width:600px">
+          <table class="rooster-table">
             <thead>
-              <tr style="background:var(--surface-2)">
-                <th style="text-align:left;padding:12px 20px;font-size:12px;font-weight:600;color:var(--ink-3);text-transform:uppercase;letter-spacing:0.05em;border-bottom:1px solid var(--border);width:180px">Klas</th>
-                ${dagen.map(dag => `
-                  <th style="text-align:center;padding:12px 16px;font-size:12px;font-weight:600;color:var(--ink-3);text-transform:uppercase;letter-spacing:0.05em;border-bottom:1px solid var(--border)">
-                    ${dag}
-                  </th>
-                `).join('')}
+              <tr>
+                <th style="width:180px">Klas</th>
+                ${dagen.map(dag => `<th class="center">${dag}</th>`).join('')}
               </tr>
             </thead>
             <tbody>
               ${klassen.length === 0
-                ? `<tr><td colspan="6" style="padding:40px;text-align:center;color:var(--ink-3)">Geen klassen gevonden.</td></tr>`
-                : klassen.map((k, i) => {
+                ? `<tr><td colspan="6" style="padding:40px;text-align:center;color:var(--ink-muted)">Geen klassen gevonden.</td></tr>`
+                : klassen.map((k) => {
                     const klasRooster = rooster[k.id] || [];
-                    return `<tr style="border-bottom:1px solid var(--border);${i%2===0?'background:#fff':'background:var(--surface-2)'}">
-                      <td style="padding:14px 20px">
-                        <div style="font-weight:600;font-size:14px">${escHtml(k.naam)}</div>
-                        <div style="font-size:11px;color:var(--ink-3)">${escHtml(k.niveau)} · Leerjaar ${k.leerjaar}</div>
+                    return `<tr>
+                      <td>
+                        <div class="rooster-klas-naam">${escHtml(k.naam)}</div>
+                        <div class="rooster-klas-sub">${escHtml(k.niveau)} · Leerjaar ${k.leerjaar}</div>
                       </td>
                       ${dagen.map(dag => `
-                        <td style="text-align:center;padding:14px 16px">
-                          <label style="display:inline-flex;align-items:center;justify-content:center;cursor:pointer;-webkit-tap-highlight-color:transparent">
+                        <td class="center">
+                          <label style="display:inline-flex;align-items:center;justify-content:center;cursor:pointer">
                             <input type="checkbox"
                               id="rooster-${k.id}-${dag}"
                               data-klas="${k.id}"
                               data-dag="${dag}"
                               ${klasRooster.includes(dag) ? 'checked' : ''}
                               onchange="roosterCheckChange(this)"
-                              style="width:20px;height:20px;cursor:pointer;accent-color:var(--accent);border-radius:4px">
+                              style="width:20px;height:20px;cursor:pointer;accent-color:var(--accent)">
                           </label>
                         </td>
                       `).join('')}
@@ -65,10 +61,9 @@ async function renderRooster() {
           </table>
         </div>
 
-        <!-- Snel selecteren knoppen -->
         ${klassen.length > 0 ? `
-        <div style="padding:16px 20px;border-top:1px solid var(--border);display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-          <span style="font-size:12px;color:var(--ink-3);font-weight:500">Snel selecteren:</span>
+        <div class="rooster-snel-balk">
+          <span style="font-size:12px;color:var(--ink-muted);font-weight:500">Snel selecteren:</span>
           ${dagen.map(dag => `
             <button onclick="selecteerDag('${dag}')" class="btn btn-sm">Alle ${dag}</button>
           `).join('')}
@@ -100,9 +95,9 @@ function renderRoosterPreview(klassen, rooster) {
 
   return `<div style="display:flex;gap:8px;flex-wrap:wrap">
     ${klassenVandaag.map(k => `
-      <div style="display:inline-flex;align-items:center;gap:8px;padding:8px 14px;background:var(--accent-dim);border:1px solid rgba(22,163,74,0.2);border-radius:var(--radius-sm)">
-        <span style="font-weight:600;font-size:13px;color:var(--accent-text)">${escHtml(k.naam)}</span>
-        <span style="font-size:11px;color:var(--accent-text);opacity:0.7">${escHtml(k.niveau)}</span>
+      <div class="rooster-preview-chip">
+        <span class="rooster-preview-naam">${escHtml(k.naam)}</span>
+        <span class="rooster-preview-sub">${escHtml(k.niveau)}</span>
       </div>
     `).join('')}
   </div>`;

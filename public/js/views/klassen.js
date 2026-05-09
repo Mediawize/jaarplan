@@ -32,10 +32,10 @@ async function renderKlassen() {
                     ${k.urenPerWeek?` · ${k.urenPerWeek}u/week`:''}
                   </div>
                   ${klasDocenten.length > 0 ? `
-                  <div style="display:flex;gap:4px;margin-top:8px;flex-wrap:wrap">
+                  <div class="klas-docent-chips">
                     ${klasDocenten.map(d => `
-                      <span style="display:inline-flex;align-items:center;gap:5px;padding:3px 8px;background:var(--surface-2);border:1px solid var(--border);border-radius:20px;font-size:11px;font-weight:500">
-                        <span style="width:18px;height:18px;border-radius:50%;background:var(--accent);color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;font-family:monospace">${escHtml(getInitialen(d))}</span>
+                      <span class="klas-docent-chip">
+                        <span class="klas-docent-avatar">${escHtml(getInitialen(d))}</span>
                         ${escHtml(d.naam)} ${escHtml(d.achternaam)}
                       </span>`).join('')}
                   </div>` : ''}
@@ -101,32 +101,31 @@ async function openKlasModal(id = null) {
     <!-- ── Docenten ── -->
     <div style="margin-top:20px">
       <div style="font-size:13px;font-weight:600;color:var(--ink);margin-bottom:8px">
-        Docenten
-        <span style="font-weight:400;color:var(--ink-3)"> — selecteer alle betrokken docenten</span>
+        Docenten <span style="font-weight:400;color:var(--ink-muted)"> — selecteer alle betrokken docenten</span>
       </div>
       <div id="docenten-picker" style="display:flex;flex-direction:column;gap:2px;max-height:220px;overflow-y:auto;border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:6px">
         ${docenten.length === 0
-          ? `<div style="padding:12px;color:var(--ink-3);font-size:13px">Geen docenten beschikbaar</div>`
+          ? `<div style="padding:12px;color:var(--ink-muted);font-size:13px">Geen docenten beschikbaar</div>`
           : docenten.map(d => {
               const aan = geselecteerdeDocenten.includes(d.id);
-              return `<label style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:var(--radius-sm);cursor:pointer;background:${aan?'var(--accent-dim)':'transparent'};transition:background .1s" id="docent-label-${d.id}">
+              return `<label class="docenten-picker-rij" style="background:${aan?'var(--accent-dim)':'transparent'}" id="docent-label-${d.id}">
                 <input type="checkbox" value="${d.id}" ${aan?'checked':''} onchange="updateDocentLabel('${d.id}',this.checked)" style="width:16px;height:16px;accent-color:var(--accent);cursor:pointer;flex-shrink:0">
-                <span style="width:32px;height:32px;border-radius:50%;background:var(--accent);color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;font-family:monospace;flex-shrink:0">${escHtml(getInitialen(d))}</span>
+                <span class="docenten-avatar">${escHtml(getInitialen(d))}</span>
                 <div style="min-width:0">
                   <div style="font-size:13px;font-weight:500">${escHtml(d.naam)} ${escHtml(d.achternaam)}</div>
-                  <div style="font-size:11px;color:var(--ink-3)">${escHtml(d.email)} · ${getRolLabel(d.rol)}</div>
+                  <div style="font-size:11px;color:var(--ink-muted)">${escHtml(d.email)} · ${getRolLabel(d.rol)}</div>
                 </div>
               </label>`;
             }).join('')
         }
       </div>
-      <div id="docenten-selected-count" style="font-size:12px;color:var(--ink-3);margin-top:6px">
+      <div id="docenten-selected-count" style="font-size:12px;color:var(--ink-muted);margin-top:6px">
         ${geselecteerdeDocenten.length} docent${geselecteerdeDocenten.length!==1?'en':''} geselecteerd
       </div>
     </div>
 
     <!-- ── Roulatie ── -->
-    <div style="margin-top:20px;padding:16px;background:var(--surface-2);border-radius:var(--radius);border:1.5px solid var(--border)">
+    <div class="klas-roulatie-blok">
       <label style="display:flex;align-items:center;gap:10px;cursor:pointer">
         <input type="checkbox" id="klas-roulatie" ${k?.roulatie?'checked':''} onchange="toggleRoulatieOpties()" style="width:18px;height:18px;accent-color:var(--accent);cursor:pointer">
         <div>
@@ -150,7 +149,7 @@ async function openKlasModal(id = null) {
             </select>
           </div>
         </div>
-        <div id="roulatie-preview" style="margin-top:8px;font-size:12px;color:var(--ink-3);padding:8px 10px;background:#fff;border-radius:var(--radius-sm);border:1px solid var(--border)"></div>
+        <div id="roulatie-preview" class="klas-roulatie-preview"></div>
       </div>
     </div>
 
