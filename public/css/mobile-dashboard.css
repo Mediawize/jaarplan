@@ -12,15 +12,15 @@
 .db-main { min-width: 0; }
 
 /* ── Begroeting ── */
-.db-greeting-row { margin-bottom: 20px; }
+.db-greeting-row { margin-bottom: 28px; }
 .db-begroeting {
-  font-size: 22px;
+  font-size: 28px;
   font-weight: 700;
   color: var(--ink);
-  letter-spacing: -0.3px;
-  margin-bottom: 2px;
+  letter-spacing: -0.7px;
+  margin-bottom: 4px;
 }
-.db-datum-sub { font-size: 13px; color: var(--ink-3); }
+.db-datum-sub { font-size: 14px; color: var(--ink-3); }
 
 /* ── Tabs + filterrij ── */
 .db-tabs-row {
@@ -94,70 +94,74 @@
   flex-direction: column;
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border-radius: var(--radius-lg);
   overflow: hidden;
+  box-shadow: var(--shadow-sm);
 }
 
 /* ── Les kaart ── */
 .db-les-card {
   border-bottom: 1px solid var(--border);
   background: var(--surface);
+  transition: background 0.1s;
 }
 .db-les-card:last-child { border-bottom: none; }
-.db-les-afgerond { opacity: 0.6; }
+.db-les-afgerond { opacity: 0.55; }
 
 /* ── Kaart header (klikbaar) ── */
 .db-les-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 13px 16px;
+  padding: 16px 20px;
   cursor: pointer;
   user-select: none;
-  gap: 10px;
-  transition: background 0.1s;
+  gap: 12px;
+  transition: background 0.12s;
 }
 .db-les-header:hover { background: var(--surface-2); }
 
 .db-les-header-left {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 14px;
   min-width: 0;
   flex: 1;
 }
 
 /* Gekleurde klas cirkel */
 .db-klas-cirkel {
-  width: 34px;
-  height: 34px;
+  width: 42px;
+  height: 42px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
   color: #fff;
   flex-shrink: 0;
   font-family: var(--font-mono);
   letter-spacing: -0.5px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.12);
 }
 
 .db-les-tekst { min-width: 0; }
 
 .db-les-naam {
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 600;
   color: var(--ink);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  letter-spacing: -0.2px;
 }
 
 .db-les-sub {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--ink-3);
-  margin-top: 1px;
+  margin-top: 3px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -166,17 +170,18 @@
 .db-les-header-right {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   flex-shrink: 0;
 }
 
 /* ── Status badges ── */
 .db-status-badge {
-  font-size: 11px;
+  font-size: 11.5px;
   font-weight: 600;
-  padding: 3px 8px;
-  border-radius: 10px;
+  padding: 4px 10px;
+  border-radius: 20px;
   white-space: nowrap;
+  letter-spacing: 0.01em;
 }
 .db-status-nog        { background: var(--blue-dim);   color: var(--blue-text); }
 .db-status-uitvoering { background: var(--amber-dim);  color: var(--amber-text); }
@@ -184,63 +189,75 @@
 
 /* ── Chevron ── */
 .db-chevron {
-  width: 16px;
-  height: 16px;
+  width: 18px;
+  height: 18px;
   color: var(--ink-4);
   flex-shrink: 0;
-  transition: transform 0.2s;
+  transition: transform 0.22s cubic-bezier(0.16,1,0.3,1);
 }
 
 /* ── Uitklapinhoud ── */
 .db-les-body {
-  padding: 12px 16px 16px 62px; /* 34px cirkel + 12px gap + 16px links */
+  padding: 16px 20px 20px 76px; /* 42px cirkel + 14px gap + 20px links */
   border-top: 1px solid var(--border);
-  background: var(--surface);
+  background: var(--surface-2);
 }
 
 .db-les-beschrijving {
-  font-size: 13px;
+  font-size: 13.5px;
   color: var(--ink-2);
-  line-height: 1.55;
-  margin-bottom: 10px;
+  line-height: 1.6;
+  margin-bottom: 14px;
 }
 
 /* ── Materiaal knoppen ── */
 .db-les-materialen {
   display: flex;
-  flex-direction: column;
-  gap: 6px;
-  margin-bottom: 12px;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 16px;
 }
 
 .db-mat-btn {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 10px 12px;
+  padding: 10px 14px;
   border: 1.5px solid var(--border-2);
   border-radius: var(--radius-sm);
-  background: var(--surface-2);
+  background: var(--surface);
   text-decoration: none;
   color: var(--ink);
   cursor: pointer;
-  transition: all 0.12s;
+  transition: all 0.15s;
+  box-shadow: var(--shadow-sm);
+  flex: 1;
+  min-width: 180px;
 }
-.db-mat-btn:hover { border-color: var(--accent); background: var(--accent-dim); }
+.db-mat-btn:hover {
+  border-color: var(--accent);
+  background: var(--accent-dim);
+  box-shadow: var(--shadow);
+  transform: translateY(-1px);
+}
 .db-mat-btn > svg:first-child { width: 20px; height: 20px; flex-shrink: 0; color: var(--ink-3); }
-.db-mat-label { font-size: 12px; font-weight: 600; }
-.db-mat-sub   { font-size: 11px; color: var(--ink-3); margin-top: 1px; }
+.db-mat-label { font-size: 13px; font-weight: 600; }
+.db-mat-sub   { font-size: 11.5px; color: var(--ink-3); margin-top: 1px; }
 .db-mat-arrow { width: 14px; height: 14px; margin-left: auto; color: var(--ink-4); flex-shrink: 0; }
 .db-mat-lesbrief .db-mat-label { color: var(--blue-text); }
+.db-mat-lesbrief:hover { border-color: var(--blue); background: var(--blue-dim); }
 .db-mat-toets { cursor: default; }
-.db-mat-toets:hover { border-color: var(--border-2); background: var(--surface-2); }
+.db-mat-toets:hover { border-color: var(--border-2); background: var(--surface); transform: none; box-shadow: var(--shadow-sm); }
 
 /* ── Actieknoppen in kaart ── */
 .db-les-acties {
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
-  margin-top: 8px;
+  margin-top: 4px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
 }
 
 .db-afronden-btn {
@@ -306,13 +323,17 @@
 .db-lesbrief-btn:hover { background: #1D4ED8; border-color: #1D4ED8; box-shadow: 0 3px 10px rgba(37,99,235,0.30); }
 
 .db-les-opmerking {
-  margin-top: 10px;
-  padding: 8px 10px;
+  margin-top: 14px;
+  padding: 10px 14px;
   background: var(--amber-dim);
   border-radius: var(--radius-sm);
   border-left: 3px solid var(--amber);
-  font-size: 12px;
+  font-size: 13px;
   color: var(--amber-text);
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  line-height: 1.5;
 }
 
 /* ── Week sectie ── */
@@ -330,7 +351,9 @@
   text-align: center;
   font-size: 12px;
   color: var(--ink-4);
-  padding: 12px 16px;
+  padding: 14px 20px;
+  border-top: 1px solid var(--border);
+  background: var(--surface);
 }
 
 /* ============================================================
@@ -347,56 +370,59 @@
 .db-widget {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 16px;
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  box-shadow: var(--shadow-sm);
 }
 
 .db-widget-title {
   font-size: 11px;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.07em;
-  color: var(--ink-3);
-  margin-bottom: 14px;
+  letter-spacing: 0.08em;
+  color: var(--ink-4);
+  margin-bottom: 16px;
 }
 
 /* ── Voortgang donut ── */
 .db-voortgang-wrap {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 18px;
 }
 .db-donut-wrap { flex-shrink: 0; }
-.db-donut { width: 72px; height: 72px; }
+.db-donut { width: 80px; height: 80px; }
 .db-voortgang-info { min-width: 0; }
-.db-voortgang-getal { font-size: 20px; font-weight: 700; color: var(--ink); line-height: 1; }
-.db-voortgang-label { font-size: 12px; color: var(--ink-3); margin: 4px 0 10px; }
+.db-voortgang-getal { font-size: 24px; font-weight: 700; color: var(--ink); line-height: 1; letter-spacing: -0.5px; }
+.db-voortgang-label { font-size: 12px; color: var(--ink-3); margin: 5px 0 12px; }
 .db-voortgang-link {
-  background: none;
+  display: inline-flex;
+  align-items: center;
+  background: var(--accent-dim);
   border: none;
+  border-radius: 20px;
   font-size: 12px;
   font-weight: 600;
   color: var(--accent-text);
   cursor: pointer;
-  padding: 0;
+  padding: 5px 12px;
   font-family: var(--font);
-  text-decoration: underline;
-  text-decoration-style: dotted;
-  text-underline-offset: 2px;
+  transition: background 0.12s;
 }
+.db-voortgang-link:hover { background: #bbf7d0; }
 
 /* ── Legenda ── */
-.db-legenda { display: flex; flex-direction: column; gap: 9px; }
+.db-legenda { display: flex; flex-direction: column; gap: 10px; }
 .db-legenda-item {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   font-size: 13px;
   color: var(--ink-2);
 }
 .db-legenda-dot {
-  width: 9px;
-  height: 9px;
+  width: 10px;
+  height: 10px;
   border-radius: 50%;
   flex-shrink: 0;
 }
@@ -406,22 +432,23 @@
 .db-snelle-actie {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 9px 8px;
+  gap: 12px;
+  padding: 11px 10px;
   border-radius: var(--radius-sm);
   background: transparent;
   border: none;
   color: var(--ink-2);
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 500;
   cursor: pointer;
   text-align: left;
-  transition: background 0.1s;
+  transition: background 0.12s, color 0.12s;
   font-family: var(--font);
   width: 100%;
 }
-.db-snelle-actie svg { width: 15px; height: 15px; color: var(--ink-3); flex-shrink: 0; }
+.db-snelle-actie svg { width: 16px; height: 16px; color: var(--ink-4); flex-shrink: 0; }
 .db-snelle-actie:hover { background: var(--surface-2); color: var(--ink); }
+.db-snelle-actie:hover svg { color: var(--accent); }
 
 /* ── Mobiele voortgang banner (verborgen op desktop) ── */
 .db-mobile-vg { display: none; }
@@ -523,12 +550,12 @@
   .db-filter-select { flex: 1; }
 
   /* Kaartindeling */
-  .db-les-header { padding: 12px 14px; min-height: 56px; }
-  .db-les-body { padding-left: 16px; }
-  .db-klas-cirkel { width: 30px; height: 30px; font-size: 9px; }
+  .db-les-header { padding: 14px 16px; min-height: 60px; }
+  .db-les-body { padding-left: 16px; padding-right: 16px; }
+  .db-klas-cirkel { width: 36px; height: 36px; font-size: 10px; }
   .db-les-naam { font-size: 14px; }
-  .db-les-sub { font-size: 11px; }
-  .db-status-badge { font-size: 10px; padding: 2px 7px; }
+  .db-les-sub { font-size: 11.5px; }
+  .db-status-badge { font-size: 11px; padding: 3px 8px; }
 
   /* Actieknoppen — volledige breedte voor touch */
   .db-les-acties { flex-direction: column; gap: 8px; }
