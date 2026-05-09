@@ -169,6 +169,7 @@ db.exec(`
     id        TEXT PRIMARY KEY,
     naam      TEXT NOT NULL,
     type      TEXT NOT NULL DEFAULT 'profieldeel',
+    categorie TEXT NOT NULL DEFAULT 'theorie',
     vakId     TEXT,
     niveau    TEXT,
     stappen   TEXT DEFAULT '[]',
@@ -308,6 +309,12 @@ function migreer() {
       UNIQUE(profielId, weekIdx, actIdx)
     )`);
     console.log('Migratie: werkboekjes tabel aangemaakt');
+  }
+
+  const lmCols = db.prepare("PRAGMA table_info(les_modules)").all().map(c => c.name);
+  if (!lmCols.includes('categorie')) {
+    db.exec("ALTER TABLE les_modules ADD COLUMN categorie TEXT NOT NULL DEFAULT 'theorie'");
+    console.log('Migratie: categorie kolom toegevoegd aan les_modules');
   }
 
   // Schoon verwijzingen op naar verwijderde lesprofielen
@@ -738,13 +745,13 @@ module.exports = {
   },
   addLesModule(d) {
     const id = require('crypto').randomUUID();
-    db.prepare('INSERT INTO les_modules (id,naam,type,vakId,niveau,stappen,beschrijving,bronBestand,aangemaaktDoor) VALUES (?,?,?,?,?,?,?,?,?)')
-      .run(id, d.naam||'', d.type||'profieldeel', d.vakId||null, d.niveau||'', JSON.stringify(d.stappen||[]), d.beschrijving||'', d.bronBestand||'', d.aangemaaktDoor||null);
+    db.prepare('INSERT INTO les_modules (id,naam,type,categorie,vakId,niveau,stappen,beschrijving,bronBestand,aangemaaktDoor) VALUES (?,?,?,?,?,?,?,?,?,?)')
+      .run(id, d.naam||'', d.type||'profieldeel', d.categorie||'theorie', d.vakId||null, d.niveau||'', JSON.stringify(d.stappen||[]), d.beschrijving||'', d.bronBestand||'', d.aangemaaktDoor||null);
     return this.getLesModule(id);
   },
   updateLesModule(id, d) {
-    db.prepare('UPDATE les_modules SET naam=?,type=?,vakId=?,niveau=?,stappen=?,beschrijving=?,bronBestand=? WHERE id=?')
-      .run(d.naam||'', d.type||'profieldeel', d.vakId||null, d.niveau||'', JSON.stringify(d.stappen||[]), d.beschrijving||'', d.bronBestand||'', id);
+    db.prepare('UPDATE les_modules SET naam=?,type=?,categorie=?,vakId=?,niveau=?,stappen=?,beschrijving=?,bronBestand=? WHERE id=?')
+      .run(d.naam||'', d.type||'profieldeel', d.categorie||'theorie', d.vakId||null, d.niveau||'', JSON.stringify(d.stappen||[]), d.beschrijving||'', d.bronBestand||'', id);
   },
   deleteLesModule(id) {
     db.prepare('DELETE FROM les_modules WHERE id=?').run(id);
