@@ -257,8 +257,14 @@ function renderLesCard(o, klas, cw) {
           </button>` : ''}
         </div>
 
-        ${o.opmerking ? `<div class="db-les-opmerking">💬 ${escHtml(o.opmerking)}</div>` : ''}
-        ${o.afgevinktDoor ? `<div style="font-size:11px;color:var(--ink-4);margin-top:8px">Afgerond door ${escHtml(o.afgevinktDoor)}</div>` : ''}
+        ${o.opmerking ? `<div class="db-les-opmerking">
+          <svg viewBox="0 0 20 20" fill="none" style="width:13px;height:13px;flex-shrink:0;margin-top:1px"><path d="M4 4h12v10H4z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M4 14l3 3v-3" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>
+          ${escHtml(o.opmerking)}
+        </div>` : ''}
+        ${o.afgevinktDoor ? `<div style="font-size:11px;color:var(--ink-4);margin-top:10px;display:flex;align-items:center;gap:5px">
+          <svg viewBox="0 0 20 20" fill="none" style="width:12px;height:12px"><path d="M4 10l5 5 7-8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Afgerond door ${escHtml(o.afgevinktDoor)}
+        </div>` : ''}
       </div>
     </div>
   `;
