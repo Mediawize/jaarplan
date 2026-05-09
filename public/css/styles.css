@@ -2251,3 +2251,121 @@ input, select, textarea { font-family: var(--font); }
   transition: border-color 0.15s, background 0.15s;
 }
 .upload-zone:hover { border-color: var(--accent); background: var(--accent-dim); }
+
+/* ============================================================
+   Werkboekje wizard (wb-*)
+   ============================================================ */
+.wb-flex-rij {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 7px;
+  align-items: center;
+}
+.wb-machine-blok {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  margin-bottom: 10px;
+}
+.wb-machine-inputs {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 8px;
+  align-items: center;
+}
+.wb-mat-tabel { width: 100%; border-collapse: collapse; font-size: 12px; }
+.wb-mat-tabel th {
+  background: var(--surface-2);
+  border-bottom: 2px solid var(--border);
+  padding: 7px 8px;
+  text-align: left;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.wb-mat-tabel td { padding: 5px 8px; border-bottom: 1px solid var(--border); }
+.wb-mat-tabel td:first-child { color: var(--ink-muted); font-size: 11px; text-align: center; }
+.wb-mat-tabel input { width: 100%; font-size: 12px; font-family: inherit; border: 1px solid transparent; border-radius: 3px; padding: 2px 5px; background: transparent; }
+.wb-mat-tabel input:focus { outline: none; border-color: var(--accent); background: #fff; }
+
+/* Sectie container (stappen stap 6) */
+.wb-sectie-blok {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px;
+  margin-bottom: 14px;
+}
+.wb-sectie-hdr {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  font-weight: 700;
+}
+
+/* Stap blok */
+.wb-stap-blok {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  margin-bottom: 10px;
+  background: var(--surface);
+}
+.wb-stap-blok.is-tekening {
+  border-color: var(--amber, #f59f00);
+  background: #fffbf0;
+}
+.wb-stap-hdr {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+.wb-stap-nr { font-weight: 700; color: var(--accent); }
+.wb-stap-del {
+  margin-left: auto;
+  color: var(--red);
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-size: 14px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  transition: background 0.15s;
+}
+.wb-stap-del:hover { background: #fee2e2; }
+.wb-tekenvak-preview {
+  background: #fff;
+  border: 1.5px dashed var(--amber, #f59f00);
+  border-radius: 6px;
+  padding: 14px;
+  text-align: center;
+  color: var(--ink-muted);
+  font-size: 12px;
+  margin-bottom: 8px;
+}
+.wb-stap-acties {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-top: 6px;
+}
+
+/* AI voorstel blok */
+.wb-voorstel-blok {
+  margin-top: 10px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+}
+.wb-voorstel-titel { font-weight: 700; margin-bottom: 8px; font-size: 13px; }
+.wb-voorstel-pre {
+  white-space: pre-wrap;
+  font-size: 12px;
+  margin: 0 0 10px;
+  max-height: 160px;
+  overflow: auto;
+  font-family: inherit;
+}

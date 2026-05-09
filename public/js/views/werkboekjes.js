@@ -157,12 +157,12 @@ function wbRender() {
   if (s === 6) inhoud = wbStapStappenHtml();
 
   wbOpenModal(`
-    <h2>📓 Werkboekje maken — stap ${s} van ${_wbState.totaal}: ${titels[s - 1]}</h2>
-    <div style="margin-bottom:14px">
-      <div style="display:flex;gap:4px;margin-bottom:6px">
-        ${titels.map((_, i) => `<div style="flex:1;height:4px;border-radius:2px;background:${i < s ? 'var(--accent)' : 'var(--border)'}"></div>`).join('')}
+    <h2 style="margin:0 0 4px;font-size:19px;font-weight:700;letter-spacing:-0.3px">📓 Werkboekje — ${titels[s - 1]}</h2>
+    <div class="lb-progress-wrap">
+      <div class="lb-progress-bar">
+        ${titels.map((t, i) => `<div class="lb-progress-seg${i < s ? ' actief' : ''}" title="${t}"></div>`).join('')}
       </div>
-      <div style="font-size:12px;color:var(--ink-muted)">${_wbState.busy ? `⏳ ${wbEsc(_wbState.busyText || 'Bezig...')}` : 'Je kunt alles aanpassen voordat je opslaat.'}</div>
+      <div class="lb-progress-label">${_wbState.busy ? `⏳ ${wbEsc(_wbState.busyText || 'Bezig...')}` : `Stap ${s} van ${_wbState.totaal} — ${titels[s - 1]}`}</div>
     </div>
     ${inhoud}
     <div id="wb-result" style="margin-top:10px;font-size:13px"></div>
@@ -257,11 +257,11 @@ function wbStapAlgemeenHtml() {
       <div class="form-field"><label>Duur</label><input id="wb-duur" value="${wbEsc(d.duur)}" placeholder="bijv. 6 x 45 minuten"></div>
       <div class="form-field form-full"><label>Profieldeel / richting</label><input id="wb-profiel" value="${wbEsc(d.profieldeel)}" placeholder="bijv. Produceren, Installeren en Energie"></div>
       <div class="form-field form-full"><label>Titel opdracht *</label><input id="wb-titel" value="${wbEsc(d.titel)}" placeholder="bijv. Elektronisch dobbelspel"></div>
-      <div class="form-field form-full"><label>Beschrijving / introductie</label><textarea id="wb-intro" rows="3" style="width:100%;padding:8px;border:1.5px solid var(--border);border-radius:var(--radius-sm)">${wbEsc(d.introductie)}</textarea>
+      <div class="form-field form-full"><label>Beschrijving / introductie</label><textarea id="wb-intro" rows="3" class="lb-textarea">${wbEsc(d.introductie)}</textarea>
         <button class="btn btn-sm" style="margin-top:6px;${wbDisabledStyle()}" ${wbDisabledAttr()} onclick="wbVraagAiSuggestie('introductie')">AI voorstel voor beschrijving</button>
         <div id="wb-ai-introductie">${wbVoorstelHtml('introductie')}</div>
       </div>
-      <div class="form-field form-full"><label>Opmerkingen / aandachtspunten voor AI</label><textarea id="wb-opmerkingen" rows="2" style="width:100%;padding:8px;border:1.5px solid var(--border);border-radius:var(--radius-sm)" placeholder="Bijv. weinig tekst, veel praktijk, vmbo-leerlingen, stap voor stap uitleg">${wbEsc(d.opmerkingen)}</textarea></div>
+      <div class="form-field form-full"><label>Opmerkingen / aandachtspunten voor AI</label><textarea id="wb-opmerkingen" rows="2" class="lb-textarea" placeholder="Bijv. weinig tekst, veel praktijk, vmbo-leerlingen, stap voor stap uitleg">${wbEsc(d.opmerkingen)}</textarea></div>
     </div>`;
 }
 
@@ -270,7 +270,7 @@ function wbStapLeerdoelenHtml() {
   return `
     <div class="form-field">
       <label>Leerdoelen</label>
-      ${d.leerdoelen.map((doel, i) => `<div style="display:flex;gap:6px;margin-bottom:6px"><input id="wb-doel-${i}" value="${wbEsc(doel)}" placeholder="De leerling kan ..." style="flex:1"><button onclick="wbVerwijderLeerdoel(${i})" class="btn btn-sm">✕</button></div>`).join('')}
+      ${d.leerdoelen.map((doel, i) => `<div class="wb-flex-rij"><input id="wb-doel-${i}" value="${wbEsc(doel)}" placeholder="De leerling kan ..." style="flex:1"><button onclick="wbVerwijderLeerdoel(${i})" class="btn btn-sm">✕</button></div>`).join('')}
       <button class="btn btn-sm" onclick="wbVoegLeerdoelToe()">+ Leerdoel toevoegen</button>
       <button class="btn btn-sm" style="margin-left:6px;${wbDisabledStyle()}" ${wbDisabledAttr()} onclick="wbVraagAiSuggestie('leerdoelen')">AI voorstel leerdoelen</button>
       <div id="wb-ai-leerdoelen">${wbVoorstelHtml('leerdoelen')}</div>
@@ -282,7 +282,7 @@ function wbStapMateriaalHtml() {
   return `
     <div class="form-field">
       <label>Materiaalstaat</label>
-      <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">
+      <div style="overflow-x:auto"><table class="wb-mat-tabel">
         <thead><tr><th>Nr</th><th>Benaming</th><th>Aantal</th><th>Lengte</th><th>Breedte</th><th>Dikte</th><th>Materiaal</th><th></th></tr></thead>
         <tbody>${d.materiaalstaat.map((r,i)=>`<tr>
           <td>${i+1}</td><td><input id="wb-mat-ben-${i}" value="${wbEsc(r.benaming)}"></td><td><input id="wb-mat-aan-${i}" value="${wbEsc(r.aantal)}"></td><td><input id="wb-mat-len-${i}" value="${wbEsc(r.lengte)}"></td><td><input id="wb-mat-bre-${i}" value="${wbEsc(r.breedte)}"></td><td><input id="wb-mat-dik-${i}" value="${wbEsc(r.dikte)}"></td><td><input id="wb-mat-soort-${i}" value="${wbEsc(r.soortHout)}"></td><td><button class="btn btn-sm" onclick="wbVerwijderMateriaal(${i})">✕</button></td>
@@ -297,13 +297,13 @@ function wbStapVeiligheidHtml() {
   const d = _wbState.data;
   return `
     <div class="form-field"><label>Veiligheidsregels</label>
-      ${d.veiligheidsregels.map((r,i)=>`<div style="display:flex;gap:6px;margin-bottom:6px"><input id="wb-veil-${i}" value="${wbEsc(r)}" style="flex:1"><button class="btn btn-sm" onclick="wbVerwijderVeiligheid(${i})">✕</button></div>`).join('')}
+      ${d.veiligheidsregels.map((r,i)=>`<div class="wb-flex-rij"><input id="wb-veil-${i}" value="${wbEsc(r)}" style="flex:1"><button class="btn btn-sm" onclick="wbVerwijderVeiligheid(${i})">✕</button></div>`).join('')}
       <button class="btn btn-sm" onclick="wbVoegVeiligheidToe()">+ Regel</button>
       <button class="btn btn-sm" style="margin-left:6px;${wbDisabledStyle()}" ${wbDisabledAttr()} onclick="wbVraagAiSuggestie('veiligheid')">AI voorstel veiligheid</button>
       <div id="wb-ai-veiligheid">${wbVoorstelHtml('veiligheid')}</div>
     </div>
     <div class="form-field" style="margin-top:14px"><label>Gereedschappen en machines</label>
-      ${d.machines.map((m,i)=>`<div style="border:1px solid var(--border);border-radius:8px;padding:8px;margin-bottom:8px"><div style="display:flex;gap:6px"><input id="wb-mac-naam-${i}" value="${wbEsc(m.naam || '')}" placeholder="Naam" style="flex:1"><input id="wb-mac-oms-${i}" value="${wbEsc(m.omschrijving||'')}" placeholder="Omschrijving" style="flex:1"><button class="btn btn-sm" onclick="wbVerwijderMachine(${i})">✕</button></div><div style="margin-top:6px"><input type="file" accept="image/*" onchange="wbLaadMachineAfbeelding(${i},this)"> ${m.afbeeldingBase64 ? '<span style="color:var(--accent);font-size:12px">✓ afbeelding geladen</span>' : ''}</div></div>`).join('')}
+      ${d.machines.map((m,i)=>`<div class="wb-machine-blok"><div class="wb-machine-inputs"><input id="wb-mac-naam-${i}" value="${wbEsc(m.naam || '')}" placeholder="Naam" style="flex:1"><input id="wb-mac-oms-${i}" value="${wbEsc(m.omschrijving||'')}" placeholder="Omschrijving" style="flex:1"><button class="btn btn-sm" onclick="wbVerwijderMachine(${i})">✕</button></div><div><input type="file" accept="image/*" onchange="wbLaadMachineAfbeelding(${i},this)"> ${m.afbeeldingBase64 ? '<span style="color:var(--accent);font-size:12px">✓ afbeelding geladen</span>' : ''}</div></div>`).join('')}
       <button class="btn btn-sm" onclick="wbVoegMachineToe()">+ Gereedschap</button>
       <button class="btn btn-sm" style="margin-left:6px;${wbDisabledStyle()}" ${wbDisabledAttr()} onclick="wbVraagAiSuggestie('machines')">AI voorstel gereedschap</button>
       <div id="wb-ai-machines">${wbVoorstelHtml('machines')}</div>
@@ -313,8 +313,11 @@ function wbStapVeiligheidHtml() {
 function wbStapStappenHtml() {
   const d = _wbState.data;
   return d.secties.map((sec, si)=>`
-    <div style="border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px;margin-bottom:12px">
-      <div style="display:flex;justify-content:space-between;gap:8px"><strong>Onderdeel ${si+1}</strong>${d.secties.length>1?`<button class="btn btn-sm" onclick="wbVerwijderSectie(${si})">Verwijderen</button>`:''}</div>
+    <div class="wb-sectie-blok">
+      <div class="wb-sectie-hdr">
+        <span>Onderdeel ${si+1}</span>
+        ${d.secties.length>1?`<button class="btn btn-sm" onclick="wbVerwijderSectie(${si})">Verwijderen</button>`:''}
+      </div>
       <div class="form-field"><label>Titel onderdeel</label><input id="wb-sec-titel-${si}" value="${wbEsc(sec.titel)}"></div>
       <div class="form-field"><label>Benodigdheden (komma gescheiden)</label><input id="wb-sec-ben-${si}" value="${wbEsc((sec.benodigdheden||[]).join(', '))}"></div>
       ${(sec.stappen||[]).map((st,pi)=>{
@@ -322,49 +325,41 @@ function wbStapStappenHtml() {
         const isTekening = type === 'tekening';
         const isUpload = type === 'tekening-upload';
         const isSpeciaal = isTekening || isUpload;
-        return `<div style="border:1px solid ${isSpeciaal?'var(--amber)':'var(--border)'};border-radius:8px;padding:8px;margin-bottom:8px;background:${isSpeciaal?'var(--amber-dim, #fffbf0)':'var(--surface)'}">
-        <div style="display:flex;gap:8px;align-items:center;margin-bottom:6px">
-          <strong style="color:var(--accent)">Stap ${pi+1}</strong>
-          <select id="wb-stap-type-${si}-${pi}" onchange="wbSlaStapOp();wbRender()">
+        return `<div class="wb-stap-blok${isSpeciaal?' is-tekening':''}">
+        <div class="wb-stap-hdr">
+          <span class="wb-stap-nr">Stap ${pi+1}</span>
+          <select id="wb-stap-type-${si}-${pi}" class="tw-mini-select" onchange="wbSlaStapOp();wbRender()">
             <option value="foto" ${type==='foto'?'selected':''}>📷 Foto + tekst</option>
             <option value="tekening" ${isTekening?'selected':''}>📐 Tekenvak (hele pagina)</option>
             <option value="tekening-upload" ${isUpload?'selected':''}>🖼️ Tekening uploaden (hele pagina)</option>
           </select>
-          <button class="btn btn-sm" style="margin-left:auto" onclick="wbVerwijderStap(${si},${pi})">✕</button>
+          <button class="wb-stap-del" onclick="wbVerwijderStap(${si},${pi})">✕</button>
         </div>
         ${isTekening
-          ? `<div style="background:white;border:1.5px dashed var(--amber,#f59f00);border-radius:6px;padding:12px;text-align:center;color:var(--ink-muted);font-size:12px;margin-bottom:6px">
-               📐 <strong>Tekenvak (ruitjes, A4-liggend, hele pagina)</strong> — leerling tekent hier zelf
-             </div>
-             <input id="wb-stap-tekst-${si}-${pi}" value="${wbEsc(st.stap)}" maxlength="200"
-               placeholder="Opdracht boven de tekenpagina (optioneel)"
-               style="width:100%;padding:6px 8px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:13px">`
+          ? `<div class="wb-tekenvak-preview">📐 <strong>Tekenvak (ruitjes, A4-liggend, hele pagina)</strong> — leerling tekent hier zelf</div>
+             <input id="wb-stap-tekst-${si}-${pi}" value="${wbEsc(st.stap)}" maxlength="200" placeholder="Opdracht boven de tekenpagina (optioneel)" style="width:100%">`
           : isUpload
-          ? `<div style="background:white;border:1.5px dashed var(--amber,#f59f00);border-radius:6px;padding:12px;text-align:center;color:var(--ink-muted);font-size:12px;margin-bottom:6px">
-               🖼️ <strong>Geüploade tekening (hele pagina)</strong> — vult de volledige pagina
-             </div>
-             <input id="wb-stap-tekst-${si}-${pi}" value="${wbEsc(st.stap)}" maxlength="200"
-               placeholder="Opdracht boven de afbeelding (optioneel)"
-               style="width:100%;padding:6px 8px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:13px;margin-bottom:6px">
-             <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          ? `<div class="wb-tekenvak-preview">🖼️ <strong>Geüploade tekening (hele pagina)</strong> — vult de volledige pagina</div>
+             <input id="wb-stap-tekst-${si}-${pi}" value="${wbEsc(st.stap)}" maxlength="200" placeholder="Opdracht boven de afbeelding (optioneel)" style="width:100%;margin-bottom:6px">
+             <div class="wb-stap-acties">
                <input type="file" accept="image/*" onchange="wbLaadStapAfbeelding(${si},${pi},this)">
                ${st.afbeeldingBase64?'<span style="color:var(--accent);font-size:12px">✓ afbeelding geladen</span>':''}
              </div>`
-          : `<textarea id="wb-stap-tekst-${si}-${pi}" maxlength="500" rows="3"
-               style="width:100%;padding:8px;border:1.5px solid var(--border);border-radius:var(--radius-sm)"
-               placeholder="Beschrijf de stap concreet">${wbEsc(st.stap)}</textarea>
+          : `<textarea id="wb-stap-tekst-${si}-${pi}" maxlength="500" rows="3" class="lb-textarea" placeholder="Beschrijf de stap concreet">${wbEsc(st.stap)}</textarea>
              <input id="wb-stap-tip-${si}-${pi}" value="${wbEsc(st.tip)}" placeholder="Tip of let-op tekst" style="margin-top:6px;width:100%">
-             <div style="margin-top:6px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+             <div class="wb-stap-acties">
                <input type="file" accept="image/*" onchange="wbLaadStapAfbeelding(${si},${pi},this)">
                ${st.afbeeldingBase64?'<span style="color:var(--accent);font-size:12px">✓ afbeelding geladen</span>':''}
                <input id="wb-stap-bijschrift-${si}-${pi}" value="${wbEsc(st.bijschrift)}" placeholder="Bijschrift" style="flex:1;min-width:160px">
              </div>`
         }
-        ${type==='foto'?`<button class="btn btn-sm" style="margin-top:6px;${wbDisabledStyle()}" ${wbDisabledAttr()} onclick="wbVraagAiSuggestie('stap:${si}:${pi}')">AI verbeter deze stap</button>`:''}
+        ${type==='foto'?`<button class="btn btn-sm" style="margin-top:8px;${wbDisabledStyle()}" ${wbDisabledAttr()} onclick="wbVraagAiSuggestie('stap:${si}:${pi}')">AI verbeter deze stap</button>`:''}
         <div id="wb-ai-stap-${si}-${pi}">${wbVoorstelHtml(`stap:${si}:${pi}`)}</div>
       </div>`;}).join('')}
-      <button class="btn btn-sm" onclick="wbVoegStapToe(${si})">+ Stap</button>
-      <button class="btn btn-sm" style="margin-left:6px;${wbDisabledStyle()}" ${wbDisabledAttr()} onclick="wbVraagAiSuggestie('sectie:${si}')">AI voorstel stappen voor dit onderdeel</button>
+      <div style="display:flex;gap:6px;margin-top:4px">
+        <button class="btn btn-sm" onclick="wbVoegStapToe(${si})">+ Stap</button>
+        <button class="btn btn-sm" style="${wbDisabledStyle()}" ${wbDisabledAttr()} onclick="wbVraagAiSuggestie('sectie:${si}')">AI voorstel stappen</button>
+      </div>
       <div id="wb-ai-sectie-${si}">${wbVoorstelHtml(`sectie:${si}`)}</div>
     </div>`).join('') + `<button class="btn btn-sm" onclick="wbVoegSectieToe()">+ Onderdeel toevoegen</button>`;
 }
@@ -487,7 +482,7 @@ Maak concrete stappen voor dit onderdeel die logisch aansluiten op het geheel. J
 function wbVoorstelHtml(stapId) {
   const v = _wbState.aiVoorstellen[stapId];
   if (!v) return '';
-  return `<div style="margin-top:8px;padding:10px;border:1px solid var(--border);border-radius:8px;background:var(--surface-2)"><div style="font-weight:600;margin-bottom:6px">AI voorstel</div><pre style="white-space:pre-wrap;font-size:12px;margin:0;max-height:160px;overflow:auto">${wbEsc(JSON.stringify(v,null,2))}</pre><button class="btn btn-sm btn-primary" style="margin-top:8px" onclick="wbGebruikAiVoorstel('${stapId}')">Gebruik dit voorstel</button></div>`;
+  return `<div class="wb-voorstel-blok"><div class="wb-voorstel-titel">AI voorstel</div><pre class="wb-voorstel-pre">${wbEsc(JSON.stringify(v,null,2))}</pre><button class="btn btn-sm btn-primary" onclick="wbGebruikAiVoorstel('${stapId}')">Gebruik dit voorstel</button></div>`;
 }
 
 function wbGebruikAiVoorstel(stapId) {
