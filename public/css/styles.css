@@ -2045,3 +2045,209 @@ input, select, textarea { font-family: var(--font); }
 .lb-ovz-tabel th { padding: 8px 10px; text-align: left; font-weight: 600; }
 .lb-ovz-tabel td { padding: 8px 10px; border-bottom: 1px solid var(--border); }
 .lb-ovz-tabel tr:nth-child(even) td { background: var(--surface-2); }
+
+/* ============================================================
+   Toetsen (tw-*)
+   ============================================================ */
+
+/* Materiaalbibliotheek rij */
+.tw-mat-rij {
+  padding: 11px 18px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  transition: background 0.12s;
+}
+.tw-mat-rij:hover { background: var(--surface-2); }
+.tw-mat-naam { flex: 1; min-width: 120px; }
+.tw-mat-naam strong { font-weight: 500; font-size: 13px; display: block; }
+.tw-mat-meta { font-size: 12px; color: var(--ink-muted); white-space: nowrap; }
+.tw-del-btn {
+  color: var(--red);
+  font-size: 12px;
+  border: 1.5px solid var(--red);
+  background: none;
+  border-radius: var(--radius-sm);
+  padding: 5px 10px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  font-family: inherit;
+}
+.tw-del-btn:hover { background: #fee2e2; }
+
+/* Keuze-kaarten (upload vs wizard) */
+.tw-keuze-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+.tw-keuze-kaart {
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius);
+  padding: 22px 18px;
+  cursor: pointer;
+  text-align: center;
+  transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
+}
+.tw-keuze-kaart:hover {
+  border-color: var(--accent);
+  background: var(--accent-dim);
+  box-shadow: var(--shadow-sm);
+}
+.tw-keuze-icoon { font-size: 30px; margin-bottom: 10px; }
+.tw-keuze-titel { font-weight: 600; font-size: 14px; margin-bottom: 5px; }
+.tw-keuze-sub { font-size: 12px; color: var(--ink-muted); line-height: 1.4; }
+
+/* Sectie container (bronnen stap 2) */
+.tw-sectie {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+  margin-bottom: 14px;
+}
+.tw-sectie-header {
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--accent);
+  margin-bottom: 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.tw-bron-blok {
+  background: var(--surface-2);
+  border-radius: var(--radius-sm);
+  padding: 12px;
+  margin-bottom: 10px;
+}
+.tw-bron-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+.tw-bron-nr { font-weight: 600; font-size: 12px; color: var(--ink-muted); }
+.tw-bron-del {
+  color: var(--red);
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-size: 12px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  transition: background 0.15s;
+}
+.tw-bron-del:hover { background: #fee2e2; }
+
+/* Vraag container (stap 3) */
+.tw-vraag-blok {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 14px;
+  margin-bottom: 10px;
+  transition: border-color 0.15s;
+}
+.tw-vraag-blok:focus-within { border-color: var(--accent); }
+.tw-vraag-acties {
+  display: flex;
+  gap: 7px;
+  align-items: center;
+  margin-bottom: 9px;
+  flex-wrap: wrap;
+}
+.tw-vraag-del {
+  color: var(--red);
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-size: 16px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  transition: background 0.15s;
+  margin-left: auto;
+}
+.tw-vraag-del:hover { background: #fee2e2; }
+.tw-mini-select {
+  font-size: 12px;
+  padding: 5px 8px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-family: inherit;
+  background: var(--surface);
+}
+.tw-mini-input {
+  flex: 1;
+  min-width: 120px;
+  font-size: 12px;
+  padding: 5px 9px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-family: inherit;
+}
+.tw-mini-textarea {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  resize: vertical;
+  margin-bottom: 8px;
+  font-family: inherit;
+  box-sizing: border-box;
+}
+.tw-mini-textarea:focus, .tw-mini-input:focus, .tw-mini-select:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+.tw-mk-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.tw-mk-opt { display: flex; gap: 6px; align-items: center; }
+.tw-mk-letter { font-weight: 700; font-size: 12px; min-width: 16px; }
+
+/* AI advies blok */
+.tw-ai-advies-blok {
+  display: none;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  margin-bottom: 8px;
+  font-size: 12px;
+}
+.tw-ai-advies-titel { font-weight: 600; margin-bottom: 4px; color: var(--accent); }
+.tw-ai-verbeterd {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 8px 10px;
+  margin-bottom: 8px;
+  font-style: italic;
+}
+
+/* Overzicht (stap 4) */
+.tw-ovz-blok {
+  background: var(--surface-2);
+  border-radius: var(--radius);
+  padding: 16px;
+  margin-bottom: 14px;
+}
+.tw-ovz-titel { font-size: 13px; font-weight: 700; margin-bottom: 10px; }
+.tw-ovz-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  font-size: 13px;
+}
+
+/* Upload zone (gedeeld) */
+.upload-zone {
+  padding: 24px;
+  text-align: center;
+  border: 2px dashed var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+.upload-zone:hover { border-color: var(--accent); background: var(--accent-dim); }
