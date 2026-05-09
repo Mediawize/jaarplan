@@ -9,8 +9,9 @@
 async function renderToetsen() {
   showLoading('toetsen');
   try {
-    const [klassen, alleOpd, materialen] = await Promise.all([
-      API.getKlassen(), API.getOpdrachten(), API.getMaterialen()
+    const [klassen, alleOpd, materialen, bibliotheek] = await Promise.all([
+      API.getKlassen(), API.getOpdrachten(), API.getMaterialen(),
+      fetch('/api/werkboekje-bibliotheek', { credentials: 'same-origin' }).then(r => r.json()).catch(() => [])
     ]);
     const readonly = !Auth.canEdit();
     const metToets = alleOpd.filter(o => o.toetsBestand);
@@ -63,6 +64,32 @@ async function renderToetsen() {
         ${werkBoekBib.length === 0
           ? `<div class="empty-state"><h3>Nog geen werkboekjes</h3><p>Genereer een werkboekje via "Werkboekje maken" hierboven.</p></div>`
           : renderMateriaalRijen(werkBoekBib)}
+      </div>
+
+      <div class="card" style="margin-bottom:20px">
+        <div class="card-header">
+          <div><h2>📗 Werkboekjes bibliotheek (${bibliotheek.length})</h2>
+          <div class="card-meta">Geüploade en handmatige werkboekjes — koppelbaar aan praktijkopdrachten in les modules</div></div>
+          ${!readonly ? `<button class="btn btn-sm btn-primary" onclick="openWerkboekjeVoorBibliotheek(null)">+ Nieuw werkboekje</button>` : ''}
+        </div>
+        ${bibliotheek.length === 0
+          ? `<div class="empty-state"><h3>Nog geen werkboekjes in de bibliotheek</h3><p>Maak een werkboekje via de knop rechtsboven.</p></div>`
+          : `<div class="lm-grid" style="padding:16px 20px">
+              ${bibliotheek.map(w => `
+                <div class="lm-kaart">
+                  <div class="lm-kaart-type">
+                    <span class="lm-type-pill" style="background:#D97706">Werkboekje</span>
+                    ${w.niveau ? `<span style="font-size:11.5px;color:var(--ink-3)">${escHtml(w.niveau)}</span>` : ''}
+                  </div>
+                  <div class="lm-kaart-naam">${escHtml(w.naam || w.data?.titel || 'Zonder naam')}</div>
+                  ${w.beschrijving ? `<div class="lm-kaart-meta">${escHtml(w.beschrijving)}</div>` : '<div class="lm-kaart-meta"></div>'}
+                  <div class="lm-kaart-acties">
+                    <button class="btn btn-sm" style="flex:1" onclick="openWerkboekjeVoorBibliotheek('${w.id}')">Bewerken</button>
+                    ${!readonly ? `<button class="icon-btn" style="color:var(--red);border-color:rgba(220,38,38,0.3)" onclick="verwijderBibliotheekWerkboekje('${w.id}','${escHtml(w.naam || w.data?.titel || 'dit werkboekje')}')" title="Verwijderen">🗑</button>` : ''}
+                  </div>
+                </div>`).join('')}
+            </div>`
+        }
       </div>
 
       <div class="card" style="margin-bottom:20px">

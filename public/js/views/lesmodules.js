@@ -12,9 +12,8 @@ async function renderLesModules() {
   const isAdmin = Auth.isAdmin();
   showLoading('lesmodules');
   try {
-    const [modules, vakken, bibliotheek] = await Promise.all([
-      API.getLesModules(), API.getVakken(),
-      fetch('/api/werkboekje-bibliotheek', { credentials: 'same-origin' }).then(r => r.json()).catch(() => [])
+    const [modules, vakken] = await Promise.all([
+      API.getLesModules(), API.getVakken()
     ]);
     const perType = { profieldeel: [], keuzedeel: [], overig: [] };
     modules.forEach(m => {
@@ -77,37 +76,14 @@ async function renderLesModules() {
           }).join('')
       }
 
-      <div class="card" style="margin-top:8px">
-        <div class="card-header">
-          <div><h2>Werkboekjes bibliotheek</h2><div class="card-meta">Koppelbaar aan praktijkopdrachten</div></div>
-          ${isAdmin ? `<button class="btn btn-sm btn-primary" onclick="openWerkboekjeVoorBibliotheek(null)">+ Nieuw werkboekje</button>` : ''}
-        </div>
-        ${bibliotheek.length === 0
-          ? `<div style="padding:24px;text-align:center;color:var(--ink-3);font-size:13px">Nog geen werkboekjes in de bibliotheek.</div>`
-          : `<div class="lm-grid">
-              ${bibliotheek.map(w => `
-                <div class="lm-kaart">
-                  <div class="lm-kaart-type">
-                    <span class="lm-type-pill" style="background:#D97706">Werkboekje</span>
-                    ${w.niveau ? `<span style="font-size:11.5px;color:var(--ink-3)">${escHtml(w.niveau)}</span>` : ''}
-                  </div>
-                  <div class="lm-kaart-naam">${escHtml(w.naam || w.data?.titel || 'Zonder naam')}</div>
-                  ${w.beschrijving ? `<div class="lm-kaart-meta">${escHtml(w.beschrijving)}</div>` : '<div class="lm-kaart-meta"></div>'}
-                  <div class="lm-kaart-acties">
-                    <button class="btn btn-sm" style="flex:1" onclick="openWerkboekjeVoorBibliotheek('${w.id}')">Bewerken</button>
-                    <button class="icon-btn" style="color:var(--red);border-color:rgba(220,38,38,0.3)" onclick="verwijderBibliotheekWerkboekje('${w.id}','${escHtml(w.naam || w.data?.titel || 'dit werkboekje')}')" title="Verwijderen">🗑</button>
-                  </div>
-                </div>`).join('')}
-            </div>`
-        }
-      </div>`;
+    `;
   } catch (e) { showError('Fout: ' + e.message); }
 }
 
 async function verwijderBibliotheekWerkboekje(id, naam) {
   if (!confirm(`Werkboekje "${naam}" uit bibliotheek verwijderen?`)) return;
   await fetch(`/api/werkboekje-bibliotheek/${id}`, { method: 'DELETE', credentials: 'same-origin' });
-  await renderLesModules();
+  await renderToetsen();
 }
 
 // ============================================================
