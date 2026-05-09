@@ -968,6 +968,68 @@ ${bronTekst.slice(0, 12000)}`;
   }
 });
 
+// Praktijk werkboekje uploaden — AI extraheert theorieSectie + syllabusCodes
+app.post('/api/les-modules/analyseer-praktijk', requireAdmin, upload.single('bestand'), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: 'Geen bestand ontvangen.' });
+
+    const mime = req.file.mimetype || '';
+    const isDocx = mime.includes('word') || req.file.originalname.match(/\.docx?$/i);
+    const isPdf  = mime === 'application/pdf' || req.file.originalname.match(/\.pdf$/i);
+    if (!isDocx && !isPdf) return res.status(400).json({ error: 'Alleen PDF of Word (.docx) toegestaan.' });
+
+    let bronTekst = '';
+    if (isDocx) {
+      const mammoth = require('mammoth');
+      const result = await mammoth.extractRawText({ path: req.file.path });
+      bronTekst = result.value;
+    } else {
+      const { analyseSyllabusPdf } = require('./services/syllabusGenerator');
+      const analyse = await analyseSyllabusPdf(req.file.path);
+      bronTekst = analyse.sourceText || analyse.rawText || '';
+    }
+
+    if (!bronTekst.trim()) return res.status(422).json({ error: 'Kon geen tekst lezen uit het bestand.' });
+
+    const opdrachtnaam = (req.body.opdrachtnaam || '').trim();
+    const niveau = (req.body.niveau || '').trim();
+    const niveauTekst = niveau ? `VMBO ${niveau}` : 'VMBO';
+
+    const prompt = `Je analyseert een werkboekje of opdrachtenblad voor een ${niveauTekst} praktijkvak.
+${opdrachtnaam ? `De opdracht heet: "${opdrachtnaam}".` : ''}
+
+Bepaal:
+1. Bij welk theorie-onderdeel dit werkboekje hoort (bijv. "Materiaalkennis en eigenschappen", "Veiligheidsvoorschriften").
+2. Welke syllabus-codes of competentiecodes voorkomen (bijv. "K/PIE/2.1", "K/DT/3.2", "B/Kv-1/2.1"). Als er geen codes zijn, geef een lege array.
+
+Geef ALLEEN geldige JSON terug zonder uitleg:
+{
+  "theorieSectie": "naam van het theorie-onderdeel (kort, 3-8 woorden)",
+  "syllabusCodes": ["code1", "code2"]
+}
+
+Inhoud werkboekje:
+${bronTekst.slice(0, 8000)}`;
+
+    const resultaat = await chatJson({
+      system: `Je bent een VMBO-onderwijsspecialist. Je analyseert werkboekjes en koppelt ze aan theorie-onderdelen en syllabus-codes. Geef altijd alleen geldig JSON terug.`,
+      user: prompt,
+      maxTokens: 500,
+      model: 'claude-sonnet-4-6'
+    });
+
+    return res.json({
+      success: true,
+      theorieSectie: resultaat.theorieSectie || '',
+      syllabusCodes: Array.isArray(resultaat.syllabusCodes) ? resultaat.syllabusCodes.filter(Boolean) : [],
+      bestandsnaam: req.file.originalname
+    });
+  } catch (e) {
+    console.error('Fout bij /api/les-modules/analyseer-praktijk:', e);
+    res.status(500).json({ error: 'Fout bij analyseren: ' + e.message });
+  }
+});
+
 // ============================================================
 // SCHOOL INSTELLINGEN — logo + naam opslaan / ophalen
 // ============================================================
