@@ -244,6 +244,7 @@ function renderOpdrachtKaart(o, readonly, weeknummer) {
         ${o.toetsBestand ? `<span style="font-size:11px;color:var(--amber-text)">📄 ${escHtml(o.toetsBestand)}</span>` : ''}
         ${o.werkboekLink ? `<a href="${escHtml(o.werkboekLink)}" target="_blank" class="text-link" style="font-size:11px" onclick="event.stopPropagation()">📗 Werkboek</a>` : ''}
         ${o.profielId ? `<span style="font-size:10px;padding:1px 5px;border-radius:3px;background:var(--accent-dim);color:var(--accent-text)">profiel</span>` : ''}
+        ${o.profielId ? `<button onclick="event.stopPropagation();openLesbrief('${o.id}')" title="Lesbrief openen" style="padding:2px 7px;font-size:11px;border-radius:4px;border:1px solid var(--border-2);background:transparent;cursor:pointer;color:var(--ink-3)">📋 Lesbrief</button>` : ''}
       </div>
 
       <!-- Afvinken rij -->

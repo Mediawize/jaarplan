@@ -352,6 +352,11 @@ app.put('/api/weken/:weekId/dagnotities', requireAuth, (req, res) => {
 app.get('/api/opdrachten', requireAuth, (req, res) => {
   res.json(db.getOpdrachten(req.query.klasId || null));
 });
+app.get('/api/opdrachten/:id', requireAuth, (req, res) => {
+  const o = db.getOpdracht(req.params.id);
+  if (!o) return res.status(404).json({ error: 'Niet gevonden' });
+  res.json(o);
+});
 app.post('/api/opdrachten', requireCanEdit, (req, res) => res.json(db.addOpdracht(req.body)));
 app.put('/api/opdrachten/:id', requireCanEdit, (req, res) => {
   db.updateOpdracht(req.params.id, req.body);
@@ -588,57 +593,7 @@ app.post('/api/analyse-syllabus', requireCanEdit, syllabusUpload, async (req, re
   }
 });
 
-app.post('/api/genereer-lesprofiel-uit-syllabus', requireCanEdit, async (req, res) => {
-  const { uploadToken, moduleCode, niveau, aantalWeken, urenTheorie, urenPraktijk, naam, vakId } = req.body || {};
-  try {
-    if (!uploadToken || !moduleCode || !niveau || !aantalWeken || !urenTheorie || !urenPraktijk || !vakId) {
-      return res.status(400).json({ error: 'Niet alle verplichte velden zijn ingevuld.' });
-    }
-    const uploadInfo = syllabusUploadTokens.get(uploadToken);
-    if (!uploadInfo || !uploadInfo.filePath || !fs.existsSync(uploadInfo.filePath)) {
-      cleanupSyllabusUploadToken(uploadToken);
-      return res.status(400).json({ error: 'De geüploade syllabus is niet meer beschikbaar. Analyseer de PDF opnieuw.' });
-    }
-    const vak = db.getVakken().find(v => v.id === vakId);
-    if (!vak) {
-      return res.status(404).json({ error: 'Vak niet gevonden.' });
-    }
-    const opties = {
-      moduleCode: String(moduleCode),
-      niveau: String(niveau).toUpperCase(),
-      aantalWeken: Number(aantalWeken),
-      urenTheorie: Number(urenTheorie),
-      urenPraktijk: Number(urenPraktijk),
-      naam,
-      vakId,
-      vakCode: vak.naam,
-      vakNaam: vak.volledig || vak.naam
-    };
-    const gegenereerd = uploadInfo.isDocx
-      ? await generateLesprofielFromText(uploadInfo.sourceText, opties)
-      : await generateLesprofielFromPdf(uploadInfo.filePath, opties);
-    const profiel = db.addLesprofiel({
-      naam: gegenereerd.naam,
-      vakId: vak.id,
-      docentId: req.session.user.id,
-      aantalWeken: gegenereerd.aantalWeken,
-      urenPerWeek: gegenereerd.urenPerWeek,
-      beschrijving: gegenereerd.beschrijving || '',
-      niveau: gegenereerd.niveau || '',
-      weken: gegenereerd.weken || []
-    });
-    cleanupSyllabusUploadToken(uploadToken);
-    return res.json({
-      success: true,
-      profiel,
-      meta: { module: gegenereerd.module, selectie: gegenereerd.selectie || [] }
-    });
-  } catch (e) {
-    console.error('Fout bij /api/genereer-lesprofiel-uit-syllabus:', e);
-    if (uploadToken) cleanupSyllabusUploadToken(uploadToken);
-    return res.status(500).json({ error: 'Fout bij genereren van lesprofiel uit syllabus', details: e.message });
-  }
-});
+// (verwijderd: genereer-lesprofiel-uit-syllabus — vervangen door genereer-verdeling)
 
 // ============================================================
 // LESPROFIEL WIZARD — genereer preview (slaat NIET op in DB)
@@ -696,154 +651,84 @@ Zet elke gevonden les- of theoriestap als aparte string in de array. Gebruik de 
   }
 });
 
-app.post('/api/genereer-lesprofiel-wizard', requireCanEdit, async (req, res) => {
-  const {
-    naam, vakId, niveau, aantalWeken, verhouding, beschrijving,
-    syllabusUploadToken, syllabusModuleCode,
-    aiWeekthemas, aiActiviteiten,
-    lesModuleId, feedback
-  } = req.body || {};
-
+// ============================================================
+// LESPROFIEL — AI Weekverdeling genereren bij koppelen
+// ============================================================
+app.post('/api/lesprofielen/:id/genereer-verdeling', requireCanEdit, async (req, res) => {
+  const { aantalWeken, klasId } = req.body || {};
   try {
-    const vak = db.getVakken().find(v => v.id === vakId);
-    const vakNaam = vak ? (vak.volledig || vak.naam) : (naam || 'Techniek');
-    const niv = String(niveau || 'BB').toUpperCase();
+    const profiel = db.getLesprofiel(req.params.id);
+    if (!profiel) return res.status(404).json({ error: 'Lesprofiel niet gevonden' });
+    if (!profiel.moduleId) return res.status(400).json({ error: 'Lesprofiel heeft geen gekoppelde lesmodule' });
+
+    const module = db.getLesModule(profiel.moduleId);
+    if (!module) return res.status(404).json({ error: 'Lesmodule niet gevonden' });
+
     const weken = Math.max(1, Number(aantalWeken) || 8);
-    const verh = String(verhouding || '1:1');
-    const [tDeel, pDeel] = verh.split(':').map(n => Math.max(0, Number(n) || 0));
-    const totaalDelen = tDeel + pDeel || 2;
+    const urenTheorie = profiel.urenTheorie || 0;
+    const urenPraktijk = profiel.urenPraktijk || 0;
+    const urenPerWeek = profiel.urenPerWeek || (urenTheorie + urenPraktijk) || 3;
 
-    // ── Pad 1: syllabus-gebaseerd ──────────────────────────────
-    if (syllabusUploadToken && syllabusModuleCode) {
-      const uploadInfo = syllabusUploadTokens.get(syllabusUploadToken);
-      if (uploadInfo) {
-        const opties = {
-          moduleCode: String(syllabusModuleCode),
-          niveau: niv,
-          aantalWeken: weken,
-          urenTheorie: tDeel,
-          urenPraktijk: pDeel,
-          naam: naam || undefined,
-          vakId,
-          vakCode: vak?.naam || '',
-          vakNaam
-        };
-        try {
-          const gegenereerd = uploadInfo.isDocx
-            ? await generateLesprofielFromText(uploadInfo.sourceText, opties)
-            : await generateLesprofielFromPdf(uploadInfo.filePath, opties);
+    const stappen = (module.stappen || []).map((s, i) => ({
+      index: i,
+      naam: s.naam || `Stap ${i + 1}`,
+      lessen: (s.lessen || []).map(l => l.naam || l).filter(Boolean),
+      aantalPraktijk: (s.praktijkOpdrachten || []).length
+    }));
+    const gedeeldeOpdrachten = (module.gedeeldeOpdrachten || []).map(o => o.naam || '').filter(Boolean);
 
-          return res.json({
-            success: true,
-            profiel: {
-              naam: naam || gegenereerd.naam,
-              vakId,
-              niveau: niv,
-              aantalWeken: gegenereerd.aantalWeken,
-              verhouding: verh,
-              beschrijving: beschrijving || gegenereerd.beschrijving || '',
-              weken: gegenereerd.weken || []
-            },
-            warning: null
-          });
-        } catch (syllabusErr) {
-          // Syllabus leverde niets op — doorvallen naar AI-generatie met waarschuwing
-          console.warn('Syllabus generatie mislukt, val terug op AI:', syllabusErr.message);
-        }
-      }
-    }
+    const prompt = `Je bent een ervaren VMBO/MBO docent die lesplanning maakt.
+Module: "${module.naam}", ${weken} weken beschikbaar, ${urenPerWeek} uur/week (${urenTheorie}u theorie + ${urenPraktijk}u praktijk).
 
-    // ── Pad 2: AI-generatie op basis van metadata ──────────────
-    // (ook als Pad 1 niets opleverde)
-    const syllabusNietGebruikt = !!(syllabusUploadToken && syllabusModuleCode);
-    const verhTekst = tDeel > 0 && pDeel > 0
-      ? `verhouding ${tDeel}:${pDeel} theorie:praktijk`
-      : tDeel === 0 ? 'alleen praktijk' : 'alleen theorie';
-    const heeftPraktijk = pDeel > 0;
-    const heeftTheorie = tDeel > 0;
+Theoriestappen in de module:
+${stappen.map((s, i) => `${i + 1}. ${s.naam}${s.lessen.length ? ': ' + s.lessen.join(', ') : ''}${s.aantalPraktijk ? ` (${s.aantalPraktijk} praktijkopdrachten)` : ''}`).join('\n')}
+${gedeeldeOpdrachten.length ? `\nGedeelde praktijkopdrachten: ${gedeeldeOpdrachten.join(', ')}` : ''}
 
-    // Les module stappen ophalen als gekoppeld
-    const gekoppeldeModule = lesModuleId ? db.getLesModule(lesModuleId) : null;
-    const extraStappen = gekoppeldeModule && Array.isArray(gekoppeldeModule.stappen) && gekoppeldeModule.stappen.length
-      ? gekoppeldeModule.stappen.flatMap(s => typeof s === 'string' ? [s] : (s && s.naam ? [s.naam] : []))
-      : [];
-
-    const stappenContext = extraStappen.length
-      ? `\n\nDe volgende theoriestappen uit de les module "${gekoppeldeModule.naam}" moeten als basis dienen. Verdeel ze logisch over de ${weken} weken als weekthema's:\n${extraStappen.map((s, i) => `${i + 1}. ${s}`).join('\n')}`
-      : '';
-
-    const feedbackContext = feedback && String(feedback).trim()
-      ? `\n\nDe docent heeft de volgende aanpassing gevraagd ten opzichte van de vorige versie:\n"${String(feedback).trim()}"\nVerwerk dit nadrukkelijk in het nieuwe lesprofiel.`
-      : '';
-
-    const actTypeJson = heeftTheorie && heeftPraktijk
-      ? `        { "type": "Theorie", "uren": 1, "omschrijving": "Concrete omschrijving. Begin met werkwoord.", "syllabus": "", "link": "", "bestand": null },\n        { "type": "Praktijk", "uren": 1, "omschrijving": "Concrete omschrijving. Begin met werkwoord.", "syllabus": "", "link": "", "bestand": null }`
-      : heeftTheorie
-      ? `        { "type": "Theorie", "uren": 1, "omschrijving": "Concrete omschrijving. Begin met werkwoord.", "syllabus": "", "link": "", "bestand": null }`
-      : `        { "type": "Praktijk", "uren": 1, "omschrijving": "Concrete omschrijving. Begin met werkwoord.", "syllabus": "", "link": "", "bestand": null }`;
-
-    const prompt = `Je bent een ervaren VMBO/MBO docent die lesplannen opstelt.
-Maak een lesprofiel voor: "${naam || vakNaam}", vak "${vakNaam}", niveau ${niv}, ${weken} weken, ${verhTekst}.
-${beschrijving ? `Onderwerp/context: ${beschrijving}` : ''}${stappenContext}${feedbackContext}
-
-Geef ALLEEN geldige JSON terug in dit formaat:
+Verdeel de stappen logisch over ${weken} weken. Geef ALLEEN geldige JSON:
 {
   "weken": [
     {
       "weekIndex": 1,
-      "thema": "kort weekthema (3-5 woorden)",
-      "activiteiten": [
-${actTypeJson}
-      ]
+      "thema": "kort weekthema",
+      "theorie": [{ "stapNaam": "naam", "omschrijving": "kort wat docent doet", "uren": 1 }],
+      "praktijk": [{ "naam": "naam opdracht", "omschrijving": "kort wat leerling doet", "uren": 1 }]
     }
   ]
 }
 
 Regels:
 - Genereer precies ${weken} weken
-- Elke week heeft ${heeftTheorie && heeftPraktijk ? '1 Theorie- en 1 Praktijk-activiteit' : heeftTheorie ? '1 Theorie-activiteit' : '1 Praktijk-activiteit'}
-- Omschrijvingen zijn kort (1 zin), actiegericht en vakspecifiek
-${extraStappen.length ? '- Gebruik de opgegeven stappen als weekthema\'s in de gegeven volgorde' : '- Weekthema\'s zijn oplopend qua complexiteit'}
-- Schrijf in aanspreekvorm voor de docent`;
+- Verdeel stappen in logische volgorde
+- Uren per week optellen tot maximaal ${urenPerWeek}
+- Theorie uren samen ≤ ${urenTheorie || urenPerWeek}, praktijk uren samen ≤ ${urenPraktijk || urenPerWeek}
+- Schrijf compact Nederlands`;
 
     let aiData;
-    let warning = syllabusNietGebruikt
-      ? 'De geselecteerde module leverde geen activiteiten op in het document. Het lesprofiel is gegenereerd door AI op basis van naam en niveau.'
-      : null;
     try {
       aiData = await chatJson({
         system: 'Je schrijft kort, helder en praktisch Nederlands voor VMBO/MBO docenten. Geef altijd alleen geldig JSON terug.',
         user: prompt,
-        maxTokens: 3500,
+        maxTokens: 3000,
         temperature: 0.3
       });
     } catch (aiErr) {
       const msg = aiErr.message || '';
       if (msg.includes('429') || msg.includes('quota') || msg.includes('insufficient') || msg.includes('ANTHROPIC_API_KEY')) {
-        warning = 'AI niet beschikbaar — lege weekplanning aangemaakt. Vul zelf de weken in.';
-        const fallbackAct = [];
-        if (heeftTheorie) fallbackAct.push({ type: 'Theorie', uren: 1, omschrijving: '', syllabus: '', link: '', bestand: null });
-        if (heeftPraktijk) fallbackAct.push({ type: 'Praktijk', uren: 1, omschrijving: '', syllabus: '', link: '', bestand: null });
-        aiData = { weken: Array.from({ length: weken }, (_, i) => ({ weekIndex: i + 1, thema: `Week ${i + 1}`, activiteiten: fallbackAct })) };
+        aiData = {
+          weken: Array.from({ length: weken }, (_, i) => ({
+            weekIndex: i + 1,
+            thema: stappen[i] ? stappen[i].naam : `Week ${i + 1}`,
+            theorie: stappen[i] ? [{ stapNaam: stappen[i].naam, omschrijving: '', uren: urenTheorie || 1 }] : [],
+            praktijk: []
+          }))
+        };
       } else throw aiErr;
     }
 
-    return res.json({
-      success: true,
-      profiel: {
-        naam: naam || vakNaam,
-        vakId,
-        niveau: niv,
-        aantalWeken: (aiData.weken || []).length || weken,
-        verhouding: verh,
-        beschrijving: beschrijving || '',
-        weken: aiData.weken || []
-      },
-      warning
-    });
+    return res.json({ success: true, weken: aiData.weken || [], moduleName: module.naam });
   } catch (e) {
-    console.error('Fout bij /api/genereer-lesprofiel-wizard:', e);
-    return res.status(500).json({ error: 'Fout bij genereren van lesprofiel: ' + e.message });
+    console.error('Fout bij /api/lesprofielen/:id/genereer-verdeling:', e);
+    return res.status(500).json({ error: 'Fout bij genereren verdeling: ' + e.message });
   }
 });
 
@@ -1978,7 +1863,11 @@ app.post('/api/genereer-werkboekje-handmatig', requireCanEdit, async (req, res) 
 // LESBRIEVEN — CRUD + AI genereren
 // ============================================================
 app.get('/api/lesbrieven', requireAuth, (req, res) => {
-  const { profielId, weekIdx, actIdx } = req.query;
+  const { profielId, weekIdx, actIdx, opdrachtId } = req.query;
+  if (opdrachtId) {
+    const lb = db.getLesbriefByOpdrachtId(opdrachtId);
+    return res.json(lb ? [lb] : []);
+  }
   res.json(db.getLesbrieven(profielId || null, weekIdx != null ? parseInt(weekIdx) : null, actIdx != null ? parseInt(actIdx) : null));
 });
 
