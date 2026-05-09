@@ -60,36 +60,42 @@ async function renderLesprofielen() {
             return `<div class="card" style="margin-bottom:20px">
               <div class="card-header">
                 <div><h2>${escHtml(vak.naam)} — ${escHtml(vak.volledig || '')}</h2><div class="card-meta">${vp.length} profiel${vp.length !== 1 ? 'en' : ''}</div></div>
-                <button class="btn btn-sm btn-primary" onclick="openNieuwProfielModal('${vak.id}')">+ Profiel voor ${escHtml(vak.naam)}</button>
+                <button class="btn btn-sm btn-primary" onclick="openNieuwProfielModal('${vak.id}')">+ Profiel</button>
               </div>
               ${niveaus.map(niveau => {
                 const groep = perNiveau[niveau];
                 const niveauLabel = niveau === '__geen__' ? 'Overig' : niveau;
                 const kleur = niveauKleur[niveau] || 'var(--ink-3)';
-                return `<div style="padding:12px 20px 0">
-                  <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
-                    <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:${kleur};background:${kleur}18;padding:3px 10px;border-radius:20px">${niveauLabel}</span>
-                    <span style="font-size:12px;color:var(--ink-3)">${groep.length} profiel${groep.length !== 1 ? 'en' : ''}</span>
+                return `
+                  <div class="lp-niveau-header">
+                    <span class="lp-niveau-pill" style="color:${kleur};background:${kleur}1a">${niveauLabel}</span>
+                    <span class="lp-niveau-count">${groep.length} profiel${groep.length !== 1 ? 'en' : ''}</span>
                   </div>
-                  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px;margin-bottom:16px">
+                  <div class="lp-profielen-grid">
                     ${groep.map(p => {
                       const mod = p.moduleId ? moduleMap[p.moduleId] : null;
                       const aantalStappen = mod ? (mod.stappen || []).length : 0;
-                      const urenLabel = p.urenPerWeek ? `${p.urenPerWeek}u/week` : (p.urenTheorie || p.urenPraktijk ? `${p.urenTheorie || 0}u T + ${p.urenPraktijk || 0}u P` : '');
-                      return `<div style="border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px;cursor:pointer;transition:box-shadow .15s" onclick="openProfielDetail('${p.id}')" onmouseover="this.style.boxShadow='var(--shadow)'" onmouseout="this.style.boxShadow='none'">
-                        <div style="font-weight:600;font-size:14px;margin-bottom:4px">${escHtml(p.naam)}</div>
-                        ${mod ? `<div style="font-size:12px;color:var(--accent);margin-bottom:4px">📚 ${escHtml(mod.naam)}</div>` : `<div style="font-size:12px;color:var(--ink-muted);margin-bottom:4px">Geen module gekoppeld</div>`}
-                        <div style="font-size:12px;color:var(--ink-muted);margin-bottom:10px">${aantalStappen ? aantalStappen + ' stappen' : ''}${aantalStappen && urenLabel ? ' · ' : ''}${urenLabel}</div>
-                        <div style="display:flex;gap:6px;margin-top:8px">
+                      const urenLabel = p.urenPerWeek ? `${p.urenPerWeek}u/week` : (p.urenTheorie || p.urenPraktijk ? `${p.urenTheorie || 0}u theorie · ${p.urenPraktijk || 0}u praktijk` : '');
+                      return `<div class="lp-kaart" onclick="openProfielDetail('${p.id}')">
+                        <div class="lp-kaart-naam">${escHtml(p.naam)}</div>
+                        <div class="lp-kaart-module">
+                          ${mod
+                            ? `<svg viewBox="0 0 20 20" fill="none" style="width:13px;height:13px;flex-shrink:0"><path d="M4 3h9l4 4v11H4V3z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>${escHtml(mod.naam)}`
+                            : `<span style="color:var(--ink-4)">Geen module gekoppeld</span>`}
+                        </div>
+                        <div class="lp-kaart-meta">
+                          ${aantalStappen ? aantalStappen + ' stappen' : ''}${aantalStappen && urenLabel ? ' · ' : ''}${urenLabel}
+                        </div>
+                        <div class="lp-kaart-acties">
                           <button class="btn btn-sm btn-primary" style="flex:1" onclick="event.stopPropagation();openKoppelModal('${p.id}')">Koppelen →</button>
-                          <button class="btn btn-sm" onclick="event.stopPropagation();openNieuwProfielModal('${p.vakId}','${p.id}')" title="Bewerken">✏️</button>
-                          <button class="btn btn-sm" style="color:var(--red);border-color:var(--red)" onclick="event.stopPropagation();verwijderProfiel('${p.id}')" title="Verwijderen">🗑</button>
+                          <button class="btn btn-sm" onclick="event.stopPropagation();openNieuwProfielModal('${p.vakId}','${p.id}')">✏️</button>
+                          <button class="btn btn-sm" style="color:var(--red);border-color:rgba(220,38,38,0.3)" onclick="event.stopPropagation();verwijderProfiel('${p.id}')">🗑</button>
                         </div>
                       </div>`;
                     }).join('')}
                   </div>
-                </div>`;
-              }).join('<div style="border-top:1px solid var(--border);margin:0 20px"></div>')}
+                  <div style="height:1px;background:var(--border);margin:0 22px"></div>`;
+              }).join('')}
             </div>`;
           }).join('')
       }
@@ -206,22 +212,30 @@ async function openProfielDetail(profielId) {
   overlay.style.cssText = `position:fixed;top:${isMobiel ? '56px' : '0'};left:${isMobiel ? '0' : 'var(--sidebar-w,256px)'};right:0;bottom:0;background:#F8F7F4;z-index:400;overflow-y:auto;padding:${isMobiel ? '16px' : '32px'}`;
 
   const gekoppeldHTML = gekoppeldeKlassen.length === 0
-    ? `<div style="padding:16px 20px;font-size:13px;color:var(--ink-muted)">
-         Dit profiel is nog niet aan een klas gekoppeld.
-         <button class="btn btn-sm btn-primary" style="margin-left:12px" onclick="openKoppelModal('${p.id}')">Nu koppelen →</button>
+    ? `<div style="padding:20px 22px;display:flex;align-items:center;gap:14px">
+         <span style="font-size:13px;color:var(--ink-3)">Dit profiel is nog niet aan een klas gekoppeld.</span>
+         <button class="btn btn-sm btn-primary" onclick="openKoppelModal('${p.id}')">Nu koppelen →</button>
        </div>`
-    : `<div style="padding:8px 20px 16px">
+    : `<div style="padding:8px 22px 18px">
          ${gekoppeldeKlassen.map(k => {
            const aantalOpd = alleOpd.filter(o => o.profielId === profielId && o.klasId === k.id).length;
            const afgevinkt = alleOpd.filter(o => o.profielId === profielId && o.klasId === k.id && o.afgevinkt).length;
            const pct = aantalOpd ? Math.round(afgevinkt / aantalOpd * 100) : 0;
-           return `<div style="display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid var(--border)">
-             <div style="flex:1"><strong>${escHtml(k.naam)}</strong> <span style="font-size:12px;color:var(--ink-muted)">${k.schooljaar}</span></div>
-             <div style="font-size:12px;color:var(--ink-muted)">${afgevinkt}/${aantalOpd} afgevinkt (${pct}%)</div>
-             <button class="btn btn-sm" style="color:var(--red)" onclick="ontkoppelKlasVanProfiel('${profielId}','${k.id}','${escHtml(k.naam)}')">Ontkoppelen</button>
+           return `<div class="lp-koppeling-rij">
+             <div style="flex:1">
+               <strong style="font-size:14px">${escHtml(k.naam)}</strong>
+               <span style="font-size:12px;color:var(--ink-3);margin-left:8px">${k.schooljaar}</span>
+             </div>
+             <div style="min-width:160px">
+               <div style="height:5px;background:var(--surface-3);border-radius:3px;margin-bottom:3px;overflow:hidden">
+                 <div style="height:100%;width:${pct}%;background:var(--accent);border-radius:3px"></div>
+               </div>
+               <div style="font-size:11px;color:var(--ink-3)">${afgevinkt}/${aantalOpd} afgevinkt · ${pct}%</div>
+             </div>
+             <button class="btn btn-sm" style="color:var(--red);border-color:rgba(220,38,38,0.3);flex-shrink:0" onclick="ontkoppelKlasVanProfiel('${profielId}','${k.id}','${escHtml(k.naam)}')">Ontkoppelen</button>
            </div>`;
          }).join('')}
-         <button class="btn btn-sm btn-primary" style="margin-top:12px" onclick="openKoppelModal('${p.id}')">+ Koppelen aan andere klas</button>
+         <button class="btn btn-sm btn-primary" style="margin-top:14px" onclick="openKoppelModal('${p.id}')">+ Koppelen aan andere klas</button>
        </div>`;
 
   // Module-inhoud weergeven
@@ -236,37 +250,35 @@ async function openProfielDetail(profielId) {
             <div class="card-meta">${stappen.length} stappen${gedeeld.length ? ' · ' + gedeeld.length + ' gedeelde opdrachten' : ''}</div>
           </div>
         </div>
-        <div style="padding:0 20px 16px">
+        <div style="padding:16px 22px 20px">
           ${stappen.map((stap, si) => {
             const lessen = stap.lessen || [];
             const praktijk = stap.praktijkOpdrachten || [];
             const toetsMat = stap.toetsId ? toetsen.find(t => t.id === stap.toetsId) : null;
             const heeftToets = toetsMat || stap.toetsUrl;
-            return `
-              <div style="border:1px solid var(--border);border-radius:8px;margin-bottom:12px;overflow:hidden">
-                <div style="background:var(--cream);padding:10px 16px;border-bottom:1px solid var(--border)">
-                  <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-                    <span style="font-weight:600;font-size:14px">Stap ${si + 1} — ${escHtml(stap.naam || '')}</span>
-                    ${heeftToets ? `<span style="font-size:11px;background:#fef2f2;color:#b91c1c;padding:2px 8px;border-radius:99px;border:1px solid #fca5a5">📝 Toets</span>` : ''}
-                  </div>
-                  ${stap.url ? `<a href="${escHtml(stap.url)}" target="_blank" class="text-link" style="font-size:12px">🔗 ${escHtml(stap.url.length > 60 ? stap.url.slice(0, 60) + '…' : stap.url)}</a>` : ''}
-                  ${stap.leerlingTaak ? `<div style="font-size:12px;color:var(--ink-muted);margin-top:2px">📝 ${escHtml(stap.leerlingTaak)}</div>` : ''}
-                </div>
-                ${heeftToets ? `<div style="padding:6px 16px;background:#fef2f2;border-bottom:1px solid #fca5a5;font-size:12px;color:#b91c1c;display:flex;gap:8px;align-items:center">
-                  📝 Toets:
-                  ${toetsMat ? `<strong>${escHtml(toetsMat.naam)}</strong> <a href="/uploads/${encodeURIComponent(toetsMat.bestandsnaam)}" target="_blank" style="font-size:11px;color:#b91c1c">⬇ Download</a>` : ''}
-                  ${stap.toetsUrl ? `<a href="${escHtml(stap.toetsUrl)}" target="_blank" style="color:#b91c1c;font-size:11px">${escHtml(stap.toetsUrl.length > 50 ? stap.toetsUrl.slice(0,50)+'…' : stap.toetsUrl)}</a>` : ''}
-                </div>` : ''}
-                <div style="padding:10px 16px">
-                  ${lessen.length ? `<div style="margin-bottom:8px">${lessen.map(l => `<span style="font-size:12px;background:var(--cream);border:1px solid var(--border);border-radius:4px;padding:2px 8px;margin:2px;display:inline-block">${escHtml(l.naam || l)}</span>`).join('')}</div>` : ''}
-                  ${praktijk.length ? `<div style="font-size:12px;color:var(--ink-muted);margin-top:4px">Praktijk: ${praktijk.map(o => escHtml(o.naam || '')).join(', ')}</div>` : ''}
-                </div>
-              </div>`;
+            return `<div class="lp-stap">
+              <div class="lp-stap-header">
+                <span class="lp-stap-nr">${si + 1}</span>
+                <span class="lp-stap-naam">${escHtml(stap.naam || '')}</span>
+                ${heeftToets ? `<span style="font-size:11px;background:#fef2f2;color:#b91c1c;padding:3px 10px;border-radius:20px;border:1px solid #fca5a5;font-weight:600">📝 Toets</span>` : ''}
+                ${stap.url ? `<a href="${escHtml(stap.url)}" target="_blank" style="font-size:12px;color:var(--blue-text);margin-left:auto;white-space:nowrap" onclick="event.stopPropagation()">🔗 Leslink</a>` : ''}
+              </div>
+              ${heeftToets ? `<div class="lp-toets-balk">
+                📝 Toets:
+                ${toetsMat ? `<strong>${escHtml(toetsMat.naam)}</strong> <a href="/uploads/${encodeURIComponent(toetsMat.bestandsnaam)}" target="_blank" style="font-size:11px;color:#b91c1c">⬇ Download</a>` : ''}
+                ${stap.toetsUrl ? `<a href="${escHtml(stap.toetsUrl)}" target="_blank" style="color:#b91c1c;font-size:11px">${escHtml(stap.toetsUrl.length > 50 ? stap.toetsUrl.slice(0,50)+'…' : stap.toetsUrl)}</a>` : ''}
+              </div>` : ''}
+              <div class="lp-stap-body">
+                ${stap.leerlingTaak ? `<div style="font-size:12.5px;color:var(--ink-2);background:var(--surface-2);padding:7px 12px;border-radius:5px;margin-bottom:8px;line-height:1.5">📝 ${escHtml(stap.leerlingTaak)}</div>` : ''}
+                ${lessen.length ? `<div style="margin-bottom:8px">${lessen.map(l => `<span class="lp-les-chip">${escHtml(l.naam || l)}</span>`).join('')}</div>` : ''}
+                ${praktijk.length ? `<div style="font-size:12px;color:var(--ink-3)">🔧 Praktijk: ${praktijk.map(o => escHtml(o.naam || '')).join(' · ')}</div>` : ''}
+              </div>
+            </div>`;
           }).join('')}
           ${gedeeld.length ? `
-            <div style="border:1px solid var(--amber)30;border-radius:8px;padding:12px 16px;background:var(--amber)08">
-              <div style="font-weight:600;font-size:13px;margin-bottom:6px;color:var(--amber)">Gedeelde praktijkopdrachten</div>
-              ${gedeeld.map(o => `<div style="font-size:12px;padding:4px 0;border-bottom:1px solid var(--border)">${escHtml(o.naam || '')}</div>`).join('')}
+            <div style="border:1px solid rgba(217,119,6,0.25);border-radius:var(--radius-sm);padding:14px 16px;background:var(--amber-dim)">
+              <div style="font-weight:600;font-size:13px;margin-bottom:8px;color:var(--amber-text)">🔧 Gedeelde praktijkopdrachten</div>
+              ${gedeeld.map(o => `<div style="font-size:13px;padding:5px 0;border-bottom:1px solid rgba(217,119,6,0.15);color:var(--ink-2)">${escHtml(o.naam || '')}</div>`).join('')}
             </div>` : ''}
         </div>
       </div>`;
@@ -296,12 +308,12 @@ async function openProfielDetail(profielId) {
 
   overlay.innerHTML = `
     <div style="max-width:1100px;margin:0 auto">
-      <div style="display:flex;align-items:center;gap:12px;margin-bottom:24px;flex-wrap:wrap">
+      <div class="lp-detail-header">
         <button class="btn btn-sm" onclick="document.getElementById('profiel-detail-overlay').remove();renderLesprofielen()">← Terug</button>
-        <h1 style="margin:0;flex:1">${escHtml(p.naam)}</h1>
-        <div style="display:flex;gap:8px">
-          <button class="btn btn-sm" onclick="openNieuwProfielModal('${p.vakId}','${p.id}')">Bewerken</button>
-          <button class="btn btn-sm btn-primary" onclick="openKoppelModal('${p.id}')">Koppelen aan planning</button>
+        <h1 class="lp-detail-title">${escHtml(p.naam)}</h1>
+        <div style="display:flex;gap:8px;flex-shrink:0">
+          <button class="btn btn-sm" onclick="openNieuwProfielModal('${p.vakId}','${p.id}')">✏️ Bewerken</button>
+          <button class="btn btn-sm btn-primary" onclick="openKoppelModal('${p.id}')">Koppelen →</button>
         </div>
       </div>
 
@@ -311,7 +323,7 @@ async function openProfielDetail(profielId) {
             <h2>Gekoppelde klassen</h2>
             <div class="card-meta">${escHtml(vak?.naam || '')}${p.niveau ? ' · ' + p.niveau : ''}${urenInfo ? ' · ' + urenInfo : ''}</div>
           </div>
-          <div style="font-size:12px;color:var(--ink-muted)">${gekoppeldeKlassen.length ? gekoppeldeKlassen.length + ' gekoppeld' : 'Nog niet gekoppeld'}</div>
+          <span class="badge ${gekoppeldeKlassen.length ? 'badge-green' : 'badge-gray'}">${gekoppeldeKlassen.length ? gekoppeldeKlassen.length + ' gekoppeld' : 'Nog niet gekoppeld'}</span>
         </div>
         ${gekoppeldHTML}
       </div>
