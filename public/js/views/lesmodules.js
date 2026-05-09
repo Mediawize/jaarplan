@@ -40,31 +40,35 @@ async function renderLesModules() {
             const lijst = perType[type];
             if (!lijst.length) return '';
             const label = type === 'profieldeel' ? 'Profieldelen' : type === 'keuzedeel' ? 'Keuzedelen' : 'Overig';
-            const badgeKleur = type === 'profieldeel' ? '#3b82f6' : type === 'keuzedeel' ? '#10b981' : '#6b7280';
+            const badgeKleur = type === 'profieldeel' ? '#2563EB' : type === 'keuzedeel' ? '#059669' : '#78716C';
             const typeLabel = type === 'profieldeel' ? 'Profieldeel' : type === 'keuzedeel' ? 'Keuzedeel' : 'Overig';
             return `<div class="card" style="margin-bottom:20px">
               <div class="card-header">
-                <h2>${label}</h2>
-                <span style="font-size:12px;color:var(--ink-muted)">${lijst.length} module${lijst.length !== 1 ? 's' : ''}</span>
+                <div><h2>${label}</h2><div class="card-meta">${lijst.length} module${lijst.length !== 1 ? 's' : ''}</div></div>
+                ${isAdmin ? `<button class="btn btn-sm btn-primary" onclick="openLesModuleModal()">+ Module</button>` : ''}
               </div>
-              <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px;padding:16px">
+              <div class="lm-grid">
                 ${lijst.map(m => {
                   const stappen = m.stappen || [];
                   const aantalPraktijk = stappen.reduce((sum, s) => sum + (Array.isArray(s.praktijkOpdrachten) ? s.praktijkOpdrachten.length : 0), 0)
                     + (m.gedeeldeOpdrachten || []).length;
                   const aantalToetsen = stappen.filter(s => s.toetsId || s.toetsUrl).length;
-                  const meta = `${stappen.length} stap${stappen.length !== 1 ? 'pen' : ''}${aantalPraktijk ? ` · ${aantalPraktijk} praktijk` : ''}${aantalToetsen ? ` · ${aantalToetsen} toets${aantalToetsen !== 1 ? 'en' : ''}` : ''}`;
-                  return `<div style="border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px 16px;background:var(--surface);display:flex;flex-direction:column;gap:8px">
-                    <div style="display:flex;align-items:center;gap:6px">
-                      <span style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:99px;background:${badgeKleur};color:#fff;letter-spacing:.3px">${typeLabel}</span>
-                      <span style="font-size:11px;color:var(--ink-muted)">${m.niveau ? escHtml(m.niveau) : 'Alle niveaus'}</span>
+                  const meta = [
+                    stappen.length ? `${stappen.length} stap${stappen.length !== 1 ? 'pen' : ''}` : null,
+                    aantalPraktijk ? `${aantalPraktijk} praktijk` : null,
+                    aantalToetsen ? `${aantalToetsen} toets${aantalToetsen !== 1 ? 'en' : ''}` : null,
+                  ].filter(Boolean).join(' · ');
+                  return `<div class="lm-kaart">
+                    <div class="lm-kaart-type">
+                      <span class="lm-type-pill" style="background:${badgeKleur}">${typeLabel}</span>
+                      <span style="font-size:11.5px;color:var(--ink-3)">${m.niveau ? escHtml(m.niveau) : 'Alle niveaus'}</span>
                     </div>
-                    <div style="font-weight:600;font-size:14px;line-height:1.3">${escHtml(m.naam)}</div>
-                    <div style="font-size:11px;color:var(--ink-muted)">${meta}</div>
-                    <div style="display:flex;gap:6px;margin-top:auto;padding-top:4px">
+                    <div class="lm-kaart-naam">${escHtml(m.naam)}</div>
+                    <div class="lm-kaart-meta">${meta || 'Geen stappen'}</div>
+                    <div class="lm-kaart-acties">
                       <button class="btn btn-sm" style="flex:1" onclick="bekijkLesModule('${m.id}')">Bekijk</button>
                       ${isAdmin ? `<button class="icon-btn" onclick="openLesModuleModal('${m.id}')" title="Bewerken">✏️</button>` : ''}
-                      ${isAdmin ? `<button class="icon-btn" style="color:var(--red)" onclick="verwijderLesModule('${m.id}','${escHtml(m.naam)}')" title="Verwijderen">🗑</button>` : ''}
+                      ${isAdmin ? `<button class="icon-btn" style="color:var(--red);border-color:rgba(220,38,38,0.3)" onclick="verwijderLesModule('${m.id}','${escHtml(m.naam)}')" title="Verwijderen">🗑</button>` : ''}
                     </div>
                   </div>`;
                 }).join('')}
@@ -73,26 +77,25 @@ async function renderLesModules() {
           }).join('')
       }
 
-      <!-- Werkboekjes bibliotheek -->
       <div class="card" style="margin-top:8px">
         <div class="card-header">
-          <h2>Werkboekjes bibliotheek</h2>
-          ${isAdmin ? `<button class="btn btn-primary btn-sm" onclick="openWerkboekjeVoorBibliotheek(null)">+ Nieuw werkboekje</button>` : ''}
+          <div><h2>Werkboekjes bibliotheek</h2><div class="card-meta">Koppelbaar aan praktijkopdrachten</div></div>
+          ${isAdmin ? `<button class="btn btn-sm btn-primary" onclick="openWerkboekjeVoorBibliotheek(null)">+ Nieuw werkboekje</button>` : ''}
         </div>
         ${bibliotheek.length === 0
-          ? `<div style="padding:20px;text-align:center;color:var(--ink-muted);font-size:13px">Nog geen werkboekjes in de bibliotheek. Maak een werkboekje aan — het is dan koppelbaar aan praktijk opdrachten in les modules.</div>`
-          : `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px;padding:16px">
+          ? `<div style="padding:24px;text-align:center;color:var(--ink-3);font-size:13px">Nog geen werkboekjes in de bibliotheek.</div>`
+          : `<div class="lm-grid">
               ${bibliotheek.map(w => `
-                <div style="border:1px solid var(--border);border-radius:var(--radius-lg);padding:12px 14px;background:var(--surface);display:flex;flex-direction:column;gap:6px">
-                  <div style="display:flex;align-items:center;gap:6px">
-                    <span style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:99px;background:#f59e0b;color:#fff">Werkboekje</span>
-                    ${w.niveau ? `<span style="font-size:11px;color:var(--ink-muted)">${escHtml(w.niveau)}</span>` : ''}
+                <div class="lm-kaart">
+                  <div class="lm-kaart-type">
+                    <span class="lm-type-pill" style="background:#D97706">Werkboekje</span>
+                    ${w.niveau ? `<span style="font-size:11.5px;color:var(--ink-3)">${escHtml(w.niveau)}</span>` : ''}
                   </div>
-                  <div style="font-weight:600;font-size:13px;line-height:1.3">${escHtml(w.naam || w.data?.titel || 'Zonder naam')}</div>
-                  ${w.beschrijving ? `<div style="font-size:11px;color:var(--ink-muted)">${escHtml(w.beschrijving)}</div>` : ''}
-                  <div style="display:flex;gap:6px;margin-top:auto;padding-top:4px">
+                  <div class="lm-kaart-naam">${escHtml(w.naam || w.data?.titel || 'Zonder naam')}</div>
+                  ${w.beschrijving ? `<div class="lm-kaart-meta">${escHtml(w.beschrijving)}</div>` : '<div class="lm-kaart-meta"></div>'}
+                  <div class="lm-kaart-acties">
                     <button class="btn btn-sm" style="flex:1" onclick="openWerkboekjeVoorBibliotheek('${w.id}')">Bewerken</button>
-                    <button class="icon-btn" style="color:var(--red)" onclick="verwijderBibliotheekWerkboekje('${w.id}','${escHtml(w.naam || w.data?.titel || 'dit werkboekje')}')" title="Verwijderen">🗑</button>
+                    <button class="icon-btn" style="color:var(--red);border-color:rgba(220,38,38,0.3)" onclick="verwijderBibliotheekWerkboekje('${w.id}','${escHtml(w.naam || w.data?.titel || 'dit werkboekje')}')" title="Verwijderen">🗑</button>
                   </div>
                 </div>`).join('')}
             </div>`
@@ -138,38 +141,40 @@ async function bekijkLesModule(moduleId) {
         const opdrachten = Array.isArray(stap.praktijkOpdrachten) ? stap.praktijkOpdrachten : [];
         const toetsMat = stap.toetsId ? toetsen.find(t => t.id === stap.toetsId) : null;
         const heeftToets = toetsMat || stap.toetsUrl;
-        return `<div style="margin-bottom:4px;border-bottom:1px solid var(--border)">
-          <div style="padding:8px 12px;background:#f8f9fa;font-weight:600;font-size:13px;display:flex;gap:8px;align-items:center">
-            <span style="min-width:20px;color:var(--accent)">${i + 1}.</span>
-            <span style="flex:1">${escHtml(stap.naam)}</span>
-            ${stap.url ? `<a href="${escHtml(stap.url)}" target="_blank" style="font-size:11px;font-weight:400;color:var(--accent)">🔗 Les</a>` : ''}
-            ${heeftToets ? `<span style="font-size:11px;font-weight:400;color:#b91c1c">📝 Toets</span>` : ''}
+        return `<div class="lm-bekijk-stap">
+          <div class="lm-bekijk-stap-header">
+            <span class="lm-bekijk-stap-nr">${i + 1}</span>
+            <span style="font-weight:600;font-size:14px;flex:1;color:var(--ink)">${escHtml(stap.naam)}</span>
+            ${stap.url ? `<a href="${escHtml(stap.url)}" target="_blank" style="font-size:12px;color:var(--blue-text);font-weight:500" onclick="event.stopPropagation()">🔗 Leslink</a>` : ''}
+            ${heeftToets ? `<span style="font-size:11px;color:#b91c1c;background:#fef2f2;padding:2px 8px;border-radius:20px;border:1px solid #fca5a5;font-weight:600">📝 Toets</span>` : ''}
           </div>
-          ${stap.leerlingTaak ? `<div style="padding:5px 12px 5px 40px;font-size:12px;color:var(--ink-sub,var(--ink-muted));border-bottom:1px solid var(--border)">📝 ${escHtml(stap.leerlingTaak)}</div>` : ''}
-          ${heeftToets ? `<div style="padding:5px 12px 5px 40px;background:#fef2f2;border-bottom:1px solid #fca5a5;font-size:12px;color:#b91c1c;display:flex;gap:8px;align-items:center">
+          ${heeftToets ? `<div class="lp-toets-balk">
             📝 Toets:
             ${toetsMat ? `<strong>${escHtml(toetsMat.naam)}</strong> <a href="/uploads/${encodeURIComponent(toetsMat.bestandsnaam)}" target="_blank" style="font-size:11px;color:#b91c1c">⬇ Download</a>` : ''}
-            ${stap.toetsUrl ? `<a href="${escHtml(stap.toetsUrl)}" target="_blank" style="color:#b91c1c">${escHtml(stap.toetsUrl.length > 50 ? stap.toetsUrl.slice(0,50)+'…' : stap.toetsUrl)}</a>` : ''}
+            ${stap.toetsUrl ? `<a href="${escHtml(stap.toetsUrl)}" target="_blank" style="color:#b91c1c;font-size:11px">${escHtml(stap.toetsUrl.length > 50 ? stap.toetsUrl.slice(0,50)+'…' : stap.toetsUrl)}</a>` : ''}
           </div>` : ''}
-          ${lessen.map((les, j) => `
-            <div style="padding:5px 12px 5px 40px;border-bottom:1px solid var(--border);font-size:12px;color:var(--ink-muted);display:flex;gap:8px">
-              <span style="min-width:28px;flex-shrink:0">${i + 1}.${j + 1}</span>
-              <span>${escHtml(les)}</span>
-            </div>`).join('')}
-          ${opdrachten.length ? `<div style="padding:6px 12px 6px 40px;background:#fffbeb">
-            <div style="font-size:11px;font-weight:600;color:#92400e;margin-bottom:4px">Praktijk (${opdrachten.length})</div>
-            ${opdrachten.map((o, k) => {
-              const codes = Array.isArray(o.syllabusCodes) ? o.syllabusCodes : [];
-              return `<div style="margin-bottom:5px;font-size:12px">
-                <strong>${k + 1}. ${escHtml(o.naam || '')}</strong>
-                <div style="display:flex;flex-wrap:wrap;gap:3px;margin-top:2px">
-                  ${o.theorieSectie ? `<span style="background:#fef3c7;color:#92400e;padding:1px 7px;border-radius:99px;font-size:10px">📚 ${escHtml(o.theorieSectie)}</span>` : ''}
-                  ${codes.map(c => `<span style="background:#f0fdf4;color:#166534;padding:1px 7px;border-radius:99px;font-size:10px">${escHtml(c)}</span>`).join('')}
-                  ${o.werkboekjeLink ? `<a href="${escHtml(o.werkboekjeLink)}" target="_blank" style="font-size:10px;color:var(--accent)">🔗</a>` : ''}
-                </div>
-              </div>`;
-            }).join('')}
-          </div>` : ''}
+          ${stap.leerlingTaak ? `<div style="padding:7px 14px;font-size:12.5px;color:var(--ink-2);background:var(--surface-2);border-bottom:1px solid var(--border)">📝 ${escHtml(stap.leerlingTaak)}</div>` : ''}
+          <div class="lm-bekijk-stap-body">
+            ${lessen.map((les, j) => `
+              <div class="lm-bekijk-les">
+                <span style="min-width:32px;font-size:11px;color:var(--ink-4);font-family:var(--font-mono);flex-shrink:0">${i+1}.${j+1}</span>
+                <span>${escHtml(les)}</span>
+              </div>`).join('')}
+            ${opdrachten.length ? `<div class="lm-bekijk-praktijk-blok">
+              <div style="font-size:11px;font-weight:700;color:#92400e;margin-bottom:6px;text-transform:uppercase;letter-spacing:.04em">🔧 Praktijk (${opdrachten.length})</div>
+              ${opdrachten.map((o, k) => {
+                const codes = Array.isArray(o.syllabusCodes) ? o.syllabusCodes : [];
+                return `<div style="margin-bottom:6px;font-size:12.5px">
+                  <strong>${k + 1}. ${escHtml(o.naam || '')}</strong>
+                  <div style="display:flex;flex-wrap:wrap;gap:3px;margin-top:3px">
+                    ${o.theorieSectie ? `<span style="background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:20px;font-size:11px;border:1px solid #fde68a">📚 ${escHtml(o.theorieSectie)}</span>` : ''}
+                    ${codes.map(c => `<span style="background:#f0fdf4;color:#166534;padding:2px 8px;border-radius:20px;font-size:11px;border:1px solid #bbf7d0">${escHtml(c)}</span>`).join('')}
+                    ${o.werkboekjeLink ? `<a href="${escHtml(o.werkboekjeLink)}" target="_blank" style="font-size:11px;color:var(--accent-text);padding:2px 8px;background:var(--accent-dim);border-radius:20px;border:1px solid rgba(22,163,74,.15)">📗 Werkboekje</a>` : ''}
+                  </div>
+                </div>`;
+              }).join('')}
+            </div>` : ''}
+          </div>
         </div>`;
       }).join('');
     }
@@ -199,23 +204,25 @@ async function bekijkLesModule(moduleId) {
     </div>` : '';
 
   openModal(`
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
-      <span style="font-size:11px;font-weight:600;padding:2px 10px;border-radius:99px;background:${badgeKleur};color:#fff">${typeLabel}</span>
-      <span style="font-size:12px;color:var(--ink-muted)">${m.niveau ? escHtml(m.niveau) : 'Alle niveaus'}</span>
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+      <span class="lm-type-pill" style="background:${badgeKleur}">${typeLabel}</span>
+      <span style="font-size:12px;color:var(--ink-3)">${m.niveau ? escHtml(m.niveau) : 'Alle niveaus'}</span>
+      ${vak ? `<span style="font-size:12px;color:var(--ink-3)">· ${escHtml(vak.naam)}</span>` : ''}
     </div>
-    <h2 style="margin:6px 0 4px">${escHtml(m.naam)}</h2>
-    ${vak ? `<div style="font-size:12px;color:var(--ink-muted);margin-bottom:8px">Vak: ${escHtml(vak.naam)}</div>` : ''}
-    ${m.beschrijving ? `<p style="font-size:13px;color:var(--ink-sub,var(--ink-muted));margin:0 0 12px">${escHtml(m.beschrijving)}</p>` : ''}
+    <h2>${escHtml(m.naam)}</h2>
+    ${m.beschrijving ? `<p class="modal-sub">${escHtml(m.beschrijving)}</p>` : '<div style="margin-bottom:16px"></div>'}
 
-    <div style="font-weight:600;font-size:14px;margin-bottom:8px">Stappen <span style="font-weight:400;font-size:12px;color:var(--ink-muted)">(${stappen.length})</span></div>
-    <div style="border:1px solid var(--border);border-radius:8px;overflow:hidden;max-height:400px;overflow-y:auto">
+    <div style="font-weight:600;font-size:13px;margin-bottom:10px;color:var(--ink-2)">
+      Stappen <span style="font-weight:400;color:var(--ink-3)">(${stappen.length})</span>
+    </div>
+    <div style="max-height:420px;overflow-y:auto">
       ${stappenHtml}
     </div>
     ${gedeeldHtml}
 
     <div class="modal-actions">
       <button class="btn" onclick="closeModalDirect()">Sluiten</button>
-      <button class="btn btn-primary" onclick="closeModalDirect();openLesModuleModal('${moduleId}')">Bewerken</button>
+      ${Auth.isAdmin() ? `<button class="btn btn-primary" onclick="closeModalDirect();openLesModuleModal('${moduleId}')">✏️ Bewerken</button>` : ''}
     </div>
   `);
 }
