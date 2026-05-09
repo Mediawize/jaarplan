@@ -426,17 +426,75 @@ async function laadKoppelWeken(profielId) {
   };
 }
 
-function lpItemRij(label, tekst, uren, kleur, btnStyle, wi, soort, ii, n) {
-  const isEerste = ii === 0;
-  const isLaatste = ii === n - 1;
-  return `<div style="display:flex;align-items:center;gap:4px;margin-bottom:2px">
-    <div style="display:flex;flex-direction:column;gap:0">
-      <button onclick="lpVerschuifItem(${wi},'${soort}',${ii},-1)" ${isEerste ? 'disabled' : ''}
-        style="border:none;background:none;cursor:${isEerste ? 'default' : 'pointer'};padding:0 4px;font-size:10px;color:${isEerste ? 'var(--border)' : kleur};line-height:1">▲</button>
-      <button onclick="lpVerschuifItem(${wi},'${soort}',${ii},1)" ${isLaatste ? 'disabled' : ''}
-        style="border:none;background:none;cursor:${isLaatste ? 'default' : 'pointer'};padding:0 4px;font-size:10px;color:${isLaatste ? 'var(--border)' : kleur};line-height:1">▼</button>
-    </div>
-    <div style="font-size:11px;color:${kleur}">${label} ${escHtml(tekst)}${uren ? ` (${uren}u)` : ''}</div>
+let _lpDragState = null;
+
+function lpDragStart(e, wi, soort, ii) {
+  _lpDragState = { wi, soort, ii };
+  e.dataTransfer.effectAllowed = 'move';
+  e.currentTarget.style.opacity = '0.4';
+}
+
+function lpDragEnd(e) {
+  e.currentTarget.style.opacity = '';
+}
+
+function lpDragOver(e) {
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  e.currentTarget.style.borderTop = '2px solid var(--blue)';
+}
+
+function lpDragLeave(e) {
+  e.currentTarget.style.borderTop = '';
+}
+
+function lpDropOpItem(e, targetWi, targetSoort, targetIi) {
+  e.preventDefault();
+  e.currentTarget.style.borderTop = '';
+  if (!_lpDragState) return;
+  const { wi: srcWi, soort: srcSoort, ii: srcIi } = _lpDragState;
+  _lpDragState = null;
+  if (srcWi === targetWi && srcSoort === targetSoort && srcIi === targetIi) return;
+  const srcLijst = _lpVerdelingPreview[srcWi][srcSoort];
+  const [item] = srcLijst.splice(srcIi, 1);
+  const dstLijst = _lpVerdelingPreview[targetWi][targetSoort];
+  let dstIi = targetIi;
+  if (srcWi === targetWi && srcSoort === targetSoort && srcIi < targetIi) dstIi--;
+  dstLijst.splice(dstIi, 0, item);
+  lpRenderVerdelingPreview();
+}
+
+function lpDropZone(e, targetWi, targetSoort) {
+  e.preventDefault();
+  e.currentTarget.style.outline = '';
+  if (!_lpDragState) return;
+  const { wi: srcWi, soort: srcSoort, ii: srcIi } = _lpDragState;
+  _lpDragState = null;
+  const srcLijst = _lpVerdelingPreview[srcWi][srcSoort];
+  const [item] = srcLijst.splice(srcIi, 1);
+  _lpVerdelingPreview[targetWi][targetSoort].push(item);
+  lpRenderVerdelingPreview();
+}
+
+function lpDropZoneOver(e) {
+  e.preventDefault();
+  e.currentTarget.style.outline = '2px dashed var(--blue)';
+}
+
+function lpDropZoneLeave(e) {
+  e.currentTarget.style.outline = '';
+}
+
+function lpItemRij(label, tekst, uren, kleur, wi, soort, ii) {
+  return `<div draggable="true"
+    ondragstart="lpDragStart(event,${wi},'${soort}',${ii})"
+    ondragend="lpDragEnd(event)"
+    ondragover="lpDragOver(event)"
+    ondragleave="lpDragLeave(event)"
+    ondrop="lpDropOpItem(event,${wi},'${soort}',${ii})"
+    style="display:flex;align-items:center;gap:5px;margin-bottom:2px;padding:2px 4px;border-radius:3px;border-top:2px solid transparent;cursor:grab;transition:opacity .15s">
+    <span style="color:var(--border);font-size:11px;line-height:1;user-select:none">⠿</span>
+    <span style="font-size:11px;color:${kleur}">${label} ${escHtml(tekst)}${uren ? ` <span style="opacity:.6">(${uren}u)</span>` : ''}</span>
   </div>`;
 }
 
@@ -446,8 +504,9 @@ function lpRenderVerdelingPreview() {
   const n = _lpVerdelingPreview.length;
   preview.innerHTML = `
     <div style="background:var(--cream);border:1px solid var(--border);border-radius:8px;padding:12px">
-      <div style="font-weight:600;font-size:13px;margin-bottom:10px">Weekverdeling (${n} weken)</div>
-      <div style="max-height:380px;overflow-y:auto" id="lp-verdeling-weken">
+      <div style="font-weight:600;font-size:13px;margin-bottom:4px">Weekverdeling (${n} weken)</div>
+      <div style="font-size:11px;color:var(--ink-muted);margin-bottom:10px">Sleep theorie- of praktijkonderdelen tussen weken om de volgorde aan te passen.</div>
+      <div style="max-height:420px;overflow-y:auto" id="lp-verdeling-weken">
         ${_lpVerdelingPreview.map((w, i) => `
           <div style="display:flex;align-items:stretch;gap:6px;margin-bottom:6px;background:#fff;border:1px solid var(--border);border-radius:6px;overflow:hidden">
             <div style="display:flex;flex-direction:column;gap:0;border-right:1px solid var(--border);background:var(--cream)">
@@ -461,8 +520,14 @@ function lpRenderVerdelingPreview() {
                 <span style="color:var(--ink-muted);font-weight:400">Week ${i + 1}</span>
                 ${w.thema ? ` — ${escHtml(w.thema)}` : ''}
               </div>
-              ${(w.theorie || []).map((t, ti) => lpItemRij('📖', t.stapNaam || t.omschrijving || '', t.uren, 'var(--blue)', '', i, 'theorie', ti, (w.theorie||[]).length)).join('')}
-              ${(w.praktijk || []).map((t, pi) => lpItemRij('🔧', t.naam || t.omschrijving || '', t.uren, 'var(--accent)', '', i, 'praktijk', pi, (w.praktijk||[]).length)).join('')}
+              <div ondragover="lpDropZoneOver(event)" ondragleave="lpDropZoneLeave(event)" ondrop="lpDropZone(event,${i},'theorie')"
+                style="min-height:18px;border-radius:4px;transition:outline .1s">
+                ${(w.theorie || []).map((t, ti) => lpItemRij('📖', t.stapNaam || t.omschrijving || '', t.uren, 'var(--blue)', i, 'theorie', ti)).join('')}
+              </div>
+              <div ondragover="lpDropZoneOver(event)" ondragleave="lpDropZoneLeave(event)" ondrop="lpDropZone(event,${i},'praktijk')"
+                style="min-height:18px;border-radius:4px;margin-top:2px;transition:outline .1s">
+                ${(w.praktijk || []).map((t, pi) => lpItemRij('🔧', t.naam || t.omschrijving || '', t.uren, 'var(--accent)', i, 'praktijk', pi)).join('')}
+              </div>
             </div>
           </div>`).join('')}
       </div>
@@ -476,18 +541,6 @@ function lpVerschuifWeek(idx, richting) {
   const tmp = _lpVerdelingPreview[idx];
   _lpVerdelingPreview[idx] = _lpVerdelingPreview[nieuw];
   _lpVerdelingPreview[nieuw] = tmp;
-  lpRenderVerdelingPreview();
-}
-
-function lpVerschuifItem(weekIdx, soort, itemIdx, richting) {
-  if (!_lpVerdelingPreview) return;
-  const lijst = _lpVerdelingPreview[weekIdx][soort];
-  if (!lijst) return;
-  const nieuw = itemIdx + richting;
-  if (nieuw < 0 || nieuw >= lijst.length) return;
-  const tmp = lijst[itemIdx];
-  lijst[itemIdx] = lijst[nieuw];
-  lijst[nieuw] = tmp;
   lpRenderVerdelingPreview();
 }
 
