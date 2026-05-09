@@ -2407,4 +2407,14 @@ db.seedIfEmpty();
 app.listen(PORT, () => {
   console.log(`\nJaarPlan draait op http://localhost:${PORT}`);
   console.log(`Database: data/jaarplan.db\n`);
+
+  // Opruimen van verweesde profielkoppelingen bij elke server-start
+  try {
+    const raw = db.db;
+    const lb = raw.prepare("DELETE FROM lesbrieven WHERE profielId IS NOT NULL AND profielId NOT IN (SELECT id FROM lesprofielen)").run();
+    const opd = raw.prepare("UPDATE opdrachten SET profielId=NULL WHERE profielId IS NOT NULL AND profielId NOT IN (SELECT id FROM lesprofielen)").run();
+    if (lb.changes || opd.changes) {
+      console.log(`Opgeruimd: ${lb.changes} verweesde lesbrieven, ${opd.changes} verweesde profielkoppelingen in opdrachten.`);
+    }
+  } catch(e) { console.warn('Cleanup wees-profielen mislukt:', e.message); }
 });

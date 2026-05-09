@@ -5,7 +5,7 @@
 const path = require('path');
 const Database = require('better-sqlite3');
 
-const db = new Database(path.join(__dirname, 'db', 'jaarplan.db'));
+const db = new Database(path.join(__dirname, 'data', 'jaarplan.db'));
 
 // ── Toon huidige profielen
 const profielen = db.prepare('SELECT id, naam, niveau FROM lesprofielen ORDER BY naam').all();
