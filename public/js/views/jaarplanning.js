@@ -102,6 +102,9 @@ async function renderJaarplanning() {
 function renderJpGrid(weken, opdrachten, klas, cw, readonly) {
   if (!weken.length) return `<div class="empty-state"><p>Geen weken gevonden voor dit schooljaar.</p></div>`;
 
+  // Week-thema's alleen tonen als de klas minstens één lesprofiel-opdracht heeft
+  const heeftLesprofiel = opdrachten.some(o => o.profielId);
+
   // Schooljaar volgorde: week 35–52 (najaar) eerst, dan week 1–34 (voorjaar)
   const gesorteerd = [...weken].sort((a, b) => {
     const schoolWeekNr = wn => wn >= 35 ? wn - 35 : wn + 52 - 35;
@@ -151,7 +154,7 @@ function renderJpGrid(weken, opdrachten, klas, cw, readonly) {
       <div class="jp-week-header">
         <span class="jp-week-nr">${isHuidig ? `<span style="color:var(--accent)">▶</span> ` : ''}Week ${week.weeknummer}</span>
         <span class="jp-week-datum">${week.van||''}</span>
-        ${week.thema ? `<span style="font-size:11.5px;color:var(--ink-3);font-style:italic;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;border-left:2px solid var(--border-2);padding-left:8px">${escHtml(week.thema)}</span>` : ''}
+        ${week.thema && heeftLesprofiel ? `<span style="font-size:11.5px;color:var(--ink-3);font-style:italic;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;border-left:2px solid var(--border-2);padding-left:8px">${escHtml(week.thema)}</span>` : ''}
         <span style="margin-left:auto;font-size:11px;color:var(--ink-4)">${weekOpd.length ? `${weekOpd.length} opdracht${weekOpd.length !== 1 ? 'en' : ''}` : ''}</span>
         ${!readonly ? `<button class="icon-btn" onclick="openOpdrachtModal(null, ${week.weeknummer})" title="Opdracht toevoegen">
           <svg viewBox="0 0 20 20" fill="none"><path d="M10 4v12M4 10h12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
