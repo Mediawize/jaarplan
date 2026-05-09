@@ -426,31 +426,43 @@ async function laadKoppelWeken(profielId) {
   };
 }
 
+function lpItemRij(label, tekst, uren, kleur, btnStyle, wi, soort, ii, n) {
+  const isEerste = ii === 0;
+  const isLaatste = ii === n - 1;
+  return `<div style="display:flex;align-items:center;gap:4px;margin-bottom:2px">
+    <div style="display:flex;flex-direction:column;gap:0">
+      <button onclick="lpVerschuifItem(${wi},'${soort}',${ii},-1)" ${isEerste ? 'disabled' : ''}
+        style="border:none;background:none;cursor:${isEerste ? 'default' : 'pointer'};padding:0 4px;font-size:10px;color:${isEerste ? 'var(--border)' : kleur};line-height:1">▲</button>
+      <button onclick="lpVerschuifItem(${wi},'${soort}',${ii},1)" ${isLaatste ? 'disabled' : ''}
+        style="border:none;background:none;cursor:${isLaatste ? 'default' : 'pointer'};padding:0 4px;font-size:10px;color:${isLaatste ? 'var(--border)' : kleur};line-height:1">▼</button>
+    </div>
+    <div style="font-size:11px;color:${kleur}">${label} ${escHtml(tekst)}${uren ? ` (${uren}u)` : ''}</div>
+  </div>`;
+}
+
 function lpRenderVerdelingPreview() {
   const preview = document.getElementById('koppel-verdeling-preview');
   if (!preview || !_lpVerdelingPreview) return;
   const n = _lpVerdelingPreview.length;
   preview.innerHTML = `
     <div style="background:var(--cream);border:1px solid var(--border);border-radius:8px;padding:12px">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-        <span style="font-weight:600;font-size:13px">Weekverdeling (${n} weken) — versleep of gebruik pijltjes om te herschikken</span>
-      </div>
-      <div style="max-height:340px;overflow-y:auto" id="lp-verdeling-weken">
+      <div style="font-weight:600;font-size:13px;margin-bottom:10px">Weekverdeling (${n} weken)</div>
+      <div style="max-height:380px;overflow-y:auto" id="lp-verdeling-weken">
         ${_lpVerdelingPreview.map((w, i) => `
           <div style="display:flex;align-items:stretch;gap:6px;margin-bottom:6px;background:#fff;border:1px solid var(--border);border-radius:6px;overflow:hidden">
-            <div style="display:flex;flex-direction:column;gap:0;border-right:1px solid var(--border)">
+            <div style="display:flex;flex-direction:column;gap:0;border-right:1px solid var(--border);background:var(--cream)">
               <button onclick="lpVerschuifWeek(${i},-1)" ${i === 0 ? 'disabled' : ''}
-                style="flex:1;border:none;background:none;cursor:${i === 0 ? 'default' : 'pointer'};padding:2px 7px;font-size:12px;color:${i === 0 ? 'var(--border)' : 'var(--ink-muted)'};line-height:1">▲</button>
+                style="flex:1;border:none;background:none;cursor:${i === 0 ? 'default' : 'pointer'};padding:2px 7px;font-size:12px;color:${i === 0 ? 'var(--border)' : 'var(--ink-muted)'};line-height:1" title="Week omhoog">▲</button>
               <button onclick="lpVerschuifWeek(${i},1)" ${i === n - 1 ? 'disabled' : ''}
-                style="flex:1;border:none;background:none;cursor:${i === n - 1 ? 'default' : 'pointer'};padding:2px 7px;font-size:12px;color:${i === n - 1 ? 'var(--border)' : 'var(--ink-muted)'};line-height:1">▼</button>
+                style="flex:1;border:none;background:none;cursor:${i === n - 1 ? 'default' : 'pointer'};padding:2px 7px;font-size:12px;color:${i === n - 1 ? 'var(--border)' : 'var(--ink-muted)'};line-height:1" title="Week omlaag">▼</button>
             </div>
             <div style="padding:7px 10px;flex:1;min-width:0">
-              <div style="font-weight:600;font-size:12px;margin-bottom:3px">
+              <div style="font-weight:600;font-size:12px;margin-bottom:5px">
                 <span style="color:var(--ink-muted);font-weight:400">Week ${i + 1}</span>
                 ${w.thema ? ` — ${escHtml(w.thema)}` : ''}
               </div>
-              ${(w.theorie || []).map(t => `<div style="font-size:11px;color:var(--blue)">📖 ${escHtml(t.stapNaam || t.omschrijving || '')}${t.uren ? ` (${t.uren}u)` : ''}</div>`).join('')}
-              ${(w.praktijk || []).map(t => `<div style="font-size:11px;color:var(--accent)">🔧 ${escHtml(t.naam || t.omschrijving || '')}${t.uren ? ` (${t.uren}u)` : ''}</div>`).join('')}
+              ${(w.theorie || []).map((t, ti) => lpItemRij('📖', t.stapNaam || t.omschrijving || '', t.uren, 'var(--blue)', '', i, 'theorie', ti, (w.theorie||[]).length)).join('')}
+              ${(w.praktijk || []).map((t, pi) => lpItemRij('🔧', t.naam || t.omschrijving || '', t.uren, 'var(--accent)', '', i, 'praktijk', pi, (w.praktijk||[]).length)).join('')}
             </div>
           </div>`).join('')}
       </div>
@@ -464,6 +476,18 @@ function lpVerschuifWeek(idx, richting) {
   const tmp = _lpVerdelingPreview[idx];
   _lpVerdelingPreview[idx] = _lpVerdelingPreview[nieuw];
   _lpVerdelingPreview[nieuw] = tmp;
+  lpRenderVerdelingPreview();
+}
+
+function lpVerschuifItem(weekIdx, soort, itemIdx, richting) {
+  if (!_lpVerdelingPreview) return;
+  const lijst = _lpVerdelingPreview[weekIdx][soort];
+  if (!lijst) return;
+  const nieuw = itemIdx + richting;
+  if (nieuw < 0 || nieuw >= lijst.length) return;
+  const tmp = lijst[itemIdx];
+  lijst[itemIdx] = lijst[nieuw];
+  lijst[nieuw] = tmp;
   lpRenderVerdelingPreview();
 }
 
