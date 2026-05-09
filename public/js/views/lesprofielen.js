@@ -188,8 +188,9 @@ async function openProfielDetail(profielId) {
   if (typeof closeSidebar === 'function') closeSidebar();
   document.getElementById('profiel-detail-overlay')?.remove();
 
-  const [profielen, vakken, klassen, alleOpd, modules] = await Promise.all([
-    API.getLesprofielen(), API.getVakken(), API.getKlassen(), API.getOpdrachten(), API.getLesModules()
+  const [profielen, vakken, klassen, alleOpd, modules, toetsen] = await Promise.all([
+    API.getLesprofielen(), API.getVakken(), API.getKlassen(), API.getOpdrachten(), API.getLesModules(),
+    API.getMaterialen('toets').catch(() => [])
   ]);
   const p = profielen.find(x => x.id === profielId);
   if (!p) return;
@@ -239,13 +240,23 @@ async function openProfielDetail(profielId) {
           ${stappen.map((stap, si) => {
             const lessen = stap.lessen || [];
             const praktijk = stap.praktijkOpdrachten || [];
+            const toetsMat = stap.toetsId ? toetsen.find(t => t.id === stap.toetsId) : null;
+            const heeftToets = toetsMat || stap.toetsUrl;
             return `
               <div style="border:1px solid var(--border);border-radius:8px;margin-bottom:12px;overflow:hidden">
                 <div style="background:var(--cream);padding:10px 16px;border-bottom:1px solid var(--border)">
-                  <div style="font-weight:600;font-size:14px">Stap ${si + 1} — ${escHtml(stap.naam || '')}</div>
+                  <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+                    <span style="font-weight:600;font-size:14px">Stap ${si + 1} — ${escHtml(stap.naam || '')}</span>
+                    ${heeftToets ? `<span style="font-size:11px;background:#fef2f2;color:#b91c1c;padding:2px 8px;border-radius:99px;border:1px solid #fca5a5">📝 Toets</span>` : ''}
+                  </div>
                   ${stap.url ? `<a href="${escHtml(stap.url)}" target="_blank" class="text-link" style="font-size:12px">🔗 ${escHtml(stap.url.length > 60 ? stap.url.slice(0, 60) + '…' : stap.url)}</a>` : ''}
                   ${stap.leerlingTaak ? `<div style="font-size:12px;color:var(--ink-muted);margin-top:2px">📝 ${escHtml(stap.leerlingTaak)}</div>` : ''}
                 </div>
+                ${heeftToets ? `<div style="padding:6px 16px;background:#fef2f2;border-bottom:1px solid #fca5a5;font-size:12px;color:#b91c1c;display:flex;gap:8px;align-items:center">
+                  📝 Toets:
+                  ${toetsMat ? `<strong>${escHtml(toetsMat.naam)}</strong> <a href="/uploads/${encodeURIComponent(toetsMat.bestandsnaam)}" target="_blank" style="font-size:11px;color:#b91c1c">⬇ Download</a>` : ''}
+                  ${stap.toetsUrl ? `<a href="${escHtml(stap.toetsUrl)}" target="_blank" style="color:#b91c1c;font-size:11px">${escHtml(stap.toetsUrl.length > 50 ? stap.toetsUrl.slice(0,50)+'…' : stap.toetsUrl)}</a>` : ''}
+                </div>` : ''}
                 <div style="padding:10px 16px">
                   ${lessen.length ? `<div style="margin-bottom:8px">${lessen.map(l => `<span style="font-size:12px;background:var(--cream);border:1px solid var(--border);border-radius:4px;padding:2px 8px;margin:2px;display:inline-block">${escHtml(l.naam || l)}</span>`).join('')}</div>` : ''}
                   ${praktijk.length ? `<div style="font-size:12px;color:var(--ink-muted);margin-top:4px">Praktijk: ${praktijk.map(o => escHtml(o.naam || '')).join(', ')}</div>` : ''}
@@ -335,6 +346,7 @@ async function verwijderProfiel(id) {
 // Koppel-modal — klas + startweek + AI-verdeling
 // ============================================================
 let _lpVerdelingPreview = null;
+let _lpVerdelingStappen = null;
 
 async function openKoppelModal(profielId) {
   const [profielen, klassen, vakken] = await Promise.all([API.getLesprofielen(), API.getKlassen(), API.getVakken()]);
@@ -346,6 +358,7 @@ async function openKoppelModal(profielId) {
   const alGekoppeld = alleOpd.filter(o => o.profielId === profielId);
   const gekoppeldeKlasNamen = [...new Set(alGekoppeld.map(o => o.klasId))].map(id => klassen.find(k => k.id === id)?.naam).filter(Boolean);
   _lpVerdelingPreview = null;
+  _lpVerdelingStappen = null;
 
   openModal(`
     <h2>Profiel koppelen aan planning</h2>
@@ -422,6 +435,7 @@ async function genereerVerdeling(profielId) {
   try {
     const data = await API.genereerLesprofielVerdeling(profielId, { aantalWeken, klasId });
     _lpVerdelingPreview = data.weken || [];
+    _lpVerdelingStappen = data.stappen || [];
     if (preview) {
       preview.innerHTML = `
         <div style="background:var(--cream);border:1px solid var(--border);border-radius:8px;padding:12px;max-height:300px;overflow-y:auto">
@@ -477,6 +491,19 @@ async function slaKoppelingOp(profielId) {
           beschrijving: wk.thema ? `${wk.thema} — ${p.naam}` : p.naam,
           profielId: p.id,
         });
+        // Voeg toets toe als de stap een toets heeft
+        const stapInfo = (_lpVerdelingStappen || []).find(s => s.naam === t.stapNaam);
+        if (stapInfo && stapInfo.heeftToets) {
+          await API.addOpdracht({
+            naam: `Toets — ${t.stapNaam || p.naam}`,
+            klasId, periode, weeknummer: Number(sw.weeknummer),
+            weken: String(sw.weeknummer), schooljaar: klas.schooljaar,
+            type: 'Toets', uren: 1,
+            beschrijving: wk.thema ? `${wk.thema} — ${p.naam}` : p.naam,
+            theorieLink: stapInfo.toetsUrl || '',
+            profielId: p.id,
+          });
+        }
       }
       for (const pr of (wk.praktijk || [])) {
         await API.addOpdracht({
@@ -506,6 +533,7 @@ async function slaKoppelingOp(profielId) {
   }
 
   _lpVerdelingPreview = null;
+  _lpVerdelingStappen = null;
   Cache.invalidateAll();
   closeModalDirect();
   document.getElementById('profiel-detail-overlay')?.remove();

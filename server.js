@@ -673,7 +673,10 @@ app.post('/api/lesprofielen/:id/genereer-verdeling', requireCanEdit, async (req,
       index: i,
       naam: s.naam || `Stap ${i + 1}`,
       lessen: (s.lessen || []).map(l => l.naam || l).filter(Boolean),
-      aantalPraktijk: (s.praktijkOpdrachten || []).length
+      aantalPraktijk: (s.praktijkOpdrachten || []).length,
+      heeftToets: !!(s.toetsId || s.toetsUrl),
+      toetsId: s.toetsId || null,
+      toetsUrl: s.toetsUrl || null,
     }));
     const gedeeldeOpdrachten = (module.gedeeldeOpdrachten || []).map(o => o.naam || '').filter(Boolean);
 
@@ -681,7 +684,7 @@ app.post('/api/lesprofielen/:id/genereer-verdeling', requireCanEdit, async (req,
 Module: "${module.naam}", ${weken} weken beschikbaar, ${urenPerWeek} uur/week (${urenTheorie}u theorie + ${urenPraktijk}u praktijk).
 
 Theoriestappen in de module:
-${stappen.map((s, i) => `${i + 1}. ${s.naam}${s.lessen.length ? ': ' + s.lessen.join(', ') : ''}${s.aantalPraktijk ? ` (${s.aantalPraktijk} praktijkopdrachten)` : ''}`).join('\n')}
+${stappen.map((s, i) => `${i + 1}. ${s.naam}${s.lessen.length ? ': ' + s.lessen.join(', ') : ''}${s.aantalPraktijk ? ` (${s.aantalPraktijk} praktijkopdrachten)` : ''}${s.heeftToets ? ' [bevat toets]' : ''}`).join('\n')}
 ${gedeeldeOpdrachten.length ? `\nGedeelde praktijkopdrachten: ${gedeeldeOpdrachten.join(', ')}` : ''}
 
 Verdeel de stappen logisch over ${weken} weken. Geef ALLEEN geldige JSON:
@@ -725,7 +728,7 @@ Regels:
       } else throw aiErr;
     }
 
-    return res.json({ success: true, weken: aiData.weken || [], moduleName: module.naam });
+    return res.json({ success: true, weken: aiData.weken || [], moduleName: module.naam, stappen });
   } catch (e) {
     console.error('Fout bij /api/lesprofielen/:id/genereer-verdeling:', e);
     return res.status(500).json({ error: 'Fout bij genereren verdeling: ' + e.message });
