@@ -5,8 +5,8 @@
 async function renderDashboard() {
   showLoading('dashboard');
   try {
-    const [klassen, alleOpd, alleTaken] = await Promise.all([
-      API.getKlassen(), API.getOpdrachten(), API.getTaken()
+    const [klassen, alleOpd, alleTaken, gebruikers] = await Promise.all([
+      API.getKlassen(), API.getOpdrachten(), API.getTaken(), API.getGebruikers()
     ]);
     const cw = getCurrentWeek();
     const nu = new Date();
@@ -148,9 +148,26 @@ async function renderDashboard() {
       </div>
     `;
 
+    // Bouw collega-map: welke andere docenten geven vandaag dezelfde klas?
+    const huidigId = Auth.currentUser?.id;
+    const vandaag = ['Zondag','Maandag','Dinsdag','Woensdag','Donderdag','Vrijdag','Zaterdag'][new Date().getDay()];
+    const alleDocentIds = [...new Set(klassen.flatMap(k => (k.docenten || []).filter(id => id !== huidigId)))];
+    const roosterResultaten = await Promise.all(
+      alleDocentIds.map(id => API.getRooster(id).then(r => ({ id, r })).catch(() => ({ id, r: {} })))
+    );
+    const roosterMap = Object.fromEntries(roosterResultaten.map(({ id, r }) => [id, r]));
+    const collegasVandaag = {};
+    klassen.forEach(klas => {
+      const collegas = (klas.docenten || [])
+        .filter(id => id !== huidigId && (roosterMap[id]?.[klas.id] || []).includes(vandaag))
+        .map(id => gebruikers.find(u => u.id === id)).filter(Boolean);
+      if (collegas.length) collegasVandaag[klas.id] = collegas;
+    });
+
     window._dbKlassen = klassen;
     window._dbAlleOpd = alleOpd;
     window._dbTaken = alleTaken;
+    window._dbCollegasVandaag = collegasVandaag;
     window._dbTab = 'vandaag';
     window._dbKlasFilter = '';
 
@@ -193,6 +210,11 @@ function renderLesCard(o, klas, cw) {
   const heeftLinks = o.theorieLink || o.werkboekLink || o.toetsBestand;
   const isToets = (o.type || '').toLowerCase() === 'toets';
 
+  const collegas = klas ? ((window._dbCollegasVandaag || {})[klas.id] || []) : [];
+  const collegaHtml = collegas.length
+    ? `<div class="db-collega-initialen">${collegas.map(u => `<span class="db-collega-initiaal" title="${escHtml(u.naam + ' ' + (u.achternaam || ''))}">${escHtml(getInitialen(u))}</span>`).join('')}</div>`
+    : '';
+
   return `
     <div class="db-les-card ${o.afgevinkt ? 'db-les-afgerond' : ''}" id="lescard-${o.id}">
       <div class="db-les-header" onclick="toggleLesCard('${o.id}')">
@@ -209,6 +231,7 @@ function renderLesCard(o, klas, cw) {
           </div>
         </div>
         <div class="db-les-header-right">
+          ${collegaHtml}
           <span class="db-status-badge ${status.cls}">${status.label}</span>
           <svg class="db-chevron" id="chev-${o.id}" viewBox="0 0 20 20" fill="none">
             <path d="M5 8l5 5 5-5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
