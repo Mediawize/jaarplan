@@ -118,9 +118,9 @@ db.exec(`
 
   CREATE TABLE IF NOT EXISTS lesbrieven (
     id TEXT PRIMARY KEY,
-    profielId TEXT NOT NULL,
-    weekIdx INTEGER NOT NULL,
-    actIdx INTEGER NOT NULL,
+    profielId TEXT,
+    weekIdx INTEGER,
+    actIdx INTEGER,
     voorbereiding TEXT DEFAULT '',
     benodigdheden TEXT DEFAULT '[]',
     lesverloop TEXT DEFAULT '[]',
@@ -262,9 +262,9 @@ function migreer() {
   if (!lesbriefTabel) {
     db.exec(`CREATE TABLE lesbrieven (
       id TEXT PRIMARY KEY,
-      profielId TEXT NOT NULL,
-      weekIdx INTEGER NOT NULL,
-      actIdx INTEGER NOT NULL,
+      profielId TEXT,
+      weekIdx INTEGER,
+      actIdx INTEGER,
       voorbereiding TEXT DEFAULT '',
       benodigdheden TEXT DEFAULT '[]',
       lesverloop TEXT DEFAULT '[]',
@@ -331,6 +331,27 @@ function migreer() {
   if (!lmCols.includes('gedeeldeOpdrachten')) {
     db.exec("ALTER TABLE les_modules ADD COLUMN gedeeldeOpdrachten TEXT DEFAULT '[]'");
     console.log('Migratie: gedeeldeOpdrachten kolom toegevoegd aan les_modules');
+  }
+
+  // Lesprofiel nieuwe velden
+  if (!profCols.includes('moduleId')) {
+    db.exec("ALTER TABLE lesprofielen ADD COLUMN moduleId TEXT");
+    console.log('Migratie: moduleId kolom toegevoegd aan lesprofielen');
+  }
+  if (!profCols.includes('urenTheorie')) {
+    db.exec("ALTER TABLE lesprofielen ADD COLUMN urenTheorie INTEGER DEFAULT 0");
+    console.log('Migratie: urenTheorie kolom toegevoegd aan lesprofielen');
+  }
+  if (!profCols.includes('urenPraktijk')) {
+    db.exec("ALTER TABLE lesprofielen ADD COLUMN urenPraktijk INTEGER DEFAULT 0");
+    console.log('Migratie: urenPraktijk kolom toegevoegd aan lesprofielen');
+  }
+
+  // Lesbrief nieuw veld
+  const lbKolommen2 = db.prepare("PRAGMA table_info(lesbrieven)").all().map(k => k.name);
+  if (!lbKolommen2.includes('opdrachtId')) {
+    db.exec("ALTER TABLE lesbrieven ADD COLUMN opdrachtId TEXT");
+    console.log('Migratie: opdrachtId kolom toegevoegd aan lesbrieven');
   }
 
   // Schoon verwijzingen op naar verwijderde lesprofielen
@@ -423,8 +444,8 @@ const Q = {
 
   getLesprofielen: db.prepare('SELECT * FROM lesprofielen ORDER BY naam'),
   getLesprofiel: db.prepare('SELECT * FROM lesprofielen WHERE id=?'),
-  insLesprofiel: db.prepare('INSERT INTO lesprofielen (id,naam,vakId,docentId,aantalWeken,urenPerWeek,niveau,beschrijving,weken) VALUES (?,?,?,?,?,?,?,?,?)'),
-  updLesprofiel: db.prepare('UPDATE lesprofielen SET naam=?,vakId=?,docentId=?,aantalWeken=?,urenPerWeek=?,niveau=?,beschrijving=?,weken=? WHERE id=?'),
+  insLesprofiel: db.prepare('INSERT INTO lesprofielen (id,naam,vakId,docentId,aantalWeken,urenPerWeek,niveau,beschrijving,weken,moduleId,urenTheorie,urenPraktijk) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)'),
+  updLesprofiel: db.prepare('UPDATE lesprofielen SET naam=?,vakId=?,docentId=?,aantalWeken=?,urenPerWeek=?,niveau=?,beschrijving=?,weken=?,moduleId=?,urenTheorie=?,urenPraktijk=? WHERE id=?'),
   delLesprofiel: db.prepare('DELETE FROM lesprofielen WHERE id=?'),
   delLesbrieven: db.prepare('DELETE FROM lesbrieven WHERE profielId=?'),
   clearProfielOpdrachten: db.prepare("UPDATE opdrachten SET profielId=NULL WHERE profielId=?"),
@@ -433,7 +454,8 @@ const Q = {
   getLesbrievenByProfiel: db.prepare('SELECT * FROM lesbrieven WHERE profielId=?'),
   getLesbrief: db.prepare('SELECT * FROM lesbrieven WHERE id=?'),
   getLesbrievBySleutel: db.prepare('SELECT * FROM lesbrieven WHERE profielId=? AND weekIdx=? AND actIdx=?'),
-  insLesbrief: db.prepare('INSERT INTO lesbrieven (id,profielId,weekIdx,actIdx,activiteitNaam,activiteitType,activiteitUren,data) VALUES (?,?,?,?,?,?,?,?)'),
+  getLesbrievByOpdrachtId: db.prepare('SELECT * FROM lesbrieven WHERE opdrachtId=? LIMIT 1'),
+  insLesbrief: db.prepare('INSERT INTO lesbrieven (id,profielId,weekIdx,actIdx,activiteitNaam,activiteitType,activiteitUren,data,opdrachtId) VALUES (?,?,?,?,?,?,?,?,?)'),
   updLesbrief: db.prepare("UPDATE lesbrieven SET activiteitNaam=?,activiteitType=?,activiteitUren=?,data=?,bijgewerkt=datetime('now') WHERE id=?"),
   delLesbrief: db.prepare('DELETE FROM lesbrieven WHERE id=?'),
 
@@ -578,13 +600,13 @@ module.exports = {
   getLesprofiel(id) { const p = Q.getLesprofiel.get(id); return p ? { ...p, weken: parseJSON(p.weken), niveau: p.niveau || '' } : null; },
   addLesprofiel(d) {
     const id = genId();
-    Q.insLesprofiel.run(id, d.naam, d.vakId, d.docentId, d.aantalWeken, d.urenPerWeek, d.niveau || '', d.beschrijving || null, JSON.stringify(d.weken || []));
+    Q.insLesprofiel.run(id, d.naam, d.vakId, d.docentId, d.aantalWeken ?? 0, d.urenPerWeek ?? 0, d.niveau || '', d.beschrijving || null, JSON.stringify(d.weken || []), d.moduleId || null, d.urenTheorie || 0, d.urenPraktijk || 0);
     return this.getLesprofiel(id);
   },
   updateLesprofiel(id, d) {
     const p = this.getLesprofiel(id);
     if (!p) return;
-    Q.updLesprofiel.run(d.naam ?? p.naam, d.vakId ?? p.vakId, d.docentId ?? p.docentId, d.aantalWeken ?? p.aantalWeken, d.urenPerWeek ?? p.urenPerWeek, d.niveau ?? p.niveau ?? '', d.beschrijving ?? p.beschrijving, JSON.stringify(d.weken ?? p.weken), id);
+    Q.updLesprofiel.run(d.naam ?? p.naam, d.vakId ?? p.vakId, d.docentId ?? p.docentId, d.aantalWeken ?? p.aantalWeken, d.urenPerWeek ?? p.urenPerWeek, d.niveau ?? p.niveau ?? '', d.beschrijving ?? p.beschrijving, JSON.stringify(d.weken ?? p.weken), d.moduleId !== undefined ? d.moduleId : p.moduleId, d.urenTheorie ?? p.urenTheorie ?? 0, d.urenPraktijk ?? p.urenPraktijk ?? 0, id);
   },
   deleteLesprofiel(id) {
     Q.delLesbrieven.run(id);
@@ -610,13 +632,17 @@ module.exports = {
     const lb = Q.getLesbrief.get(id);
     return lb ? this._parseLesbrief(lb) : null;
   },
+  getLesbriefByOpdrachtId(opdrachtId) {
+    const lb = Q.getLesbrievByOpdrachtId.get(opdrachtId);
+    return lb ? this._parseLesbrief(lb) : null;
+  },
   addLesbrief(d) {
     const id = genId();
     const data = d.data || {};
     Q.insLesbrief.run(
-      id, d.profielId, d.weekIdx, d.actIdx,
+      id, d.profielId || null, d.weekIdx ?? null, d.actIdx ?? null,
       d.activiteitNaam || '', d.activiteitType || '', d.activiteitUren || 1,
-      JSON.stringify(data)
+      JSON.stringify(data), d.opdrachtId || null
     );
     return this.getLesbrief(id);
   },

@@ -121,8 +121,7 @@ const API = {
     formData.append('bestand', file);
     return this._fetchForm('/api/analyse-syllabus', formData);
   },
-  async genereerLesprofielUitSyllabus(data) { return this._fetch('/api/genereer-lesprofiel-uit-syllabus', { method: 'POST', body: data }); },
-  async genereerLesprofielWizard(data) { return this._fetch('/api/genereer-lesprofiel-wizard', { method: 'POST', body: data }); },
+  async genereerLesprofielVerdeling(profielId, data) { return this._fetch(`/api/lesprofielen/${profielId}/genereer-verdeling`, { method: 'POST', body: data }); },
 
   // LESBRIEVEN
   async getLesbrieven(profielId, weekIdx, actIdx) {
@@ -131,6 +130,7 @@ const API = {
     if (actIdx != null) url += `&actIdx=${actIdx}`;
     return this._fetch(url);
   },
+  async getLesbriefByOpdracht(opdrachtId) { return this._fetch(`/api/lesbrieven?opdrachtId=${opdrachtId}`); },
   async getLesbrief(id) { return this._fetch(`/api/lesbrieven/${id}`); },
   async addLesbrief(data) { return this._fetch('/api/lesbrieven', { method: 'POST', body: data }); },
   async updateLesbrief(id, data) { return this._fetch(`/api/lesbrieven/${id}`, { method: 'PUT', body: data }); },

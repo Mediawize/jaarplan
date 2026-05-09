@@ -8,6 +8,7 @@ const _lb = {
   profielId: null,
   weekIdx: null,
   actIdx: null,
+  opdrachtId: null,
   activiteitInfo: null,
   data: null,
   stap: 1,
@@ -16,29 +17,73 @@ const _lb = {
 
 // ============================================================
 // ENTRY POINT
+// Nieuwe signatuur: openLesbrief(opdrachtId)
+// Backward compat: openLesbrief(profielId, weekIdx, actIdx, info)
 // ============================================================
-async function openLesbrief(profielId, weekIdx, actIdx, activiteitInfo) {
-  _lb.profielId = profielId;
-  _lb.weekIdx = weekIdx;
-  _lb.actIdx = actIdx;
-  _lb.activiteitInfo = activiteitInfo || {};
+async function openLesbrief(profielIdOfOpdrachtId, weekIdx, actIdx, activiteitInfo) {
   _lb.stap = 1;
   _lb.opgeslagen = true;
 
-  try {
-    const res = await fetch(`/api/lesbrieven?profielId=${profielId}&weekIdx=${weekIdx}&actIdx=${actIdx}`, { credentials: 'same-origin' });
-    const lijst = await res.json();
-    if (lijst && lijst.length > 0) {
-      _lb.id = lijst[0].id;
-      _lb.data = lijst[0].data && Object.keys(lijst[0].data).length > 0 ? lijst[0].data : lbLeeg();
-      lbToonOverzicht();  // bestaande lesbrief → overzicht tonen
-      return;
-    }
-  } catch { /* geen lesbrief gevonden */ }
+  // Detecteer nieuw (opdrachtId) vs oud (profielId+weekIdx+actIdx) aanroep
+  const isNieuweSignatuur = weekIdx === undefined && actIdx === undefined;
+
+  if (isNieuweSignatuur) {
+    // Nieuw: gekoppeld aan een opdracht
+    const opdrachtId = profielIdOfOpdrachtId;
+    _lb.opdrachtId = opdrachtId;
+    _lb.profielId = null;
+    _lb.weekIdx = null;
+    _lb.actIdx = null;
+
+    // Haal opdracht op voor auto-invul
+    try {
+      const opdRes = await fetch(`/api/opdrachten/${opdrachtId}`, { credentials: 'same-origin' });
+      const opdracht = await opdRes.json();
+      _lb.activiteitInfo = {
+        naam: opdracht.naam || '',
+        omschrijving: opdracht.naam || '',
+        type: opdracht.type || '',
+        uren: opdracht.uren || 1,
+        klas: opdracht.klasId || '',
+        weeknummer: opdracht.weeknummer || '',
+        theorieLink: opdracht.theorieLink || '',
+        syllabuscodes: opdracht.syllabuscodes || '',
+      };
+    } catch { _lb.activiteitInfo = {}; }
+
+    // Zoek bestaande lesbrief op opdrachtId
+    try {
+      const lijst = await API.getLesbriefByOpdracht(opdrachtId);
+      if (lijst && lijst.length > 0) {
+        _lb.id = lijst[0].id;
+        _lb.data = lijst[0].data && Object.keys(lijst[0].data).length > 0 ? lijst[0].data : lbLeeg();
+        lbToonOverzicht();
+        return;
+      }
+    } catch { /* geen lesbrief */ }
+  } else {
+    // Oud: profielId + weekIdx + actIdx
+    _lb.profielId = profielIdOfOpdrachtId;
+    _lb.weekIdx = weekIdx;
+    _lb.actIdx = actIdx;
+    _lb.opdrachtId = null;
+    _lb.activiteitInfo = activiteitInfo || {};
+
+    try {
+      const res = await fetch(`/api/lesbrieven?profielId=${profielIdOfOpdrachtId}&weekIdx=${weekIdx}&actIdx=${actIdx}`, { credentials: 'same-origin' });
+      const lijst = await res.json();
+      if (lijst && lijst.length > 0) {
+        _lb.id = lijst[0].id;
+        _lb.data = lijst[0].data && Object.keys(lijst[0].data).length > 0 ? lijst[0].data : lbLeeg();
+        lbToonOverzicht();
+        return;
+      }
+    } catch { /* geen lesbrief gevonden */ }
+  }
 
   _lb.id = null;
   _lb.data = lbLeeg();
-  renderLb();  // nieuwe lesbrief → wizard openen
+  renderLb();
 }
 
 // ============================================================
@@ -491,9 +536,10 @@ async function lbOpslaan() {
 
   const info = _lb.activiteitInfo || {};
   const payload = {
-    profielId: _lb.profielId,
-    weekIdx: _lb.weekIdx,
-    actIdx: _lb.actIdx,
+    profielId: _lb.profielId || null,
+    weekIdx: _lb.weekIdx ?? null,
+    actIdx: _lb.actIdx ?? null,
+    opdrachtId: _lb.opdrachtId || null,
     activiteitNaam: info.omschrijving || info.naam || '',
     activiteitType: info.type || '',
     activiteitUren: info.uren || 1,
