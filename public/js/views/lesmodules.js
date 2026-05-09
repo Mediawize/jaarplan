@@ -4,11 +4,12 @@
 // ============================================================
 
 async function renderLesModules() {
-  if (!Auth.isAdmin()) {
+  if (!Auth.canEdit()) {
     document.getElementById('view-lesmodules').innerHTML =
-      '<div class="empty-state"><h3>Geen toegang</h3><p>Alleen admins kunnen les modules beheren.</p></div>';
+      '<div class="empty-state"><h3>Geen toegang</h3></div>';
     return;
   }
+  const isAdmin = Auth.isAdmin();
   showLoading('lesmodules');
   try {
     const [modules, vakken, bibliotheek] = await Promise.all([
@@ -27,14 +28,13 @@ async function renderLesModules() {
           <h1>Les Modules</h1>
           <p class="page-sub">Profiel- en keuzedelen met theoriestappen, praktijk opdrachten en werkboekjes.</p>
         </div>
-        <button class="btn btn-primary" onclick="openLesModuleModal()">+ Nieuwe les module</button>
+        ${isAdmin ? `<button class="btn btn-primary" onclick="openLesModuleModal()">+ Nieuwe les module</button>` : ''}
       </div>
 
       ${modules.length === 0
         ? `<div class="card"><div class="empty-state">
             <h3>Nog geen les modules</h3>
-            <p>Upload een syllabus PDF of Word-bestand. AI haalt de theoriestappen automatisch eruit.</p>
-            <button class="btn btn-primary" onclick="openLesModuleModal()">Eerste module aanmaken</button>
+            ${isAdmin ? `<p>Upload een syllabus PDF of Word-bestand. AI haalt de theoriestappen automatisch eruit.</p><button class="btn btn-primary" onclick="openLesModuleModal()">Eerste module aanmaken</button>` : '<p>Er zijn nog geen les modules beschikbaar.</p>'}
            </div></div>`
         : ['profieldeel', 'keuzedeel', 'overig'].map(type => {
             const lijst = perType[type];
@@ -52,7 +52,8 @@ async function renderLesModules() {
                   const stappen = m.stappen || [];
                   const aantalPraktijk = stappen.reduce((sum, s) => sum + (Array.isArray(s.praktijkOpdrachten) ? s.praktijkOpdrachten.length : 0), 0)
                     + (m.gedeeldeOpdrachten || []).length;
-                  const meta = `${stappen.length} stap${stappen.length !== 1 ? 'pen' : ''}${aantalPraktijk ? ` · ${aantalPraktijk} praktijk` : ''}`;
+                  const aantalToetsen = stappen.filter(s => s.toetsId || s.toetsUrl).length;
+                  const meta = `${stappen.length} stap${stappen.length !== 1 ? 'pen' : ''}${aantalPraktijk ? ` · ${aantalPraktijk} praktijk` : ''}${aantalToetsen ? ` · ${aantalToetsen} toets${aantalToetsen !== 1 ? 'en' : ''}` : ''}`;
                   return `<div style="border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px 16px;background:var(--surface);display:flex;flex-direction:column;gap:8px">
                     <div style="display:flex;align-items:center;gap:6px">
                       <span style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:99px;background:${badgeKleur};color:#fff;letter-spacing:.3px">${typeLabel}</span>
@@ -62,8 +63,8 @@ async function renderLesModules() {
                     <div style="font-size:11px;color:var(--ink-muted)">${meta}</div>
                     <div style="display:flex;gap:6px;margin-top:auto;padding-top:4px">
                       <button class="btn btn-sm" style="flex:1" onclick="bekijkLesModule('${m.id}')">Bekijk</button>
-                      <button class="icon-btn" onclick="openLesModuleModal('${m.id}')" title="Bewerken">✏️</button>
-                      <button class="icon-btn" style="color:var(--red)" onclick="verwijderLesModule('${m.id}','${escHtml(m.naam)}')" title="Verwijderen">🗑</button>
+                      ${isAdmin ? `<button class="icon-btn" onclick="openLesModuleModal('${m.id}')" title="Bewerken">✏️</button>` : ''}
+                      ${isAdmin ? `<button class="icon-btn" style="color:var(--red)" onclick="verwijderLesModule('${m.id}','${escHtml(m.naam)}')" title="Verwijderen">🗑</button>` : ''}
                     </div>
                   </div>`;
                 }).join('')}
@@ -76,7 +77,7 @@ async function renderLesModules() {
       <div class="card" style="margin-top:8px">
         <div class="card-header">
           <h2>Werkboekjes bibliotheek</h2>
-          <button class="btn btn-primary btn-sm" onclick="openWerkboekjeVoorBibliotheek(null)">+ Nieuw werkboekje</button>
+          ${isAdmin ? `<button class="btn btn-primary btn-sm" onclick="openWerkboekjeVoorBibliotheek(null)">+ Nieuw werkboekje</button>` : ''}
         </div>
         ${bibliotheek.length === 0
           ? `<div style="padding:20px;text-align:center;color:var(--ink-muted);font-size:13px">Nog geen werkboekjes in de bibliotheek. Maak een werkboekje aan — het is dan koppelbaar aan praktijk opdrachten in les modules.</div>`
@@ -111,7 +112,7 @@ async function verwijderBibliotheekWerkboekje(id, naam) {
 // ============================================================
 
 async function bekijkLesModule(moduleId) {
-  const [modules, vakken] = await Promise.all([API.getLesModules(), API.getVakken()]);
+  const [modules, vakken, toetsen] = await Promise.all([API.getLesModules(), API.getVakken(), API.getMaterialen('toets').catch(() => [])]);
   const m = modules.find(x => x.id === moduleId);
   if (!m) return;
   const vak = vakken.find(v => v.id === m.vakId);
@@ -135,13 +136,21 @@ async function bekijkLesModule(moduleId) {
       stappenHtml = stappen.map((stap, i) => {
         const lessen = Array.isArray(stap.lessen) ? stap.lessen : [];
         const opdrachten = Array.isArray(stap.praktijkOpdrachten) ? stap.praktijkOpdrachten : [];
+        const toetsMat = stap.toetsId ? toetsen.find(t => t.id === stap.toetsId) : null;
+        const heeftToets = toetsMat || stap.toetsUrl;
         return `<div style="margin-bottom:4px;border-bottom:1px solid var(--border)">
           <div style="padding:8px 12px;background:#f8f9fa;font-weight:600;font-size:13px;display:flex;gap:8px;align-items:center">
             <span style="min-width:20px;color:var(--accent)">${i + 1}.</span>
             <span style="flex:1">${escHtml(stap.naam)}</span>
             ${stap.url ? `<a href="${escHtml(stap.url)}" target="_blank" style="font-size:11px;font-weight:400;color:var(--accent)">🔗 Les</a>` : ''}
+            ${heeftToets ? `<span style="font-size:11px;font-weight:400;color:#b91c1c">📝 Toets</span>` : ''}
           </div>
           ${stap.leerlingTaak ? `<div style="padding:5px 12px 5px 40px;font-size:12px;color:var(--ink-sub,var(--ink-muted));border-bottom:1px solid var(--border)">📝 ${escHtml(stap.leerlingTaak)}</div>` : ''}
+          ${heeftToets ? `<div style="padding:5px 12px 5px 40px;background:#fef2f2;border-bottom:1px solid #fca5a5;font-size:12px;color:#b91c1c;display:flex;gap:8px;align-items:center">
+            📝 Toets:
+            ${toetsMat ? `<strong>${escHtml(toetsMat.naam)}</strong> <a href="/uploads/${encodeURIComponent(toetsMat.bestandsnaam)}" target="_blank" style="font-size:11px;color:#b91c1c">⬇ Download</a>` : ''}
+            ${stap.toetsUrl ? `<a href="${escHtml(stap.toetsUrl)}" target="_blank" style="color:#b91c1c">${escHtml(stap.toetsUrl.length > 50 ? stap.toetsUrl.slice(0,50)+'…' : stap.toetsUrl)}</a>` : ''}
+          </div>` : ''}
           ${lessen.map((les, j) => `
             <div style="padding:5px 12px 5px 40px;border-bottom:1px solid var(--border);font-size:12px;color:var(--ink-muted);display:flex;gap:8px">
               <span style="min-width:28px;flex-shrink:0">${i + 1}.${j + 1}</span>
@@ -216,12 +225,14 @@ async function bekijkLesModule(moduleId) {
 // ============================================================
 
 async function openLesModuleModal(moduleId = null) {
-  const [vakken, modules, bibliotheek] = await Promise.all([
+  const [vakken, modules, bibliotheek, toetsen] = await Promise.all([
     API.getVakken(), API.getLesModules(),
-    fetch('/api/werkboekje-bibliotheek', { credentials: 'same-origin' }).then(r => r.json()).catch(() => [])
+    fetch('/api/werkboekje-bibliotheek', { credentials: 'same-origin' }).then(r => r.json()).catch(() => []),
+    API.getMaterialen('toets').catch(() => [])
   ]);
   const m = moduleId ? modules.find(x => x.id === moduleId) : null;
   window._lmBibliotheek = bibliotheek;
+  window._lmToetsen = toetsen;
 
   openModal(`
     <h2>${m ? 'Les module bewerken' : 'Nieuwe les module'}</h2>
@@ -328,10 +339,14 @@ function lmHoofdstapHtml(i, stap, bib) {
   const naam = stap.naam || '';
   const url = stap.url || '';
   const leerlingTaak = stap.leerlingTaak || '';
+  const toetsUrl = stap.toetsUrl || '';
+  const toetsId = stap.toetsId || '';
   const lessen = Array.isArray(stap.lessen) ? stap.lessen : [];
   const opdrachten = Array.isArray(stap.praktijkOpdrachten) ? stap.praktijkOpdrachten : [];
   const lessenHtml = lessen.map((les, j) => lmLesHtml(i, j, les)).join('');
   const opdrachtenHtml = opdrachten.map((o, k) => lmPraktijkOpdrachtHtml(i, k, o, bibliotheek)).join('');
+  const toetsen = window._lmToetsen || [];
+  const toetsOpties = toetsen.map(t => `<option value="${t.id}" ${toetsId === t.id ? 'selected' : ''}>${escHtml(t.naam)}</option>`).join('');
 
   return `<div class="lm-hoofdstap" data-idx="${i}" style="border-bottom:1px solid var(--border);padding:12px 14px">
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
@@ -355,6 +370,26 @@ function lmHoofdstapHtml(i, stap, bib) {
         <input class="lm-taak-input" value="${escHtml(leerlingTaak)}" placeholder="Wat moeten leerlingen maken?"
           style="border:1px solid var(--border);border-radius:6px;padding:4px 8px;font-size:12px;width:100%"
           onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'">
+      </div>
+    </div>
+
+    <div style="padding-left:30px;margin-bottom:8px;background:#fef2f2;border-radius:6px;padding:8px 10px 8px 30px;border-left:2px solid #fca5a5">
+      <div style="font-size:11px;color:#b91c1c;font-weight:600;margin-bottom:6px">📝 Toets (optioneel)</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+        <div class="form-field" style="margin:0">
+          <label style="font-size:11px;color:var(--ink-muted)">Gegenereerde toets</label>
+          <select class="lm-toets-id"
+            style="border:1px solid #fca5a5;border-radius:6px;padding:4px 8px;font-size:12px;width:100%;background:#fff">
+            <option value="">— Geen toets gekoppeld —</option>
+            ${toetsOpties}
+          </select>
+        </div>
+        <div class="form-field" style="margin:0">
+          <label style="font-size:11px;color:var(--ink-muted)">Of toets URL</label>
+          <input class="lm-toets-url" value="${escHtml(toetsUrl)}" placeholder="https://..."
+            style="border:1px solid #fca5a5;border-radius:6px;padding:4px 8px;font-size:12px;width:100%;background:#fff"
+            onfocus="this.style.borderColor='#b91c1c'" onblur="this.style.borderColor='#fca5a5'">
+        </div>
       </div>
     </div>
 
@@ -694,7 +729,9 @@ function lmLeesStappen() {
         werkboekjeBestand: rij.dataset.werkboekjeBestand || rij.querySelector('.lm-po-bestandsnaam')?.textContent.trim() || '',
       };
     }).filter(o => o.naam);
-    return { naam, url, leerlingTaak, lessen, praktijkOpdrachten };
+    const toetsId = stap.querySelector('.lm-toets-id')?.value || '';
+    const toetsUrl = stap.querySelector('.lm-toets-url')?.value.trim() || '';
+    return { naam, url, leerlingTaak, lessen, praktijkOpdrachten, toetsId, toetsUrl };
   }).filter(s => s.naam);
 }
 
