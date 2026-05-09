@@ -11,7 +11,10 @@ async function renderLesModules() {
   }
   showLoading('lesmodules');
   try {
-    const [modules, vakken] = await Promise.all([API.getLesModules(), API.getVakken()]);
+    const [modules, vakken, bibliotheek] = await Promise.all([
+      API.getLesModules(), API.getVakken(),
+      fetch('/api/werkboekje-bibliotheek', { credentials: 'same-origin' }).then(r => r.json()).catch(() => [])
+    ]);
     const perType = { profieldeel: [], keuzedeel: [], overig: [] };
     modules.forEach(m => {
       const t = m.type === 'profieldeel' ? 'profieldeel' : m.type === 'keuzedeel' ? 'keuzedeel' : 'overig';
@@ -22,7 +25,7 @@ async function renderLesModules() {
       <div class="page-header">
         <div class="page-header-left">
           <h1>Les Modules</h1>
-          <p class="page-sub">Profiel- en keuzedelen met theoriestappen en praktijk opdrachten.</p>
+          <p class="page-sub">Profiel- en keuzedelen met theoriestappen, praktijk opdrachten en werkboekjes.</p>
         </div>
         <button class="btn btn-primary" onclick="openLesModuleModal()">+ Nieuwe les module</button>
       </div>
@@ -47,7 +50,8 @@ async function renderLesModules() {
               <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px;padding:16px">
                 ${lijst.map(m => {
                   const stappen = m.stappen || [];
-                  const aantalPraktijk = stappen.reduce((sum, s) => sum + (Array.isArray(s.praktijkOpdrachten) ? s.praktijkOpdrachten.length : 0), 0);
+                  const aantalPraktijk = stappen.reduce((sum, s) => sum + (Array.isArray(s.praktijkOpdrachten) ? s.praktijkOpdrachten.length : 0), 0)
+                    + (m.gedeeldeOpdrachten || []).length;
                   const meta = `${stappen.length} stap${stappen.length !== 1 ? 'pen' : ''}${aantalPraktijk ? ` · ${aantalPraktijk} praktijk` : ''}`;
                   return `<div style="border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px 16px;background:var(--surface);display:flex;flex-direction:column;gap:8px">
                     <div style="display:flex;align-items:center;gap:6px">
@@ -66,8 +70,40 @@ async function renderLesModules() {
               </div>
             </div>`;
           }).join('')
-      }`;
+      }
+
+      <!-- Werkboekjes bibliotheek -->
+      <div class="card" style="margin-top:8px">
+        <div class="card-header">
+          <h2>Werkboekjes bibliotheek</h2>
+          <button class="btn btn-primary btn-sm" onclick="openWerkboekjeVoorBibliotheek(null)">+ Nieuw werkboekje</button>
+        </div>
+        ${bibliotheek.length === 0
+          ? `<div style="padding:20px;text-align:center;color:var(--ink-muted);font-size:13px">Nog geen werkboekjes in de bibliotheek. Maak een werkboekje aan — het is dan koppelbaar aan praktijk opdrachten in les modules.</div>`
+          : `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px;padding:16px">
+              ${bibliotheek.map(w => `
+                <div style="border:1px solid var(--border);border-radius:var(--radius-lg);padding:12px 14px;background:var(--surface);display:flex;flex-direction:column;gap:6px">
+                  <div style="display:flex;align-items:center;gap:6px">
+                    <span style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:99px;background:#f59e0b;color:#fff">Werkboekje</span>
+                    ${w.niveau ? `<span style="font-size:11px;color:var(--ink-muted)">${escHtml(w.niveau)}</span>` : ''}
+                  </div>
+                  <div style="font-weight:600;font-size:13px;line-height:1.3">${escHtml(w.naam || w.data?.titel || 'Zonder naam')}</div>
+                  ${w.beschrijving ? `<div style="font-size:11px;color:var(--ink-muted)">${escHtml(w.beschrijving)}</div>` : ''}
+                  <div style="display:flex;gap:6px;margin-top:auto;padding-top:4px">
+                    <button class="btn btn-sm" style="flex:1" onclick="openWerkboekjeVoorBibliotheek('${w.id}')">Bewerken</button>
+                    <button class="icon-btn" style="color:var(--red)" onclick="verwijderBibliotheekWerkboekje('${w.id}','${escHtml(w.naam || w.data?.titel || 'dit werkboekje')}')" title="Verwijderen">🗑</button>
+                  </div>
+                </div>`).join('')}
+            </div>`
+        }
+      </div>`;
   } catch (e) { showError('Fout: ' + e.message); }
+}
+
+async function verwijderBibliotheekWerkboekje(id, naam) {
+  if (!confirm(`Werkboekje "${naam}" uit bibliotheek verwijderen?`)) return;
+  await fetch(`/api/werkboekje-bibliotheek/${id}`, { method: 'DELETE', credentials: 'same-origin' });
+  await renderLesModules();
 }
 
 // ============================================================
@@ -80,6 +116,7 @@ async function bekijkLesModule(moduleId) {
   if (!m) return;
   const vak = vakken.find(v => v.id === m.vakId);
   const stappen = m.stappen || [];
+  const gedeeld = m.gedeeldeOpdrachten || [];
   const badgeKleur = m.type === 'profieldeel' ? '#3b82f6' : m.type === 'keuzedeel' ? '#10b981' : '#6b7280';
   const typeLabel = m.type === 'profieldeel' ? 'Profieldeel' : m.type === 'keuzedeel' ? 'Keuzedeel' : 'Overig';
 
@@ -114,14 +151,12 @@ async function bekijkLesModule(moduleId) {
             <div style="font-size:11px;font-weight:600;color:#92400e;margin-bottom:4px">Praktijk (${opdrachten.length})</div>
             ${opdrachten.map((o, k) => {
               const codes = Array.isArray(o.syllabusCodes) ? o.syllabusCodes : [];
-              return `<div style="margin-bottom:6px;padding-bottom:6px;border-bottom:1px solid #fde68a;last-child:border:none">
-                <div style="font-size:12px;font-weight:600">${k + 1}. ${escHtml(o.naam || '')}</div>
-                ${o.omschrijving ? `<div style="font-size:11px;color:var(--ink-muted)">${escHtml(o.omschrijving)}</div>` : ''}
-                <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:3px">
+              return `<div style="margin-bottom:5px;font-size:12px">
+                <strong>${k + 1}. ${escHtml(o.naam || '')}</strong>
+                <div style="display:flex;flex-wrap:wrap;gap:3px;margin-top:2px">
                   ${o.theorieSectie ? `<span style="background:#fef3c7;color:#92400e;padding:1px 7px;border-radius:99px;font-size:10px">📚 ${escHtml(o.theorieSectie)}</span>` : ''}
                   ${codes.map(c => `<span style="background:#f0fdf4;color:#166534;padding:1px 7px;border-radius:99px;font-size:10px">${escHtml(c)}</span>`).join('')}
-                  ${o.werkboekjeLink ? `<a href="${escHtml(o.werkboekjeLink)}" target="_blank" style="font-size:10px;color:var(--accent)">🔗 Werkboekje</a>` : ''}
-                  ${o.werkboekjeBestand ? `<span style="font-size:10px;color:var(--ink-muted)">📄 ${escHtml(o.werkboekjeBestand)}</span>` : ''}
+                  ${o.werkboekjeLink ? `<a href="${escHtml(o.werkboekjeLink)}" target="_blank" style="font-size:10px;color:var(--accent)">🔗</a>` : ''}
                 </div>
               </div>`;
             }).join('')}
@@ -131,6 +166,29 @@ async function bekijkLesModule(moduleId) {
     }
   }
 
+  const gedeeldHtml = gedeeld.length ? `
+    <div style="font-weight:600;font-size:14px;margin:16px 0 8px">
+      Gedeelde praktijk opdrachten <span style="font-weight:400;font-size:12px;color:var(--ink-muted)">(${gedeeld.length})</span>
+    </div>
+    <div style="border:1px solid #fde68a;border-radius:8px;overflow:hidden">
+      ${gedeeld.map((o, i) => {
+        const codes = Array.isArray(o.syllabusCodes) ? o.syllabusCodes : [];
+        const stapNamen = Array.isArray(o.stappen) && stappen.length
+          ? o.stappen.map(idx => stappen[idx]?.naam ? `Stap ${idx + 1}` : null).filter(Boolean).join(', ')
+          : 'Alle stappen';
+        return `<div style="padding:10px 14px;border-bottom:1px solid #fde68a;background:#fffdf0">
+          <div style="font-size:12px;font-weight:600">${i + 1}. ${escHtml(o.naam || '')}</div>
+          <div style="font-size:11px;color:#92400e;margin:2px 0">📌 ${stapNamen}</div>
+          ${o.omschrijving ? `<div style="font-size:11px;color:var(--ink-muted)">${escHtml(o.omschrijving)}</div>` : ''}
+          <div style="display:flex;flex-wrap:wrap;gap:3px;margin-top:3px">
+            ${o.theorieSectie ? `<span style="background:#fef3c7;color:#92400e;padding:1px 7px;border-radius:99px;font-size:10px">📚 ${escHtml(o.theorieSectie)}</span>` : ''}
+            ${codes.map(c => `<span style="background:#f0fdf4;color:#166534;padding:1px 7px;border-radius:99px;font-size:10px">${escHtml(c)}</span>`).join('')}
+            ${o.werkboekjeLink ? `<a href="${escHtml(o.werkboekjeLink)}" target="_blank" style="font-size:10px;color:var(--accent)">🔗 Werkboekje</a>` : ''}
+          </div>
+        </div>`;
+      }).join('')}
+    </div>` : '';
+
   openModal(`
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
       <span style="font-size:11px;font-weight:600;padding:2px 10px;border-radius:99px;background:${badgeKleur};color:#fff">${typeLabel}</span>
@@ -139,14 +197,12 @@ async function bekijkLesModule(moduleId) {
     <h2 style="margin:6px 0 4px">${escHtml(m.naam)}</h2>
     ${vak ? `<div style="font-size:12px;color:var(--ink-muted);margin-bottom:8px">Vak: ${escHtml(vak.naam)}</div>` : ''}
     ${m.beschrijving ? `<p style="font-size:13px;color:var(--ink-sub,var(--ink-muted));margin:0 0 12px">${escHtml(m.beschrijving)}</p>` : ''}
-    ${m.bronBestand ? `<div style="font-size:11px;color:var(--ink-muted);margin-bottom:12px">📄 ${escHtml(m.bronBestand)}</div>` : ''}
 
-    <div style="font-weight:600;font-size:14px;margin-bottom:8px">
-      Stappen <span style="font-weight:400;font-size:12px;color:var(--ink-muted)">(${stappen.length})</span>
-    </div>
-    <div style="border:1px solid var(--border);border-radius:8px;overflow:hidden;max-height:480px;overflow-y:auto">
+    <div style="font-weight:600;font-size:14px;margin-bottom:8px">Stappen <span style="font-weight:400;font-size:12px;color:var(--ink-muted)">(${stappen.length})</span></div>
+    <div style="border:1px solid var(--border);border-radius:8px;overflow:hidden;max-height:400px;overflow-y:auto">
       ${stappenHtml}
     </div>
+    ${gedeeldHtml}
 
     <div class="modal-actions">
       <button class="btn" onclick="closeModalDirect()">Sluiten</button>
@@ -160,12 +216,15 @@ async function bekijkLesModule(moduleId) {
 // ============================================================
 
 async function openLesModuleModal(moduleId = null) {
-  const [vakken, modules] = await Promise.all([API.getVakken(), API.getLesModules()]);
+  const [vakken, modules, bibliotheek] = await Promise.all([
+    API.getVakken(), API.getLesModules(),
+    fetch('/api/werkboekje-bibliotheek', { credentials: 'same-origin' }).then(r => r.json()).catch(() => [])
+  ]);
   const m = moduleId ? modules.find(x => x.id === moduleId) : null;
+  window._lmBibliotheek = bibliotheek;
 
   openModal(`
     <h2>${m ? 'Les module bewerken' : 'Nieuwe les module'}</h2>
-    <p class="modal-sub">Upload een syllabus-PDF — AI haalt de theoriestappen eruit. Voeg daarna per stap een URL, leerlingtaak en praktijk opdrachten toe.</p>
 
     <div class="form-grid" style="margin-bottom:16px">
       <div class="form-field">
@@ -190,7 +249,7 @@ async function openLesModuleModal(moduleId = null) {
       </div>
       <div class="form-field form-full"><label>Naam *</label><input id="lm-naam" value="${escHtml(m?.naam || '')}" placeholder="bijv. Profieldeel Wonen - GL"></div>
       <div class="form-field form-full"><label>Beschrijving</label>
-        <textarea id="lm-beschrijving" rows="2" style="resize:vertical" placeholder="Korte omschrijving van het profiel- of keuzedeel">${escHtml(m?.beschrijving || '')}</textarea>
+        <textarea id="lm-beschrijving" rows="2" style="resize:vertical" placeholder="Korte omschrijving">${escHtml(m?.beschrijving || '')}</textarea>
       </div>
     </div>
 
@@ -198,7 +257,7 @@ async function openLesModuleModal(moduleId = null) {
       <hr style="border:none;border-top:1px solid var(--border);margin:0 0 16px">
       <div class="form-field form-full">
         <label>PDF of Word uploaden</label>
-        <input id="lm-bestand" type="file" accept=".pdf,.docx,.doc,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document">
+        <input id="lm-bestand" type="file" accept=".pdf,.docx,.doc">
         <small style="color:var(--ink-muted)">Syllabus- of profieldeel-document. Toetsmomenten worden automatisch overgeslagen.</small>
       </div>
       <button class="btn btn-primary" style="margin-bottom:16px" onclick="analyseerLesModuleBestand()">AI analyseer bestand</button>
@@ -212,10 +271,24 @@ async function openLesModuleModal(moduleId = null) {
         <label style="font-weight:600;font-size:14px">Stappen <span id="lm-stapcount" style="font-size:12px;color:var(--ink-muted);font-weight:400"></span></label>
         <button class="btn btn-sm" id="lm-voeg-stap-btn" onclick="lmVoegHoofdstapToe()">+ Stap toevoegen</button>
       </div>
-      <div id="lm-stappen-lijst" style="border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface);max-height:600px;overflow-y:auto">
-        ${lmStappenHtml(m?.stappen || [])}
+      <div id="lm-stappen-lijst" style="border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface);max-height:560px;overflow-y:auto">
+        ${lmStappenHtml(m?.stappen || [], bibliotheek)}
       </div>
     </div>
+
+    <hr style="border:none;border-top:1px solid var(--border);margin:20px 0 16px">
+    <div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <label style="font-weight:600;font-size:14px">Gedeelde praktijk opdrachten
+          <span style="font-size:11px;font-weight:400;color:var(--ink-muted);margin-left:6px">— voor meerdere stappen tegelijk</span>
+        </label>
+        <button class="btn btn-sm" onclick="lmVoegGedeeldeOpdrachtToe()" style="background:#fffbeb;border-color:#f59e0b;color:#92400e">+ Gedeelde opdracht</button>
+      </div>
+      <div id="lm-gedeelde-lijst">
+        ${lmGedeeldeOpdrachtenHtml(m?.gedeeldeOpdrachten || [], m?.stappen || [])}
+      </div>
+    </div>
+
     <input id="lm-bron-bestand" type="hidden" value="${escHtml(m?.bronBestand || '')}">
 
     <div class="modal-actions">
@@ -238,34 +311,36 @@ function lmOnTypeChange() {
   lmUpdateStapCount();
 }
 
-function lmStappenHtml(stappen) {
+function lmStappenHtml(stappen, bibliotheek) {
+  const bib = bibliotheek || window._lmBibliotheek || [];
   if (!stappen || !stappen.length) {
     return '<div style="padding:16px;text-align:center;color:var(--ink-muted);font-size:13px">Nog geen stappen. Upload een bestand of voeg stappen handmatig toe.</div>';
   }
   const isLegacy = typeof stappen[0] === 'string';
   if (isLegacy) {
-    return stappen.map((s, i) => lmHoofdstapHtml(i, { naam: s, lessen: [], url: '', leerlingTaak: '', praktijkOpdrachten: [] })).join('');
+    return stappen.map((s, i) => lmHoofdstapHtml(i, { naam: s, lessen: [], url: '', leerlingTaak: '', praktijkOpdrachten: [] }, bib)).join('');
   }
-  return stappen.map((stap, i) => lmHoofdstapHtml(i, stap)).join('');
+  return stappen.map((stap, i) => lmHoofdstapHtml(i, stap, bib)).join('');
 }
 
-function lmHoofdstapHtml(i, stap) {
+function lmHoofdstapHtml(i, stap, bib) {
+  const bibliotheek = bib || window._lmBibliotheek || [];
   const naam = stap.naam || '';
   const url = stap.url || '';
   const leerlingTaak = stap.leerlingTaak || '';
   const lessen = Array.isArray(stap.lessen) ? stap.lessen : [];
   const opdrachten = Array.isArray(stap.praktijkOpdrachten) ? stap.praktijkOpdrachten : [];
   const lessenHtml = lessen.map((les, j) => lmLesHtml(i, j, les)).join('');
-  const opdrachtenHtml = opdrachten.map((o, k) => lmPraktijkOpdrachtHtml(i, k, o)).join('');
+  const opdrachtenHtml = opdrachten.map((o, k) => lmPraktijkOpdrachtHtml(i, k, o, bibliotheek)).join('');
 
   return `<div class="lm-hoofdstap" data-idx="${i}" style="border-bottom:1px solid var(--border);padding:12px 14px">
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
       <span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;background:var(--accent);color:#fff;font-size:11px;flex-shrink:0">${i + 1}</span>
-      <input class="lm-hoofdstap-input" value="${escHtml(naam)}" placeholder="Naam van de stap (bijv. Elektrische installaties)"
+      <input class="lm-hoofdstap-input" value="${escHtml(naam)}" placeholder="Naam van de stap"
         style="flex:1;border:1px solid var(--border);border-radius:6px;padding:5px 8px;font-size:13px;font-weight:500"
         onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'">
       <button onclick="this.closest('.lm-hoofdstap').remove();lmUpdateStapCount()"
-        style="background:none;border:none;cursor:pointer;color:var(--ink-muted);font-size:18px;line-height:1;padding:2px 4px" title="Verwijder stap">×</button>
+        style="background:none;border:none;cursor:pointer;color:var(--ink-muted);font-size:18px;line-height:1;padding:2px 4px">×</button>
     </div>
 
     <div style="padding-left:30px;display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px">
@@ -288,17 +363,15 @@ function lmHoofdstapHtml(i, stap) {
       ${lessenHtml}
       <button class="btn btn-sm lm-voeg-les-btn" onclick="lmVoegLesToe(this)"
         style="font-size:11px;padding:3px 8px${lessen.length >= 3 ? ';opacity:.4' : ''}"
-        ${lessen.length >= 3 ? 'disabled' : ''}>+ Sub-les toevoegen</button>
+        ${lessen.length >= 3 ? 'disabled' : ''}>+ Sub-les</button>
     </div>
 
     <div style="padding-left:30px">
       <div style="font-size:11px;color:var(--ink-muted);margin-bottom:6px;display:flex;align-items:center;gap:8px">
         <span>Praktijk opdrachten</span>
-        <span class="lm-praktijk-count" style="font-size:10px;background:#fef3c7;color:#92400e;padding:1px 7px;border-radius:99px">${opdrachten.length || 0}</span>
+        <span class="lm-praktijk-count" style="font-size:10px;background:#fef3c7;color:#92400e;padding:1px 7px;border-radius:99px">${opdrachten.length}</span>
       </div>
-      <div class="lm-praktijk-lijst">
-        ${opdrachtenHtml}
-      </div>
+      <div class="lm-praktijk-lijst">${opdrachtenHtml}</div>
       <button class="btn btn-sm" onclick="lmVoegPraktijkOpdrachtToe(this.closest('.lm-hoofdstap'))"
         style="font-size:11px;padding:3px 10px;background:#fffbeb;border-color:#f59e0b;color:#92400e;margin-top:4px">+ Praktijk opdracht</button>
     </div>
@@ -343,8 +416,7 @@ function lmVoegLesToe(btn) {
 
 function lmUpdateLesNummers(stap) {
   if (!stap) return;
-  const hoofdstappen = Array.from(document.querySelectorAll('.lm-hoofdstap'));
-  const stapIdx = hoofdstappen.indexOf(stap);
+  const stapIdx = Array.from(document.querySelectorAll('.lm-hoofdstap')).indexOf(stap);
   stap.querySelectorAll('.lm-les-rij').forEach((rij, j) => {
     const numEl = rij.querySelector('span');
     if (numEl) numEl.textContent = `${stapIdx + 1}.${j + 1}`;
@@ -364,8 +436,13 @@ function lmUpdateVoegLesKnop(stap) {
 // PRAKTIJK OPDRACHTEN (embedded per stap)
 // ============================================================
 
-function lmPraktijkOpdrachtHtml(stapIdx, opIdx, o) {
+function lmPraktijkOpdrachtHtml(stapIdx, opIdx, o, bibliotheek) {
+  const bib = bibliotheek || window._lmBibliotheek || [];
   const codes = Array.isArray(o.syllabusCodes) ? o.syllabusCodes.join(', ') : '';
+  const bibOpties = bib.map(w =>
+    `<option value="${w.id}" ${o.werkboekjeId === w.id ? 'selected' : ''}>${escHtml(w.naam || w.data?.titel || 'Werkboekje')}</option>`
+  ).join('');
+
   return `<div class="lm-praktijk-rij" style="border:1px solid #fde68a;border-radius:8px;padding:10px;margin-bottom:8px;background:#fffdf0">
     <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px">
       <span style="font-size:10px;font-weight:700;background:#f59e0b;color:#fff;padding:1px 6px;border-radius:99px;flex-shrink:0">P${opIdx + 1}</span>
@@ -382,26 +459,33 @@ function lmPraktijkOpdrachtHtml(stapIdx, opIdx, o) {
           style="border:1px solid var(--border);border-radius:6px;padding:3px 7px;font-size:11px;width:100%">
       </div>
       <div class="form-field" style="margin:0">
-        <label style="font-size:10px;color:var(--ink-muted)">Werkboekje link</label>
+        <label style="font-size:10px;color:var(--ink-muted)">Werkboekje (bibliotheek)</label>
+        <select class="lm-po-wbid" style="border:1px solid var(--border);border-radius:6px;padding:3px 7px;font-size:11px;width:100%">
+          <option value="">— Geen / handmatige link —</option>
+          ${bibOpties}
+        </select>
+      </div>
+      <div class="form-field" style="margin:0">
+        <label style="font-size:10px;color:var(--ink-muted)">Of werkboekje link (URL)</label>
         <input class="lm-po-link" value="${escHtml(o.werkboekjeLink || '')}" placeholder="https://..."
           style="border:1px solid var(--border);border-radius:6px;padding:3px 7px;font-size:11px;width:100%">
       </div>
       <div class="form-field" style="margin:0">
         <label style="font-size:10px;color:var(--ink-muted)">Theorie-onderdeel</label>
-        <input class="lm-po-theorie" value="${escHtml(o.theorieSectie || '')}" placeholder="AI of handmatig invullen"
+        <input class="lm-po-theorie" value="${escHtml(o.theorieSectie || '')}" placeholder="AI of handmatig"
           style="border:1px solid var(--border);border-radius:6px;padding:3px 7px;font-size:11px;width:100%">
       </div>
-      <div class="form-field" style="margin:0">
-        <label style="font-size:10px;color:var(--ink-muted)">Syllabus codes (komma)</label>
+      <div class="form-field" style="margin:0;grid-column:1/-1">
+        <label style="font-size:10px;color:var(--ink-muted)">Syllabus codes (komma-gescheiden)</label>
         <input class="lm-po-codes" value="${escHtml(codes)}" placeholder="K/PIE/2.1, K/DT/3.2"
           style="border:1px solid var(--border);border-radius:6px;padding:3px 7px;font-size:11px;width:100%">
       </div>
     </div>
     <div style="display:flex;align-items:center;gap:6px">
-      <label style="font-size:10px;color:var(--ink-muted);white-space:nowrap;flex-shrink:0">Werkboekje:</label>
+      <label style="font-size:10px;color:var(--ink-muted);white-space:nowrap;flex-shrink:0">Werkboekje uploaden:</label>
       <input class="lm-po-bestand" type="file" accept=".pdf,.docx" style="font-size:10px;flex:1;min-width:0">
       <button class="btn btn-sm" onclick="lmAnalyseerPraktijkBestand(this)" style="font-size:10px;padding:3px 8px;white-space:nowrap">AI ▶</button>
-      <span class="lm-po-bestandsnaam" style="font-size:10px;color:var(--ink-muted);white-space:nowrap">${o.werkboekjeBestand ? escHtml(o.werkboekjeBestand) : ''}</span>
+      <span class="lm-po-bestandsnaam" style="font-size:10px;color:var(--ink-muted)">${o.werkboekjeBestand ? escHtml(o.werkboekjeBestand) : ''}</span>
     </div>
   </div>`;
 }
@@ -410,11 +494,11 @@ function lmVoegPraktijkOpdrachtToe(stapEl) {
   if (!stapEl) return;
   const lijst = stapEl.querySelector('.lm-praktijk-lijst');
   if (!lijst) return;
-  const hoofdstappen = Array.from(document.querySelectorAll('.lm-hoofdstap'));
-  const stapIdx = hoofdstappen.indexOf(stapEl);
+  const hauptstappen = Array.from(document.querySelectorAll('.lm-hoofdstap'));
+  const stapIdx = hauptstappen.indexOf(stapEl);
   const opIdx = lijst.querySelectorAll('.lm-praktijk-rij').length;
   const div = document.createElement('div');
-  div.innerHTML = lmPraktijkOpdrachtHtml(stapIdx, opIdx, {});
+  div.innerHTML = lmPraktijkOpdrachtHtml(stapIdx, opIdx, {}, window._lmBibliotheek || []);
   lijst.appendChild(div.firstElementChild);
   lijst.lastElementChild?.querySelector('.lm-po-naam')?.focus();
   lmUpdatePraktijkCount(stapEl);
@@ -450,34 +534,114 @@ async function lmAnalyseerPraktijkBestand(btn) {
   const theorieInput = rij.querySelector('.lm-po-theorie');
   const codesInput = rij.querySelector('.lm-po-codes');
   const bestandsnaamEl = rij.querySelector('.lm-po-bestandsnaam');
-
-  if (!fileInput?.files?.[0]) { alert('Kies eerst een bestand voor deze opdracht.'); return; }
-
+  if (!fileInput?.files?.[0]) { alert('Kies eerst een bestand.'); return; }
   const origTekst = btn.textContent;
-  btn.disabled = true;
-  btn.textContent = '⏳';
-
+  btn.disabled = true; btn.textContent = '⏳';
   const fd = new FormData();
   fd.append('bestand', fileInput.files[0]);
   fd.append('opdrachtnaam', naamInput?.value || '');
   fd.append('niveau', document.getElementById('lm-niveau')?.value || '');
-
   try {
     const res = await fetch('/api/les-modules/analyseer-praktijk', { method: 'POST', credentials: 'same-origin', body: fd });
     const data = await res.json();
     if (!res.ok || data.error) throw new Error(data.error || 'Fout');
     if (theorieInput && data.theorieSectie) theorieInput.value = data.theorieSectie;
     if (codesInput && data.syllabusCodes?.length) codesInput.value = data.syllabusCodes.join(', ');
-    if (bestandsnaamEl && data.bestandsnaam) {
-      bestandsnaamEl.textContent = data.bestandsnaam;
-      rij.dataset.werkboekjeBestand = data.bestandsnaam;
-    }
-  } catch (e) {
-    alert('Fout bij analyseren: ' + e.message);
-  } finally {
-    btn.disabled = false;
-    btn.textContent = origTekst;
+    if (bestandsnaamEl && data.bestandsnaam) { bestandsnaamEl.textContent = data.bestandsnaam; rij.dataset.werkboekjeBestand = data.bestandsnaam; }
+  } catch (e) { alert('Fout: ' + e.message); }
+  finally { btn.disabled = false; btn.textContent = origTekst; }
+}
+
+// ============================================================
+// GEDEELDE OPDRACHTEN (module-niveau, meerdere stappen)
+// ============================================================
+
+function lmGedeeldeOpdrachtenHtml(opdrachten, stappen) {
+  if (!opdrachten || !opdrachten.length) {
+    return '<div style="padding:12px;text-align:center;color:var(--ink-muted);font-size:13px">Nog geen gedeelde opdrachten.</div>';
   }
+  return opdrachten.map((o, i) => lmGedeeldeOpdrachtHtml(i, o, stappen)).join('');
+}
+
+function lmGedeeldeOpdrachtHtml(idx, o, stappen) {
+  const huidigeStappen = stappen || Array.from(document.querySelectorAll('.lm-hoofdstap')).map((s, i) => ({
+    naam: s.querySelector('.lm-hoofdstap-input')?.value.trim() || `Stap ${i + 1}`
+  }));
+  const codes = Array.isArray(o.syllabusCodes) ? o.syllabusCodes.join(', ') : '';
+  const geselecteerd = Array.isArray(o.stappen) ? o.stappen : [];
+  const bib = window._lmBibliotheek || [];
+  const bibOpties = bib.map(w =>
+    `<option value="${w.id}" ${o.werkboekjeId === w.id ? 'selected' : ''}>${escHtml(w.naam || w.data?.titel || 'Werkboekje')}</option>`
+  ).join('');
+
+  const stapCheckboxes = huidigeStappen.map((stap, i) =>
+    `<label style="display:inline-flex;align-items:center;gap:4px;font-size:11px;margin-right:8px;cursor:pointer">
+      <input type="checkbox" class="lm-gd-stap-cb" value="${i}" ${geselecteerd.includes(i) ? 'checked' : ''}> Stap ${i + 1}${stap.naam ? ` — ${escHtml(stap.naam.slice(0, 20))}` : ''}
+    </label>`
+  ).join('');
+
+  return `<div class="lm-gedeelde-rij" style="border:1px solid #fde68a;border-radius:8px;padding:12px;margin-bottom:10px;background:#fffdf0">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+      <span style="font-size:10px;font-weight:700;background:#f59e0b;color:#fff;padding:2px 8px;border-radius:99px">Gedeeld ${idx + 1}</span>
+      <input class="lm-gd-naam" value="${escHtml(o.naam || '')}" placeholder="Naam van de gedeelde opdracht"
+        style="flex:1;border:1px solid var(--border);border-radius:6px;padding:4px 8px;font-size:13px;font-weight:500"
+        onfocus="this.style.borderColor='#f59e0b'" onblur="this.style.borderColor='var(--border)'">
+      <button onclick="this.closest('.lm-gedeelde-rij').remove()"
+        style="background:none;border:none;cursor:pointer;color:var(--ink-muted);font-size:18px;line-height:1;padding:2px 4px">×</button>
+    </div>
+
+    <div style="margin-bottom:8px">
+      <div style="font-size:11px;color:var(--ink-muted);margin-bottom:4px">Hoort bij stappen:</div>
+      <div style="display:flex;flex-wrap:wrap;gap:4px">
+        ${stapCheckboxes || '<span style="font-size:11px;color:var(--ink-muted)">Voeg eerst stappen toe.</span>'}
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+      <div class="form-field" style="margin:0">
+        <label style="font-size:10px;color:var(--ink-muted)">Omschrijving</label>
+        <input class="lm-gd-omschrijving" value="${escHtml(o.omschrijving || '')}" placeholder="Korte omschrijving"
+          style="border:1px solid var(--border);border-radius:6px;padding:3px 7px;font-size:11px;width:100%">
+      </div>
+      <div class="form-field" style="margin:0">
+        <label style="font-size:10px;color:var(--ink-muted)">Werkboekje (bibliotheek)</label>
+        <select class="lm-gd-wbid" style="border:1px solid var(--border);border-radius:6px;padding:3px 7px;font-size:11px;width:100%">
+          <option value="">— Geen / handmatige link —</option>
+          ${bibOpties}
+        </select>
+      </div>
+      <div class="form-field" style="margin:0">
+        <label style="font-size:10px;color:var(--ink-muted)">Of werkboekje link (URL)</label>
+        <input class="lm-gd-link" value="${escHtml(o.werkboekjeLink || '')}" placeholder="https://..."
+          style="border:1px solid var(--border);border-radius:6px;padding:3px 7px;font-size:11px;width:100%">
+      </div>
+      <div class="form-field" style="margin:0">
+        <label style="font-size:10px;color:var(--ink-muted)">Theorie-onderdeel</label>
+        <input class="lm-gd-theorie" value="${escHtml(o.theorieSectie || '')}" placeholder="AI of handmatig"
+          style="border:1px solid var(--border);border-radius:6px;padding:3px 7px;font-size:11px;width:100%">
+      </div>
+      <div class="form-field" style="margin:0;grid-column:1/-1">
+        <label style="font-size:10px;color:var(--ink-muted)">Syllabus codes (komma-gescheiden)</label>
+        <input class="lm-gd-codes" value="${escHtml(codes)}" placeholder="K/PIE/2.1, K/DT/3.2"
+          style="border:1px solid var(--border);border-radius:6px;padding:3px 7px;font-size:11px;width:100%">
+      </div>
+    </div>
+  </div>`;
+}
+
+function lmVoegGedeeldeOpdrachtToe() {
+  const lijst = document.getElementById('lm-gedeelde-lijst');
+  if (!lijst) return;
+  const leeg = lijst.querySelector('[style*="Nog geen gedeelde"]');
+  if (leeg) leeg.remove();
+  const huidigeStappen = Array.from(document.querySelectorAll('.lm-hoofdstap')).map((s, i) => ({
+    naam: s.querySelector('.lm-hoofdstap-input')?.value.trim() || `Stap ${i + 1}`
+  }));
+  const idx = lijst.querySelectorAll('.lm-gedeelde-rij').length;
+  const div = document.createElement('div');
+  div.innerHTML = lmGedeeldeOpdrachtHtml(idx, {}, huidigeStappen);
+  lijst.appendChild(div.firstElementChild);
+  lijst.lastElementChild?.querySelector('.lm-gd-naam')?.focus();
 }
 
 // ============================================================
@@ -493,7 +657,7 @@ function lmVoegHoofdstapToe() {
   const leeg = lijst.querySelector('[style*="Nog geen stappen"]');
   if (leeg) leeg.remove();
   const div = document.createElement('div');
-  div.innerHTML = lmHoofdstapHtml(bestaand, { naam: '', lessen: [], url: '', leerlingTaak: '', praktijkOpdrachten: [] });
+  div.innerHTML = lmHoofdstapHtml(bestaand, { naam: '', lessen: [], url: '', leerlingTaak: '', praktijkOpdrachten: [] }, window._lmBibliotheek || []);
   lijst.appendChild(div.firstElementChild);
   lijst.lastElementChild?.querySelector('.lm-hoofdstap-input')?.focus();
   lmUpdateStapCount();
@@ -505,10 +669,7 @@ function lmUpdateStapCount() {
   const el = document.getElementById('lm-stapcount');
   if (el) el.textContent = count ? `(${count}/${max})` : `(max ${max})`;
   const voegBtn = document.getElementById('lm-voeg-stap-btn');
-  if (voegBtn) {
-    voegBtn.disabled = count >= max;
-    voegBtn.style.opacity = count >= max ? '.4' : '1';
-  }
+  if (voegBtn) { voegBtn.disabled = count >= max; voegBtn.style.opacity = count >= max ? '.4' : '1'; }
 }
 
 // ============================================================
@@ -520,13 +681,13 @@ function lmLeesStappen() {
     const naam = stap.querySelector('.lm-hoofdstap-input')?.value.trim() || '';
     const url = stap.querySelector('.lm-url-input')?.value.trim() || '';
     const leerlingTaak = stap.querySelector('.lm-taak-input')?.value.trim() || '';
-    const lessen = Array.from(stap.querySelectorAll('.lm-les-input'))
-      .map(i => i.value.trim()).filter(Boolean);
+    const lessen = Array.from(stap.querySelectorAll('.lm-les-input')).map(i => i.value.trim()).filter(Boolean);
     const praktijkOpdrachten = Array.from(stap.querySelectorAll('.lm-praktijk-rij')).map(rij => {
       const codesRaw = rij.querySelector('.lm-po-codes')?.value.trim() || '';
       return {
         naam: rij.querySelector('.lm-po-naam')?.value.trim() || '',
         omschrijving: rij.querySelector('.lm-po-omschrijving')?.value.trim() || '',
+        werkboekjeId: rij.querySelector('.lm-po-wbid')?.value || '',
         werkboekjeLink: rij.querySelector('.lm-po-link')?.value.trim() || '',
         theorieSectie: rij.querySelector('.lm-po-theorie')?.value.trim() || '',
         syllabusCodes: codesRaw ? codesRaw.split(',').map(s => s.trim()).filter(Boolean) : [],
@@ -537,6 +698,22 @@ function lmLeesStappen() {
   }).filter(s => s.naam);
 }
 
+function lmLeesGedeeldeOpdrachten() {
+  return Array.from(document.querySelectorAll('.lm-gedeelde-rij')).map(rij => {
+    const codesRaw = rij.querySelector('.lm-gd-codes')?.value.trim() || '';
+    const geselecteerdeStappen = Array.from(rij.querySelectorAll('.lm-gd-stap-cb:checked')).map(cb => parseInt(cb.value));
+    return {
+      naam: rij.querySelector('.lm-gd-naam')?.value.trim() || '',
+      omschrijving: rij.querySelector('.lm-gd-omschrijving')?.value.trim() || '',
+      werkboekjeId: rij.querySelector('.lm-gd-wbid')?.value || '',
+      werkboekjeLink: rij.querySelector('.lm-gd-link')?.value.trim() || '',
+      theorieSectie: rij.querySelector('.lm-gd-theorie')?.value.trim() || '',
+      syllabusCodes: codesRaw ? codesRaw.split(',').map(s => s.trim()).filter(Boolean) : [],
+      stappen: geselecteerdeStappen,
+    };
+  }).filter(o => o.naam);
+}
+
 // ============================================================
 // AI UPLOAD (theorie syllabus)
 // ============================================================
@@ -545,31 +722,22 @@ async function analyseerLesModuleBestand() {
   const input = document.getElementById('lm-bestand');
   const statusEl = document.getElementById('lm-analyse-status');
   if (!input?.files?.[0]) { if (statusEl) statusEl.innerHTML = '<span style="color:var(--red);font-size:13px">Kies eerst een bestand.</span>'; return; }
-
   if (statusEl) statusEl.innerHTML = '<span style="color:var(--ink-muted);font-size:13px">⏳ AI analyseert het bestand...</span>';
-
-  const niveau = document.getElementById('lm-niveau')?.value || '';
-  const type = document.getElementById('lm-type')?.value || 'profieldeel';
-
   const fd = new FormData();
   fd.append('bestand', input.files[0]);
-  fd.append('niveau', niveau);
-  fd.append('type', type);
+  fd.append('niveau', document.getElementById('lm-niveau')?.value || '');
+  fd.append('type', document.getElementById('lm-type')?.value || 'profieldeel');
   try {
     const res = await fetch('/api/les-modules/analyseer', { method: 'POST', credentials: 'same-origin', body: fd });
     const data = await res.json();
     if (!res.ok || data.error) throw new Error(data.error || 'Fout');
-
     const naamEl = document.getElementById('lm-naam');
     if (naamEl && !naamEl.value.trim()) naamEl.value = data.naam || '';
     document.getElementById('lm-bron-bestand').value = data.bronBestand || '';
-
     const lijst = document.getElementById('lm-stappen-lijst');
-    if (lijst) lijst.innerHTML = lmStappenHtml(data.stappen || []);
+    if (lijst) lijst.innerHTML = lmStappenHtml(data.stappen || [], window._lmBibliotheek || []);
     lmUpdateStapCount();
-
-    const aantalStappen = (data.stappen || []).length;
-    if (statusEl) statusEl.innerHTML = `<div class="alert alert-success" style="margin-top:8px">${aantalStappen} stappen gevonden uit "${escHtml(data.bronBestand || '')}".</div>`;
+    if (statusEl) statusEl.innerHTML = `<div class="alert alert-success" style="margin-top:8px">${(data.stappen || []).length} stappen gevonden uit "${escHtml(data.bronBestand || '')}".</div>`;
   } catch (e) {
     if (statusEl) statusEl.innerHTML = `<div class="alert" style="background:#fef2f2;color:#dc2626;border:1px solid #fca5a5;border-radius:8px;padding:10px;margin-top:8px;font-size:13px">Fout: ${escHtml(e.message)}</div>`;
   }
@@ -591,6 +759,7 @@ async function slaLesModuleOp(moduleId) {
     niveau: document.getElementById('lm-niveau')?.value || '',
     beschrijving: document.getElementById('lm-beschrijving')?.value.trim() || '',
     stappen: lmLeesStappen(),
+    gedeeldeOpdrachten: lmLeesGedeeldeOpdrachten(),
     bronBestand: document.getElementById('lm-bron-bestand')?.value || ''
   };
 

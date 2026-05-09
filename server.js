@@ -2004,6 +2004,28 @@ app.delete('/api/lesbrieven/:id', requireCanEdit, (req, res) => {
 });
 
 // ============================================================
+// WERKBOEKJE BIBLIOTHEEK — losse werkboekjes, niet gekoppeld aan lesprofiel
+// ============================================================
+app.get('/api/werkboekje-bibliotheek', requireAuth, (req, res) => {
+  res.json(db.getBibliotheekWerkboekjes());
+});
+
+app.post('/api/werkboekje-bibliotheek', requireCanEdit, (req, res) => {
+  const w = db.addBibliotheekWerkboekje({ ...req.body, aangemaaktDoor: req.session.user.id });
+  res.json(w);
+});
+
+app.put('/api/werkboekje-bibliotheek/:id', requireCanEdit, (req, res) => {
+  db.updateBibliotheekWerkboekje(req.params.id, req.body);
+  res.json(db.getBibliotheekWerkboekje(req.params.id));
+});
+
+app.delete('/api/werkboekje-bibliotheek/:id', requireAdmin, (req, res) => {
+  db.deleteBibliotheekWerkboekje(req.params.id);
+  res.json({ success: true });
+});
+
+// ============================================================
 // WERKBOEKJES
 // ============================================================
 app.get('/api/werkboekjes', requireAuth, (req, res) => {

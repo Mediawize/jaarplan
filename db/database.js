@@ -173,10 +173,22 @@ db.exec(`
     vakId     TEXT,
     niveau    TEXT,
     stappen   TEXT DEFAULT '[]',
+    gedeeldeOpdrachten TEXT DEFAULT '[]',
     beschrijving TEXT DEFAULT '',
     bronBestand  TEXT DEFAULT '',
     aangemaaktDoor TEXT,
     aangemaaktOp   TEXT DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS werkboekje_bibliotheek (
+    id          TEXT PRIMARY KEY,
+    naam        TEXT NOT NULL DEFAULT '',
+    beschrijving TEXT DEFAULT '',
+    vakId       TEXT,
+    niveau      TEXT DEFAULT '',
+    data        TEXT DEFAULT '{}',
+    aangemaaktDoor TEXT,
+    aangemaaktOp TEXT DEFAULT (datetime('now'))
   );
 `);
 
@@ -315,6 +327,10 @@ function migreer() {
   if (!lmCols.includes('categorie')) {
     db.exec("ALTER TABLE les_modules ADD COLUMN categorie TEXT NOT NULL DEFAULT 'theorie'");
     console.log('Migratie: categorie kolom toegevoegd aan les_modules');
+  }
+  if (!lmCols.includes('gedeeldeOpdrachten')) {
+    db.exec("ALTER TABLE les_modules ADD COLUMN gedeeldeOpdrachten TEXT DEFAULT '[]'");
+    console.log('Migratie: gedeeldeOpdrachten kolom toegevoegd aan les_modules');
   }
 
   // Schoon verwijzingen op naar verwijderde lesprofielen
@@ -737,23 +753,50 @@ module.exports = {
   // ============================================================
   getLesModules() {
     return db.prepare('SELECT * FROM les_modules ORDER BY naam').all()
-      .map(m => ({ ...m, stappen: parseJSON(m.stappen, []) }));
+      .map(m => ({ ...m, stappen: parseJSON(m.stappen, []), gedeeldeOpdrachten: parseJSON(m.gedeeldeOpdrachten, []) }));
   },
   getLesModule(id) {
     const m = db.prepare('SELECT * FROM les_modules WHERE id=?').get(id);
-    return m ? { ...m, stappen: parseJSON(m.stappen, []) } : null;
+    return m ? { ...m, stappen: parseJSON(m.stappen, []), gedeeldeOpdrachten: parseJSON(m.gedeeldeOpdrachten, []) } : null;
   },
   addLesModule(d) {
     const id = require('crypto').randomUUID();
-    db.prepare('INSERT INTO les_modules (id,naam,type,categorie,vakId,niveau,stappen,beschrijving,bronBestand,aangemaaktDoor) VALUES (?,?,?,?,?,?,?,?,?,?)')
-      .run(id, d.naam||'', d.type||'profieldeel', d.categorie||'theorie', d.vakId||null, d.niveau||'', JSON.stringify(d.stappen||[]), d.beschrijving||'', d.bronBestand||'', d.aangemaaktDoor||null);
+    db.prepare('INSERT INTO les_modules (id,naam,type,categorie,vakId,niveau,stappen,gedeeldeOpdrachten,beschrijving,bronBestand,aangemaaktDoor) VALUES (?,?,?,?,?,?,?,?,?,?,?)')
+      .run(id, d.naam||'', d.type||'profieldeel', d.categorie||'theorie', d.vakId||null, d.niveau||'', JSON.stringify(d.stappen||[]), JSON.stringify(d.gedeeldeOpdrachten||[]), d.beschrijving||'', d.bronBestand||'', d.aangemaaktDoor||null);
     return this.getLesModule(id);
   },
   updateLesModule(id, d) {
-    db.prepare('UPDATE les_modules SET naam=?,type=?,categorie=?,vakId=?,niveau=?,stappen=?,beschrijving=?,bronBestand=? WHERE id=?')
-      .run(d.naam||'', d.type||'profieldeel', d.categorie||'theorie', d.vakId||null, d.niveau||'', JSON.stringify(d.stappen||[]), d.beschrijving||'', d.bronBestand||'', id);
+    db.prepare('UPDATE les_modules SET naam=?,type=?,categorie=?,vakId=?,niveau=?,stappen=?,gedeeldeOpdrachten=?,beschrijving=?,bronBestand=? WHERE id=?')
+      .run(d.naam||'', d.type||'profieldeel', d.categorie||'theorie', d.vakId||null, d.niveau||'', JSON.stringify(d.stappen||[]), JSON.stringify(d.gedeeldeOpdrachten||[]), d.beschrijving||'', d.bronBestand||'', id);
   },
   deleteLesModule(id) {
     db.prepare('DELETE FROM les_modules WHERE id=?').run(id);
+  },
+
+  // ============================================================
+  // WERKBOEKJE BIBLIOTHEEK
+  // ============================================================
+  getBibliotheekWerkboekjes() {
+    return db.prepare('SELECT * FROM werkboekje_bibliotheek ORDER BY naam').all()
+      .map(w => ({ ...w, data: parseJSON(w.data, {}) }));
+  },
+  getBibliotheekWerkboekje(id) {
+    const w = db.prepare('SELECT * FROM werkboekje_bibliotheek WHERE id=?').get(id);
+    return w ? { ...w, data: parseJSON(w.data, {}) } : null;
+  },
+  addBibliotheekWerkboekje(d) {
+    const id = require('crypto').randomUUID();
+    db.prepare('INSERT INTO werkboekje_bibliotheek (id,naam,beschrijving,vakId,niveau,data,aangemaaktDoor) VALUES (?,?,?,?,?,?,?)')
+      .run(id, d.naam||'', d.beschrijving||'', d.vakId||null, d.niveau||'', JSON.stringify(d.data||{}), d.aangemaaktDoor||null);
+    return this.getBibliotheekWerkboekje(id);
+  },
+  updateBibliotheekWerkboekje(id, d) {
+    const w = this.getBibliotheekWerkboekje(id);
+    if (!w) return;
+    db.prepare('UPDATE werkboekje_bibliotheek SET naam=?,beschrijving=?,vakId=?,niveau=?,data=? WHERE id=?')
+      .run(d.naam ?? w.naam, d.beschrijving ?? w.beschrijving, d.vakId ?? w.vakId, d.niveau ?? w.niveau, JSON.stringify(d.data ?? w.data), id);
+  },
+  deleteBibliotheekWerkboekje(id) {
+    db.prepare('DELETE FROM werkboekje_bibliotheek WHERE id=?').run(id);
   },
 };
