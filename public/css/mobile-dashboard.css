@@ -246,57 +246,64 @@
 .db-afronden-btn {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 8px 14px;
+  gap: 7px;
+  padding: 10px 16px;
   border-radius: var(--radius-sm);
   border: 1.5px solid var(--accent);
-  background: transparent;
-  color: var(--accent-text);
-  font-size: 13px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 14px;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.12s;
+  transition: all 0.15s;
   font-family: var(--font);
+  min-height: 42px;
+  box-shadow: 0 1px 4px rgba(22,163,74,0.2);
 }
-.db-afronden-btn svg { width: 14px; height: 14px; }
-.db-afronden-btn:hover { background: var(--accent-dim); }
-.db-afronden-klaar { background: var(--accent-dim); }
+.db-afronden-btn svg { width: 15px; height: 15px; }
+.db-afronden-btn:hover { background: #15803D; border-color: #15803D; box-shadow: 0 3px 10px rgba(22,163,74,0.30); }
+.db-afronden-klaar { background: var(--accent-dim); color: var(--accent-text); border-color: rgba(22,163,74,0.3); box-shadow: none; }
+.db-afronden-klaar:hover { background: var(--accent-dim); border-color: rgba(22,163,74,0.4); box-shadow: none; color: var(--accent-text); }
 
 .db-opmerking-btn {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 8px 14px;
+  gap: 7px;
+  padding: 10px 16px;
   border-radius: var(--radius-sm);
   border: 1.5px solid var(--border-2);
-  background: transparent;
+  background: var(--surface);
   color: var(--ink-3);
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.12s;
+  transition: all 0.15s;
   font-family: var(--font);
+  min-height: 42px;
+  box-shadow: var(--shadow-sm);
 }
-.db-opmerking-btn svg { width: 14px; height: 14px; }
-.db-opmerking-btn:hover { color: var(--ink); background: var(--surface-2); }
+.db-opmerking-btn svg { width: 15px; height: 15px; }
+.db-opmerking-btn:hover { color: var(--ink); background: var(--surface-2); box-shadow: var(--shadow); }
 
 .db-lesbrief-btn {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 8px 14px;
+  gap: 7px;
+  padding: 10px 16px;
   border-radius: var(--radius-sm);
   border: 1.5px solid var(--blue);
-  background: transparent;
-  color: var(--blue);
-  font-size: 13px;
+  background: var(--blue);
+  color: #fff;
+  font-size: 14px;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.12s;
+  transition: all 0.15s;
   font-family: var(--font);
+  min-height: 42px;
+  box-shadow: 0 1px 4px rgba(37,99,235,0.2);
 }
-.db-lesbrief-btn svg { width: 14px; height: 14px; }
-.db-lesbrief-btn:hover { background: color-mix(in srgb, var(--blue) 10%, transparent); }
+.db-lesbrief-btn svg { width: 15px; height: 15px; }
+.db-lesbrief-btn:hover { background: #1D4ED8; border-color: #1D4ED8; box-shadow: 0 3px 10px rgba(37,99,235,0.30); }
 
 .db-les-opmerking {
   margin-top: 10px;
