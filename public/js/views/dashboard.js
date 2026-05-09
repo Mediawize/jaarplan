@@ -174,13 +174,24 @@ function _statusInfo(o, cw) {
   return { label: 'Nog te geven', cls: 'db-status-nog' };
 }
 
+function _typeInfo(type) {
+  switch ((type || '').toLowerCase()) {
+    case 'theorie':  return { icoon: '📖', kleur: 'var(--blue)',   label: 'Theorie' };
+    case 'praktijk': return { icoon: '🔧', kleur: 'var(--accent)', label: 'Praktijk' };
+    case 'toets':    return { icoon: '✅', kleur: 'var(--amber)',   label: 'Toets' };
+    default:         return { icoon: '📋', kleur: 'var(--ink-3)',   label: type || 'Les' };
+  }
+}
+
 function renderLesCard(o, klas, cw) {
   const status = _statusInfo(o, cw);
   const kleur = klas ? _klasKleur(klas.id) : '#A8A29E';
   const afk = klas
     ? (klas.naam.match(/\d+\s*[A-Z]/)?.[0] || klas.naam.slice(0, 2)).replace(/\s/g, '').toUpperCase()
     : '?';
+  const ti = _typeInfo(o.type);
   const heeftLinks = o.theorieLink || o.werkboekLink || o.toetsBestand;
+  const isToets = (o.type || '').toLowerCase() === 'toets';
 
   return `
     <div class="db-les-card ${o.afgevinkt ? 'db-les-afgerond' : ''}" id="lescard-${o.id}">
@@ -190,7 +201,9 @@ function renderLesCard(o, klas, cw) {
           <div class="db-les-tekst">
             <div class="db-les-naam">${escHtml(o.naam)}</div>
             <div class="db-les-sub">
-              ${escHtml(o.type || '')}${klas ? ` · ${escHtml(klas.naam)}` : ''}
+              <span style="color:${ti.kleur};font-weight:500">${ti.icoon} ${ti.label}</span>
+              ${klas ? ` · ${escHtml(klas.naam)}` : ''}
+              ${o.uren ? ` · ${o.uren}u` : ''}
               ${o.weken ? ` · Week ${escHtml(o.weken)}` : ''}
             </div>
           </div>
@@ -208,16 +221,16 @@ function renderLesCard(o, klas, cw) {
 
         ${heeftLinks ? `
         <div class="db-les-materialen">
-          ${o.werkboekLink ? `
-            <a href="${o.werkboekLink}" target="_blank" rel="noopener" class="db-mat-btn" onclick="event.stopPropagation()">
+          ${o.theorieLink ? `
+            <a href="${escHtml(o.theorieLink)}" target="_blank" rel="noopener" class="db-mat-btn" onclick="event.stopPropagation()">
               <svg viewBox="0 0 20 20" fill="none"><path d="M5 2h8l4 4v12H5V2z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M13 2v4h4" stroke="currentColor" stroke-width="1.5"/></svg>
-              <div><div class="db-mat-label">Lesprofiel</div><div class="db-mat-sub">Bekijk lesprofiel</div></div>
+              <div><div class="db-mat-label">Lesmateriaal</div><div class="db-mat-sub">Bekijk theoriemateriaal</div></div>
               <svg viewBox="0 0 20 20" fill="none" class="db-mat-arrow"><path d="M7 13L13 7M13 7H8M13 7v5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
             </a>` : ''}
-          ${o.theorieLink ? `
-            <a href="${o.theorieLink}" target="_blank" rel="noopener" class="db-mat-btn db-mat-lesbrief" onclick="event.stopPropagation()">
-              <svg viewBox="0 0 20 20" fill="none"><path d="M4 4h8l4 4v8H4V4z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M12 4v4h4" stroke="currentColor" stroke-width="1.5"/></svg>
-              <div><div class="db-mat-label">Lesbrief</div><div class="db-mat-sub">Volledige lesbrief</div></div>
+          ${o.werkboekLink ? `
+            <a href="${escHtml(o.werkboekLink)}" target="_blank" rel="noopener" class="db-mat-btn db-mat-lesbrief" onclick="event.stopPropagation()">
+              <svg viewBox="0 0 20 20" fill="none"><path d="M4 3h9l4 4v11H4V3z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M13 3v4h4M7 9h6M7 12h6M7 15h4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+              <div><div class="db-mat-label">Werkboek</div><div class="db-mat-sub">Leerling werkboek</div></div>
               <svg viewBox="0 0 20 20" fill="none" class="db-mat-arrow"><path d="M7 13L13 7M13 7H8M13 7v5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
             </a>` : ''}
           ${o.toetsBestand ? `
@@ -227,17 +240,22 @@ function renderLesCard(o, klas, cw) {
             </div>` : ''}
         </div>` : ''}
 
-        ${Auth.canEdit() ? `
         <div class="db-les-acties">
+          ${!isToets ? `
+          <button class="db-lesbrief-btn" onclick="openLesbrief('${o.id}');event.stopPropagation()" title="Lesbrief bekijken of genereren">
+            <svg viewBox="0 0 20 20" fill="none"><path d="M4 3h9l4 4v11H4V3z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M13 3v4h4M7 9h6M7 12h4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+            Lesbrief
+          </button>` : ''}
+          ${Auth.canEdit() ? `
           <button class="db-afronden-btn ${o.afgevinkt ? 'db-afronden-klaar' : ''}" onclick="dashboardAfvinken('${o.id}');event.stopPropagation()">
             <svg viewBox="0 0 20 20" fill="none"><path d="M4 10l5 5 7-8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            ${o.afgevinkt ? 'Afgerond ✓' : 'Les afronden'}
+            ${o.afgevinkt ? 'Afgerond ✓' : 'Afronden'}
           </button>
           <button class="db-opmerking-btn" onclick="dbOpenOpmerkingModal('${o.id}');event.stopPropagation()">
             <svg viewBox="0 0 20 20" fill="none"><path d="M4 4h12v10H4z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M4 14l3 3v-3" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>
-            Opmerking toevoegen
-          </button>
-        </div>` : ''}
+            Opmerking
+          </button>` : ''}
+        </div>
 
         ${o.opmerking ? `<div class="db-les-opmerking">💬 ${escHtml(o.opmerking)}</div>` : ''}
         ${o.afgevinktDoor ? `<div style="font-size:11px;color:var(--ink-4);margin-top:8px">Afgerond door ${escHtml(o.afgevinktDoor)}</div>` : ''}
