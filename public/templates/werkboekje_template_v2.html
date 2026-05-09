@@ -441,7 +441,7 @@
     margin: 16px 0;
   }
 
-  .foto-rij.een   { grid-template-columns: 1fr; }
+  .foto-rij.een   { display: flex; justify-content: flex-start; }
   .foto-rij.twee  { grid-template-columns: 1fr 1fr; }
   .foto-rij.drie  { grid-template-columns: 1fr 1fr 1fr; }
 
@@ -449,7 +449,8 @@
     background: var(--achtergrond);
     border: 1.5px dashed #AABBD8;
     border-radius: var(--radius);
-    height: 180px;
+    height: 200px;
+    width: 100%;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -479,7 +480,7 @@
     text-align: center;
   }
 
-  .foto-vak.groot { height: 240px; }
+  .foto-vak.groot { height: 280px; width: auto; max-width: 100%; }
 
   /* ══════════════════════════════
      TEKENVAK — VOLLEDIGE BREEDTE
@@ -944,8 +945,8 @@
     .stap::before { background: #E8EDFB !important; }
 
     /* Foto-vakken vaste hoogte in print */
-    .foto-vak { height: 120px; }
-    .foto-vak.groot { height: 160px; }
+    .foto-vak { height: 140px; }
+    .foto-vak.groot { height: 200px; width: auto; max-width: 100%; }
   }
 
   @media (max-width: 600px) {

@@ -710,7 +710,7 @@ async function wbBouwHtml(data) {
           <div class="foto-rij een">
             <div class="foto-vak${st.afbeeldingBase64?' groot':''}">
               ${st.afbeeldingBase64
-                ? `<img src="${st.afbeeldingBase64}" style="width:100%;height:100%;object-fit:cover">`
+                ? `<img src="${st.afbeeldingBase64}" style="height:100%;width:auto;max-width:100%;object-fit:contain;display:block">`
                 : fotoSvg+'<span>Foto hier plaatsen</span>'}
               <div class="foto-label">${wbEsc(st.bijschrift||'Bijschrift')}</div>
             </div>
