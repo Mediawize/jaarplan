@@ -226,6 +226,9 @@ function updateSidebar() {
 function showView(view) {
   const mobiel = isMobiel();
 
+  // Sluit lesprofiel detail overlay bij navigatie
+  document.getElementById('profiel-detail-overlay')?.remove();
+
   // Op mobiel altijd naar dashboard sturen
   if (mobiel && view !== 'dashboard') {
     view = 'dashboard';
