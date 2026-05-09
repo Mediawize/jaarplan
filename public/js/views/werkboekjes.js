@@ -58,12 +58,30 @@ function wbReset() {
     weekIdx: null,
     actIdx: null,
     activiteitInfo: null,
+    isBibliotheek: false,
+    bibliotheekId: null,
     data: wbLegeData()
   };
 }
 
 function openWerkboekjeWizard() {
   wbReset();
+  wbRender();
+}
+
+async function openWerkboekjeVoorBibliotheek(bibliotheekId) {
+  wbReset();
+  _wbState.isBibliotheek = true;
+  _wbState.bibliotheekId = bibliotheekId || null;
+  _wbState.stap = 2;
+  if (bibliotheekId) {
+    try {
+      const res = await fetch(`/api/werkboekje-bibliotheek`, { credentials: 'same-origin' });
+      const lijst = await res.json();
+      const wb = lijst.find(w => w.id === bibliotheekId);
+      if (wb) _wbState.data = wbNormaliseerData({ ...wbLegeData(), ...wb.data });
+    } catch { /* start leeg */ }
+  }
   wbRender();
 }
 
@@ -524,7 +542,21 @@ async function wbOpslaan() {
   _wbState.busy = true;
 
   try {
-    if (_wbState.profielId != null) {
+    if (_wbState.isBibliotheek) {
+      const payload = { naam: _wbState.data.titel || 'Werkboekje', data: _wbState.data };
+      if (_wbState.bibliotheekId) {
+        const r = await fetch(`/api/werkboekje-bibliotheek/${_wbState.bibliotheekId}`, {
+          method: 'PUT', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+        });
+        await wbJsonOfThrow(r);
+      } else {
+        const r = await fetch('/api/werkboekje-bibliotheek', {
+          method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+        });
+        const wb = await wbJsonOfThrow(r);
+        _wbState.bibliotheekId = wb.id;
+      }
+    } else if (_wbState.profielId != null) {
       const info = _wbState.activiteitInfo || {};
       const payload = {
         profielId: _wbState.profielId,
