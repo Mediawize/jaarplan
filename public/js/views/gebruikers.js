@@ -26,14 +26,14 @@ async function renderGebruikers() {
           <tbody>
             ${gebruikers.map(g=>`<tr>
               <td style="font-weight:600">${escHtml(g.naam)} ${escHtml(g.achternaam||'')}</td>
-              <td><span style="font-family:monospace;font-size:13px;font-weight:700;background:var(--accent-dim);color:var(--accent-text);padding:3px 8px;border-radius:6px">${escHtml(getInitialen(g))}</span></td>
+              <td><span class="geb-initialen">${escHtml(getInitialen(g))}</span></td>
               <td>${escHtml(g.email)}</td>
               <td><span class="role-badge ${g.rol==='admin'?'role-admin':g.rol==='management'?'role-management':'role-docent'}">${escHtml(g.rol)}</span></td>
               <td>${(g.vakken||[]).map(id=>{const v=vakken.find(v=>v.id===id);return v?`<span class="badge badge-green">${escHtml(v.naam)}</span>`:''}).join(' ')}</td>
               <td>
                 ${g.mustChangePassword
-                  ? `<span style="font-size:11px;padding:2px 8px;border-radius:10px;background:var(--amber-dim);color:var(--amber-text);font-weight:600">⏳ Tijdelijk ww</span>`
-                  : `<span style="font-size:11px;padding:2px 8px;border-radius:10px;background:var(--accent-dim);color:var(--accent-text);font-weight:600">✓ Actief</span>`
+                  ? `<span class="geb-status tijdelijk">⏳ Tijdelijk ww</span>`
+                  : `<span class="geb-status actief">✓ Actief</span>`
                 }
               </td>
               <td style="text-align:right">
@@ -170,12 +170,12 @@ function toonTijdelijkWachtwoordModal(naam, email, wachtwoord) {
   openModal(`
     <h2>✓ Gebruiker aangemaakt</h2>
     <p class="modal-sub">Deel de volgende inloggegevens met <strong>${escHtml(naam)}</strong>.</p>
-    <div style="background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:16px 20px;margin:16px 0">
-      <div style="font-size:12px;color:var(--ink-muted);margin-bottom:4px">E-mailadres</div>
-      <div style="font-weight:600;font-size:15px;margin-bottom:12px">${escHtml(email)}</div>
-      <div style="font-size:12px;color:var(--ink-muted);margin-bottom:4px">Tijdelijk wachtwoord</div>
-      <div style="display:flex;align-items:center;gap:8px">
-        <code id="tijdelijk-ww" style="font-size:16px;font-weight:700;background:var(--amber-dim);color:var(--amber-text);padding:6px 12px;border-radius:6px;letter-spacing:0.05em">${escHtml(wachtwoord)}</code>
+    <div class="geb-ww-blok">
+      <div class="geb-ww-label">E-mailadres</div>
+      <div class="geb-ww-waarde">${escHtml(email)}</div>
+      <div class="geb-ww-label">Tijdelijk wachtwoord</div>
+      <div class="geb-ww-rij">
+        <code id="tijdelijk-ww" class="geb-ww-code">${escHtml(wachtwoord)}</code>
         <button class="btn btn-sm" onclick="kopieerWachtwoord()">Kopiëren</button>
       </div>
     </div>

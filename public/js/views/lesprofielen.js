@@ -399,9 +399,9 @@ async function openKoppelModal(profielId) {
       </div>
     </div>
     ${p.moduleId
-      ? `<div style="margin-top:12px">
+      ? `<div class="lp-koppel-ai-rij">
            <button class="btn btn-primary" id="koppel-ai-btn" onclick="genereerVerdeling('${profielId}')">🤖 AI genereer weekverdeling</button>
-           <span style="font-size:12px;color:var(--ink-muted);margin-left:8px">AI verdeelt modulestappen logisch over de weken</span>
+           <span class="lp-koppel-ai-sub">AI verdeelt modulestappen logisch over de weken</span>
          </div>
          <div id="koppel-verdeling-preview" style="margin-top:12px"></div>`
       : `<div class="alert alert-info" style="margin-top:12px;font-size:13px">
@@ -498,15 +498,14 @@ function lpDropZoneLeave(e) {
 }
 
 function lpItemRij(label, tekst, uren, kleur, wi, soort, ii) {
-  return `<div draggable="true"
+  return `<div class="lp-item-rij" draggable="true"
     ondragstart="lpDragStart(event,${wi},'${soort}',${ii})"
     ondragend="lpDragEnd(event)"
     ondragover="lpDragOver(event)"
     ondragleave="lpDragLeave(event)"
-    ondrop="lpDropOpItem(event,${wi},'${soort}',${ii})"
-    style="display:flex;align-items:center;gap:5px;margin-bottom:2px;padding:2px 4px;border-radius:3px;border-top:2px solid transparent;cursor:grab;transition:opacity .15s">
-    <span style="color:var(--border);font-size:11px;line-height:1;user-select:none">⠿</span>
-    <span style="font-size:11px;color:${kleur}">${label} ${escHtml(tekst)}${uren ? ` <span style="opacity:.6">(${uren}u)</span>` : ''}</span>
+    ondrop="lpDropOpItem(event,${wi},'${soort}',${ii})">
+    <span class="lp-item-handle">⠿</span>
+    <span class="lp-item-tekst" style="color:${kleur}">${label} ${escHtml(tekst)}${uren ? ` <span style="opacity:.6">(${uren}u)</span>` : ''}</span>
   </div>`;
 }
 
@@ -515,29 +514,25 @@ function lpRenderVerdelingPreview() {
   if (!preview || !_lpVerdelingPreview) return;
   const n = _lpVerdelingPreview.length;
   preview.innerHTML = `
-    <div style="background:var(--cream);border:1px solid var(--border);border-radius:8px;padding:12px">
-      <div style="font-weight:600;font-size:13px;margin-bottom:4px">Weekverdeling (${n} weken)</div>
-      <div style="font-size:11px;color:var(--ink-muted);margin-bottom:10px">Sleep theorie- of praktijkonderdelen tussen weken om de volgorde aan te passen.</div>
-      <div style="max-height:420px;overflow-y:auto" id="lp-verdeling-weken">
+    <div class="lp-verdeling-wrap">
+      <div class="lp-verdeling-titel">Weekverdeling (${n} weken)</div>
+      <div class="lp-verdeling-sub">Sleep theorie- of praktijkonderdelen tussen weken om de volgorde aan te passen.</div>
+      <div class="lp-verdeling-scroll" id="lp-verdeling-weken">
         ${_lpVerdelingPreview.map((w, i) => `
-          <div style="display:flex;align-items:stretch;gap:6px;margin-bottom:6px;background:#fff;border:1px solid var(--border);border-radius:6px;overflow:hidden">
-            <div style="display:flex;flex-direction:column;gap:0;border-right:1px solid var(--border);background:var(--cream)">
-              <button onclick="lpVerschuifWeek(${i},-1)" ${i === 0 ? 'disabled' : ''}
-                style="flex:1;border:none;background:none;cursor:${i === 0 ? 'default' : 'pointer'};padding:2px 7px;font-size:12px;color:${i === 0 ? 'var(--border)' : 'var(--ink-muted)'};line-height:1" title="Week omhoog">▲</button>
-              <button onclick="lpVerschuifWeek(${i},1)" ${i === n - 1 ? 'disabled' : ''}
-                style="flex:1;border:none;background:none;cursor:${i === n - 1 ? 'default' : 'pointer'};padding:2px 7px;font-size:12px;color:${i === n - 1 ? 'var(--border)' : 'var(--ink-muted)'};line-height:1" title="Week omlaag">▼</button>
+          <div class="lp-week-rij">
+            <div class="lp-week-pijlen">
+              <button onclick="lpVerschuifWeek(${i},-1)" ${i === 0 ? 'disabled' : ''} class="lp-week-pijl" title="Week omhoog">▲</button>
+              <button onclick="lpVerschuifWeek(${i},1)" ${i === n - 1 ? 'disabled' : ''} class="lp-week-pijl" title="Week omlaag">▼</button>
             </div>
-            <div style="padding:7px 10px;flex:1;min-width:0">
-              <div style="font-weight:600;font-size:12px;margin-bottom:5px">
-                <span style="color:var(--ink-muted);font-weight:400">Week ${i + 1}</span>
-                ${w.thema ? ` — ${escHtml(w.thema)}` : ''}
+            <div class="lp-week-body">
+              <div class="lp-week-label">
+                <span>Week ${i + 1}</span>
+                ${w.thema ? ` — <strong>${escHtml(w.thema)}</strong>` : ''}
               </div>
-              <div ondragover="lpDropZoneOver(event)" ondragleave="lpDropZoneLeave(event)" ondrop="lpDropZone(event,${i},'theorie')"
-                style="min-height:18px;border-radius:4px;transition:outline .1s">
+              <div class="lp-drop-zone" ondragover="lpDropZoneOver(event)" ondragleave="lpDropZoneLeave(event)" ondrop="lpDropZone(event,${i},'theorie')">
                 ${(w.theorie || []).map((t, ti) => lpItemRij('📖', t.stapNaam || t.omschrijving || '', t.uren, 'var(--blue)', i, 'theorie', ti)).join('')}
               </div>
-              <div ondragover="lpDropZoneOver(event)" ondragleave="lpDropZoneLeave(event)" ondrop="lpDropZone(event,${i},'praktijk')"
-                style="min-height:18px;border-radius:4px;margin-top:2px;transition:outline .1s">
+              <div class="lp-drop-zone praktijk" ondragover="lpDropZoneOver(event)" ondragleave="lpDropZoneLeave(event)" ondrop="lpDropZone(event,${i},'praktijk')">
                 ${(w.praktijk || []).map((t, pi) => lpItemRij('🔧', t.naam || t.omschrijving || '', t.uren, 'var(--accent)', i, 'praktijk', pi)).join('')}
               </div>
             </div>

@@ -17,13 +17,13 @@ async function renderOpdrachten() {
         ${!readonly?`<button class="btn btn-primary" onclick="openOpdrachtModal()">+ Activiteit toevoegen</button>`:''}
       </div>
       <div class="card" style="margin-bottom:16px">
-        <div style="display:flex;gap:12px;padding:14px 20px;align-items:center;flex-wrap:wrap">
-          <span style="font-size:12px;font-weight:600;color:var(--ink-muted);text-transform:uppercase;letter-spacing:.04em">Filter:</span>
-          <select onchange="window._filterOpdKlas=this.value;renderOpdrachten()" style="padding:8px 12px;border:1.5px solid var(--border-med);border-radius:var(--radius);font-family:'DM Sans',sans-serif;font-size:13px;background:#fff;color:var(--ink)">
+        <div class="opd-filter-balk">
+          <span class="opd-filter-label">Filter:</span>
+          <select onchange="window._filterOpdKlas=this.value;renderOpdrachten()" class="opd-filter-select">
             <option value="">Alle klassen</option>
             ${klassen.map(k=>`<option value="${k.id}" ${window._filterOpdKlas===k.id?'selected':''}>${escHtml(k.naam)}</option>`).join('')}
           </select>
-          <select onchange="window._filterOpdType=this.value;renderOpdrachten()" style="padding:8px 12px;border:1.5px solid var(--border-med);border-radius:var(--radius);font-family:'DM Sans',sans-serif;font-size:13px;background:#fff;color:var(--ink)">
+          <select onchange="window._filterOpdType=this.value;renderOpdrachten()" class="opd-filter-select">
             <option value="">Alle typen</option>
             ${['Theorie','Praktijk','Toets','Opdracht','Groepsopdracht','Presentatie','Project','Overig'].map(t=>`<option value="${t}" ${window._filterOpdType===t?'selected':''}>${t}</option>`).join('')}
           </select>
