@@ -280,6 +280,24 @@
 .db-opmerking-btn svg { width: 14px; height: 14px; }
 .db-opmerking-btn:hover { color: var(--ink); background: var(--surface-2); }
 
+.db-lesbrief-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: var(--radius-sm);
+  border: 1.5px solid var(--blue);
+  background: transparent;
+  color: var(--blue);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.12s;
+  font-family: var(--font);
+}
+.db-lesbrief-btn svg { width: 14px; height: 14px; }
+.db-lesbrief-btn:hover { background: color-mix(in srgb, var(--blue) 10%, transparent); }
+
 .db-les-opmerking {
   margin-top: 10px;
   padding: 8px 10px;
