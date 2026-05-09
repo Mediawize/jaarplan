@@ -1836,3 +1836,212 @@ input, select, textarea { font-family: var(--font); }
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
+/* ============================================================
+   Lesbrief (lb-*)
+   ============================================================ */
+.lb-textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 13.5px;
+  font-family: inherit;
+  box-sizing: border-box;
+  resize: vertical;
+  line-height: 1.55;
+  transition: border-color 0.15s;
+}
+.lb-textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(22,163,74,0.1);
+}
+.lb-input {
+  padding: 9px 12px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 13.5px;
+  font-family: inherit;
+  box-sizing: border-box;
+  transition: border-color 0.15s;
+}
+.lb-input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(22,163,74,0.1);
+}
+.lb-del-btn {
+  color: var(--red);
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-size: 14px;
+  padding: 3px 6px;
+  flex-shrink: 0;
+  border-radius: 4px;
+  transition: background 0.15s;
+}
+.lb-del-btn:hover { background: #fee2e2; }
+
+/* Wizard header */
+.lb-wizard-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 16px;
+}
+.lb-wizard-title {
+  margin: 0 0 4px;
+  font-size: 19px;
+  font-weight: 700;
+  letter-spacing: -0.3px;
+}
+.lb-wizard-sub {
+  font-size: 13px;
+  color: var(--ink-muted);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.lb-wizard-actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-shrink: 0;
+}
+.lb-type-pill {
+  background: var(--accent-dim);
+  color: var(--accent);
+  border-radius: 6px;
+  padding: 2px 9px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* Progress bar */
+.lb-progress-wrap { margin-bottom: 18px; }
+.lb-progress-bar {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 5px;
+}
+.lb-progress-seg {
+  flex: 1;
+  height: 5px;
+  border-radius: 3px;
+  background: var(--border);
+  transition: background 0.2s;
+}
+.lb-progress-seg.actief { background: var(--accent); }
+.lb-progress-label { font-size: 12px; color: var(--ink-muted); }
+
+/* Overzicht (read-only view) */
+.lb-overzicht-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 18px;
+}
+.lb-overzicht-title {
+  margin: 0 0 4px;
+  font-size: 19px;
+  font-weight: 700;
+  letter-spacing: -0.3px;
+}
+.lb-id-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px 20px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 18px;
+  margin-bottom: 20px;
+  font-size: 13px;
+}
+.lb-id-grid .full { grid-column: 1 / -1; }
+.lb-id-label { color: var(--ink-muted); margin-right: 4px; }
+.lb-scroll { max-height: 55vh; overflow-y: auto; padding-right: 4px; }
+
+/* Blok (overzicht section) */
+.lb-blok { margin-bottom: 20px; }
+.lb-blok-label {
+  font-weight: 700;
+  font-size: 11.5px;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 5px;
+}
+.lb-blok-tekst {
+  font-size: 13px;
+  white-space: pre-wrap;
+  line-height: 1.65;
+  color: var(--ink);
+}
+
+/* Hint block (per stap) */
+.lb-hint {
+  background: #f0f9ff;
+  border-left: 3px solid var(--accent);
+  border-radius: 6px;
+  padding: 10px 14px;
+  margin-bottom: 18px;
+  font-size: 12.5px;
+  color: var(--ink-muted);
+  line-height: 1.5;
+}
+.lb-hint strong { color: var(--accent); }
+
+/* Fasering table */
+.lb-fase-tabel { width: 100%; border-collapse: collapse; font-size: 13px; }
+.lb-fase-tabel th {
+  background: var(--accent);
+  color: #fff;
+  padding: 9px 10px;
+  text-align: left;
+  font-weight: 600;
+  font-size: 12px;
+}
+.lb-fase-tabel td {
+  padding: 7px 9px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+.lb-fase-tabel tr:nth-child(even) td { background: var(--surface-2); }
+.lb-fase-tabel .lb-td-input {
+  border: none;
+  width: 100%;
+  background: transparent;
+  font-size: 13px;
+  font-family: inherit;
+  padding: 2px 4px;
+  border-radius: 4px;
+}
+.lb-fase-tabel .lb-td-input:focus {
+  outline: 2px solid var(--accent);
+  background: #fff;
+}
+.lb-fase-tabel textarea.lb-td-input {
+  resize: vertical;
+  min-height: 52px;
+}
+.lb-fase-naam { font-weight: 600; font-size: 12px; }
+.lb-fase-tijd { white-space: nowrap; font-size: 12px; color: var(--ink-muted); }
+
+/* Fasering overzicht table */
+.lb-ovz-tabel { width: 100%; border-collapse: collapse; font-size: 12px; }
+.lb-ovz-tabel thead tr { background: var(--accent); color: #fff; }
+.lb-ovz-tabel th { padding: 8px 10px; text-align: left; font-weight: 600; }
+.lb-ovz-tabel td { padding: 8px 10px; border-bottom: 1px solid var(--border); }
+.lb-ovz-tabel tr:nth-child(even) td { background: var(--surface-2); }
