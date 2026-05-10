@@ -160,7 +160,7 @@ function renderAppShell() {
         <a class="nav-item" data-view="jaarplanning" onclick="showView('jaarplanning');closeSidebar()"><svg viewBox="0 0 20 20" fill="none"><rect x="2" y="3" width="16" height="15" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M6 2v2M14 2v2M2 8h16" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>Jaarplanning</a>
         <a class="nav-item" data-view="lesprofielen" onclick="showView('lesprofielen');closeSidebar()"><svg viewBox="0 0 20 20" fill="none"><rect x="2" y="2" width="16" height="16" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M6 7h8M6 11h8M6 15h4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>Lesprofielen</a>
         <a class="nav-item" data-view="taken" onclick="showView('taken');closeSidebar()"><svg viewBox="0 0 20 20" fill="none"><path d="M6 10l2.5 2.5L14 7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><rect x="3" y="3" width="14" height="14" rx="2" stroke="currentColor" stroke-width="1.5"/></svg>Taken</a>
-<a class="nav-item" data-view="toetsen" onclick="showView('toetsen');closeSidebar()"><svg viewBox="0 0 20 20" fill="none"><path d="M4 10l4 4 8-8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><rect x="2" y="2" width="16" height="16" rx="2" stroke="currentColor" stroke-width="1.5"/></svg>Toetsen & Materialen</a>
+<a class="nav-item" data-view="lesmaterialen" onclick="showView('lesmaterialen');closeSidebar()"><svg viewBox="0 0 20 20" fill="none"><path d="M4 10l4 4 8-8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><rect x="2" y="2" width="16" height="16" rx="2" stroke="currentColor" stroke-width="1.5"/></svg>Lesmaterialen</a>
         <a class="nav-item" data-view="lesmodules" onclick="showView('lesmodules');closeSidebar()"><svg viewBox="0 0 20 20" fill="none"><path d="M4 4h12v2H4zM4 9h8v2H4zM4 14h10v2H4z" fill="currentColor"/></svg>Les Modules</a>
       </div>
       <div class="nav-group" id="nav-admin" style="display:none">
@@ -183,7 +183,7 @@ function renderAppShell() {
       <div id="view-lesprofielen" class="view" style="display:none"></div>
       <div id="view-taken" class="view" style="display:none"></div>
       <div id="view-opdrachten" class="view" style="display:none"></div>
-      <div id="view-toetsen" class="view" style="display:none"></div>
+      <div id="view-lesmaterialen" class="view" style="display:none"></div>
       <div id="view-schooljaren" class="view" style="display:none"></div>
       <div id="view-gebruikers" class="view" style="display:none"></div>
       <div id="view-vakken" class="view" style="display:none"></div>
@@ -234,7 +234,7 @@ function showView(view) {
     view = 'dashboard';
   }
 
-  const views = ['dashboard','klassen','rooster','jaarplanning','lesprofielen','taken','opdrachten','toetsen','schooljaren','gebruikers','vakken','lesmodules'];
+  const views = ['dashboard','klassen','rooster','jaarplanning','lesprofielen','taken','opdrachten','lesmaterialen','schooljaren','gebruikers','vakken','lesmodules'];
   views.forEach(v => {
     const el = document.getElementById('view-' + v);
     if (el) el.style.display = v === view ? 'block' : 'none';
@@ -251,7 +251,7 @@ function showView(view) {
     lesprofielen: renderLesprofielen,
     taken: renderTaken,
     opdrachten: renderOpdrachten,
-    toetsen: renderToetsen,
+    lesmaterialen: renderLesmaterialen,
     schooljaren: renderSchooljaren,
     gebruikers: renderGebruikers,
     vakken: renderVakken,
