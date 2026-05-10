@@ -962,3 +962,4 @@ async function twGenereer() {
     result.innerHTML = `<span style="color:var(--red)">Fout: ${escHtml(e.message)}</span>`;
   }
 }
+window.renderLesmaterialen = renderLesmaterialen;
