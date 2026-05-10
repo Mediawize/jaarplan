@@ -251,7 +251,7 @@ function showView(view) {
     lesprofielen: renderLesprofielen,
     taken: renderTaken,
     opdrachten: renderOpdrachten,
-    lesmaterialen: renderLesmaterialen,
+    lesmaterialen: () => window.renderLesmaterialen(),
     schooljaren: renderSchooljaren,
     gebruikers: renderGebruikers,
     vakken: renderVakken,
