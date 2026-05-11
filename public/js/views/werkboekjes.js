@@ -707,7 +707,14 @@ async function wbBouwHtml(data) {
 
   const flushCompacteBuffer = () => {
     if (!compacteBuffer.length) return;
-    stapBlokken.push(`<div class="stappen-grid">${compacteBuffer.join('')}</div>`);
+
+    // Maak vaste pagina-groepen voor stappen zonder afbeelding.
+    // Dit voorkomt dat CSS-grid stappen door elkaar trekt of halve kaarten naar een losse pagina duwt.
+    const perPagina = 3;
+    for (let i = 0; i < compacteBuffer.length; i += perPagina) {
+      const groep = compacteBuffer.slice(i, i + perPagina);
+      stapBlokken.push(`<div class="compacte-stappen-pagina"><div class="stappen-lijst">${groep.join('')}</div></div>`);
+    }
     compacteBuffer = [];
   };
 
@@ -812,8 +819,10 @@ async function wbBouwHtml(data) {
 
   if (stapNr > 0) {
     secties.push(`
-      <div class="sectie-header"><div class="sectie-icon">🪵</div><h2>Stappenplan</h2></div>
-      <div class="stappen">${stapBlokken.join('')}</div>
+      <section class="stappen-sectie">
+        <div class="sectie-header stappen-header"><div class="sectie-icon">🪵</div><h2>Stappenplan</h2></div>
+        <div class="stappen">${stapBlokken.join('')}</div>
+      </section>
       <hr class="scheidingslijn">`);
   }
 
@@ -838,10 +847,16 @@ async function wbBouwHtml(data) {
     .stap-opdracht{font-size:14px;line-height:1.55;margin:0 0 12px;color:var(--tekst)}
     .controleblok{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px;padding-top:10px;border-top:1px solid var(--rand)}
     .controleblok label{font-size:11px;color:var(--tekst-zacht);background:#f8fafc;border:1px solid var(--rand);border-radius:10px;padding:8px 9px}
-    .stappen-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:8px 0 18px;align-items:start}
+    .stappen-sectie{page-break-before:always;break-before:page;padding-top:0}
+    .stappen-header{break-after:avoid;page-break-after:avoid;margin-bottom:14px}
+    .stappen{display:block}
+    .compacte-stappen-pagina{break-after:page;page-break-after:always;padding-top:0}
+    .compacte-stappen-pagina:last-child{break-after:auto;page-break-after:auto}
+    .stappen-lijst{display:flex;flex-direction:column;gap:12px}
     .stap-gridkaart{background:var(--wit);border:1px solid var(--rand);border-radius:var(--radius);padding:14px 16px;break-inside:avoid;page-break-inside:avoid}
     .stap-gridkop{display:flex;align-items:center;gap:10px;margin-bottom:8px}
     .stap-gridkop h3{margin:0;font-size:15px;color:var(--donkerblauw);line-height:1.2}
+    .stap-gridkaart .controleblok{grid-template-columns:repeat(3,1fr)}
     .stap-gridkop span:not(.stap-cirkel){font-size:10px;font-weight:700;color:var(--blauw);text-transform:uppercase;letter-spacing:.04em}
     .stap-cirkel.klein{width:30px;height:30px;font-size:12px;flex:0 0 30px}
     .compacte-tip{font-size:12px;line-height:1.45;margin-top:8px;padding:9px 10px}
@@ -856,7 +871,7 @@ async function wbBouwHtml(data) {
     .tekening-afbeelding{max-width:100%;max-height:210mm;object-fit:contain;border-radius:var(--radius);border:1px solid var(--rand)}
     .tekening-pagina .tekenvak-wrapper{flex:1;display:flex;flex-direction:column}
     .tekening-pagina .tekenvak{flex:1;min-height:170mm}
-    @media print{.controleblok,.stap-gridkaart,.stap,.stap-kaart{break-inside:avoid;page-break-inside:avoid}.stappen-grid{break-inside:auto}.tekening-pagina{page-break-before:always;break-before:page}.stap-gridkaart{margin-bottom:0}}
+    @media print{.controleblok,.stap-gridkaart,.stap,.stap-kaart{break-inside:avoid;page-break-inside:avoid}.stappen-sectie{page-break-before:always;break-before:page}.compacte-stappen-pagina{page-break-after:always;break-after:page}.compacte-stappen-pagina:last-child{page-break-after:auto;break-after:auto}.tekening-pagina{page-break-before:always;break-before:page}.stap-gridkaart{margin-bottom:0}}
   </style></head><body>
   ${cover}
   <div class="pagina">${secties.join('\n')}</div>
