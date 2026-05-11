@@ -97,7 +97,30 @@ const storage = multer.diskStorage({
   }
 });
 const upload = multer({ storage, limits: { fileSize: 25 * 1024 * 1024 } });
+const uploadWerkboekjeAnalyse = multer({
+  storage,
+  limits: { fileSize: 80 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    const ext = path.extname(file.originalname || '').toLowerCase();
+    const toegestaan = ['.pdf', '.docx', '.doc', '.txt'];
+    if (!toegestaan.includes(ext)) return cb(new Error('Alleen PDF, Word of TXT bestanden kunnen worden geanalyseerd.'));
+    cb(null, true);
+  }
+});
 const uploadMemory = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
+
+function multerJson(middleware) {
+  return (req, res, next) => {
+    middleware(req, res, (err) => {
+      if (!err) return next();
+      if (err instanceof multer.MulterError && err.code === 'LIMIT_FILE_SIZE') {
+        return res.status(413).json({ error: 'Bestand is te groot. Voor werkboekje-analyse is maximaal 80 MB toegestaan.' });
+      }
+      return res.status(400).json({ error: err.message || 'Upload mislukt.' });
+    });
+  };
+}
+const uploadWerkboekjeAnalyseJson = multerJson(uploadWerkboekjeAnalyse.single('bestand'));
 
 app.use(helmet({ contentSecurityPolicy: false }));
 app.use(express.json({ limit: '50mb' }));
@@ -1773,7 +1796,7 @@ async function bouwWerkboekjeDocxVast({ schoolnaam, logoBestand, data }) {
 // ============================================================
 // WERKBOEKJE — analyseer upload voor wizard (geen blind opslaan)
 // ============================================================
-app.post('/api/analyse-werkboekje', requireCanEdit, upload.single('bestand'), async (req, res) => {
+app.post('/api/analyse-werkboekje', requireCanEdit, uploadWerkboekjeAnalyseJson, async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'Geen bestand geüpload' });
   try {
     const inhoud = await extractTekstUitBestand(req.file.path, req.file.originalname);
