@@ -866,12 +866,23 @@ ${bronTekst.slice(0, 12000)}`;
           .map(s => ({ naam: String(s.naam).trim(), lessen: Array.isArray(s.lessen) ? s.lessen.filter(Boolean).slice(0, 3) : [] }))
       : [];
 
+    const origineleNaam = req.file.originalname;
+    const veiligeNaam = origineleNaam.replace(/\.[^.]+$/, '');
+    const mat = db.addMateriaal({
+      type: 'lesmodule',
+      naam: veiligeNaam,
+      bestandsnaam: req.file.filename,
+      vak: req.body.vak || ''
+    });
+
     return res.json({
       success: true,
-      naam: resultaat.naam || req.file.originalname.replace(/\.[^.]+$/, ''),
+      naam: resultaat.naam || veiligeNaam,
       type: gekozenType,
       stappen,
-      bronBestand: req.file.originalname
+      bronBestand: req.file.filename,
+      bronOrigineel: origineleNaam,
+      materiaalId: mat?.id || ''
     });
   } catch (e) {
     console.error('Fout bij /api/les-modules/analyseer:', e);
@@ -929,11 +940,44 @@ ${bronTekst.slice(0, 8000)}`;
       model: 'claude-sonnet-4-6'
     });
 
+    const origineleNaam = req.file.originalname;
+    const naamZonderExt = origineleNaam.replace(/\.[^.]+$/, '');
+    const bestandsnaam = req.file.filename;
+    const vak = (req.body.vak || '').trim();
+
+    const mat = db.addMateriaal({
+      type: 'werkboekje',
+      naam: opdrachtnaam || naamZonderExt,
+      bestandsnaam,
+      vak
+    });
+
+    const bib = db.addBibliotheekWerkboekje({
+      naam: opdrachtnaam || naamZonderExt,
+      beschrijving: 'Geüpload vanuit lesmodule/praktijkopdracht',
+      vakId: req.body.vakId || null,
+      niveau,
+      aangemaaktDoor: req.session.user.id,
+      data: {
+        titel: opdrachtnaam || naamZonderExt,
+        type: 'upload',
+        bestandsnaam,
+        origineel: origineleNaam,
+        downloadUrl: `/uploads/${bestandsnaam}`,
+        materiaalId: mat?.id || '',
+        theorieSectie: resultaat.theorieSectie || '',
+        syllabusCodes: Array.isArray(resultaat.syllabusCodes) ? resultaat.syllabusCodes.filter(Boolean) : []
+      }
+    });
+
     return res.json({
       success: true,
       theorieSectie: resultaat.theorieSectie || '',
       syllabusCodes: Array.isArray(resultaat.syllabusCodes) ? resultaat.syllabusCodes.filter(Boolean) : [],
-      bestandsnaam: req.file.originalname
+      bestandsnaam,
+      origineel: origineleNaam,
+      materiaalId: mat?.id || '',
+      werkboekjeId: bib?.id || ''
     });
   } catch (e) {
     console.error('Fout bij /api/les-modules/analyseer-praktijk:', e);
