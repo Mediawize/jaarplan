@@ -18,6 +18,7 @@ async function renderLesmaterialen() {
     const metTheorie = alleOpd.filter(o => o.theorieLink);
     const toetsBib = materialen.filter(m => m.type === 'toets');
     const werkBoekBib = materialen.filter(m => m.type === 'werkboekje');
+    const instructieBib = materialen.filter(m => m.type === 'werkinstructie' || m.type === 'lesmateriaal');
 
     const renderMateriaalRijen = (lijst) => lijst.map(m => {
       const datum = m.aangemaakt ? m.aangemaakt.slice(0, 10) : '';
@@ -66,6 +67,17 @@ async function renderLesmaterialen() {
           : renderMateriaalRijen(werkBoekBib)}
       </div>
 
+
+      <div class="card" style="margin-bottom:20px">
+        <div class="card-header">
+          <div><h2>📁 Werk instructies / lesmaterialen (${instructieBib.length})</h2>
+          <div class="card-meta">Geüploade bestanden vanuit lesmodules — terug te vinden en te downloaden</div></div>
+        </div>
+        ${instructieBib.length === 0
+          ? `<div class="empty-state"><h3>Nog geen werk instructies</h3><p>Upload een bestand vanuit een lesmodule.</p></div>`
+          : renderMateriaalRijen(instructieBib)}
+      </div>
+
       <div class="card" style="margin-bottom:20px">
         <div class="card-header">
           <div><h2>📗 Werkboekjes bibliotheek (${bibliotheek.length})</h2>
@@ -84,8 +96,7 @@ async function renderLesmaterialen() {
                   <div class="lm-kaart-naam">${escHtml(w.naam || w.data?.titel || 'Zonder naam')}</div>
                   ${w.beschrijving ? `<div class="lm-kaart-meta">${escHtml(w.beschrijving)}</div>` : '<div class="lm-kaart-meta"></div>'}
                   <div class="lm-kaart-acties">
-                    ${w.data?.bestandsnaam ? `<a class="btn btn-sm" href="/uploads/${encodeURIComponent(w.data.bestandsnaam)}" target="_blank" download style="flex:1;text-align:center">Download</a>` : `<button class="btn btn-sm" style="flex:1" onclick="openWerkboekjeVoorBibliotheek('${w.id}')">Bewerken</button>`}
-                    ${w.data?.bestandsnaam ? `<button class="btn btn-sm" onclick="openWerkboekjeVoorBibliotheek('${w.id}')">Bewerken</button>` : ''}
+                    <button class="btn btn-sm" style="flex:1" onclick="openWerkboekjeVoorBibliotheek('${w.id}')">Bewerken</button>
                     ${!readonly ? `<button class="icon-btn" style="color:var(--red);border-color:rgba(220,38,38,0.3)" onclick="verwijderBibliotheekWerkboekje('${w.id}','${escHtml(w.naam || w.data?.titel || 'dit werkboekje')}')" title="Verwijderen">🗑</button>` : ''}
                   </div>
                 </div>`).join('')}
