@@ -52,6 +52,7 @@ db.exec(`
     schooljaar TEXT,
     aantalWeken INTEGER DEFAULT 38,
     urenPerWeek INTEGER DEFAULT 3,
+    aantalLeerlingen INTEGER DEFAULT 0,
     aangemaakt TEXT DEFAULT (datetime('now')),
     FOREIGN KEY (vakId) REFERENCES vakken(id),
     FOREIGN KEY (docentId) REFERENCES gebruikers(id)
@@ -222,6 +223,10 @@ function migreer() {
   if (!profCols.includes('niveau')) {
     db.exec("ALTER TABLE lesprofielen ADD COLUMN niveau TEXT DEFAULT ''");
     console.log('Migratie: niveau kolom toegevoegd aan lesprofielen');
+  }
+  if (!klasCols.includes('aantalLeerlingen')) {
+    db.exec("ALTER TABLE klassen ADD COLUMN aantalLeerlingen INTEGER DEFAULT 0");
+    console.log('Migratie: aantalLeerlingen kolom toegevoegd aan klassen');
   }
   if (!klasCols.includes('roulatie')) {
     db.exec("ALTER TABLE klassen ADD COLUMN roulatie INTEGER DEFAULT 0");
@@ -418,8 +423,8 @@ const Q = {
 
   getKlassen: db.prepare('SELECT * FROM klassen ORDER BY naam'),
   getKlas: db.prepare('SELECT * FROM klassen WHERE id=?'),
-  insKlas: db.prepare('INSERT INTO klassen (id,naam,leerjaar,niveau,vakId,docentId,schooljaar,aantalWeken,urenPerWeek,docenten,roulatie,roulatieBlok,roulatieStart) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)'),
-  updKlas: db.prepare('UPDATE klassen SET naam=?,leerjaar=?,niveau=?,vakId=?,docentId=?,schooljaar=?,urenPerWeek=?,docenten=?,roulatie=?,roulatieBlok=?,roulatieStart=? WHERE id=?'),
+  insKlas: db.prepare('INSERT INTO klassen (id,naam,leerjaar,niveau,vakId,docentId,schooljaar,aantalWeken,urenPerWeek,aantalLeerlingen,docenten,roulatie,roulatieBlok,roulatieStart) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)'),
+  updKlas: db.prepare('UPDATE klassen SET naam=?,leerjaar=?,niveau=?,vakId=?,docentId=?,schooljaar=?,urenPerWeek=?,aantalLeerlingen=?,docenten=?,roulatie=?,roulatieBlok=?,roulatieStart=? WHERE id=?'),
   delKlas: db.prepare('DELETE FROM klassen WHERE id=?'),
 
   getSchooljaren: db.prepare('SELECT * FROM schooljaren ORDER BY naam'),
@@ -548,16 +553,16 @@ module.exports = {
   updateVak(id, d) { const v = Q.getVak.get(id); if (!v) return; Q.updVak.run(d.naam ?? v.naam, d.volledig ?? v.volledig, id); },
   deleteVak(id) { Q.delVak.run(id); },
 
-  getKlas(id) { const k = Q.getKlas.get(id); return k ? { ...k, docenten: parseJSON(k.docenten), niveau: k.niveau || '' } : null; },
+  getKlas(id) { const k = Q.getKlas.get(id); return k ? { ...k, docenten: parseJSON(k.docenten), niveau: k.niveau || '', aantalLeerlingen: k.aantalLeerlingen || 0 } : null; },
   addKlas(d) {
     const id = genId();
-    Q.insKlas.run(id, d.naam, d.leerjaar || 1, d.niveau || '', d.vakId || null, d.docentId || null, d.schooljaar || null, d.aantalWeken || 38, d.urenPerWeek || 3, JSON.stringify(d.docenten || []), d.roulatie ? 1 : 0, d.roulatieBlok || 5, d.roulatieStart || 35);
+    Q.insKlas.run(id, d.naam, d.leerjaar || 1, d.niveau || '', d.vakId || null, d.docentId || null, d.schooljaar || null, d.aantalWeken || 38, d.urenPerWeek || 3, parseInt(d.aantalLeerlingen || 0), JSON.stringify(d.docenten || []), d.roulatie ? 1 : 0, d.roulatieBlok || 5, d.roulatieStart || 35);
     return this.getKlas(id);
   },
   updateKlas(id, d) {
     const k = this.getKlas(id);
     if (!k) return;
-    Q.updKlas.run(d.naam ?? k.naam, d.leerjaar ?? k.leerjaar, d.niveau ?? k.niveau ?? '', d.vakId ?? k.vakId, d.docentId ?? k.docentId, d.schooljaar ?? k.schooljaar, d.urenPerWeek ?? k.urenPerWeek, JSON.stringify(d.docenten ?? k.docenten), d.roulatie !== undefined ? (d.roulatie ? 1 : 0) : k.roulatie, d.roulatieBlok ?? k.roulatieBlok, d.roulatieStart ?? k.roulatieStart, id);
+    Q.updKlas.run(d.naam ?? k.naam, d.leerjaar ?? k.leerjaar, d.niveau ?? k.niveau ?? '', d.vakId ?? k.vakId, d.docentId ?? k.docentId, d.schooljaar ?? k.schooljaar, d.urenPerWeek ?? k.urenPerWeek, parseInt(d.aantalLeerlingen ?? k.aantalLeerlingen ?? 0), JSON.stringify(d.docenten ?? k.docenten), d.roulatie !== undefined ? (d.roulatie ? 1 : 0) : k.roulatie, d.roulatieBlok ?? k.roulatieBlok, d.roulatieStart ?? k.roulatieStart, id);
   },
   deleteKlas(id) { Q.delKlas.run(id); },
 
