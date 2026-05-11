@@ -1,5 +1,5 @@
 // ============================================================
-// dashboard.js — Dashboard met lessen per dag/week
+// dashboard.js — Docent dagdashboard
 // ============================================================
 
 async function renderDashboard() {
@@ -8,399 +8,233 @@ async function renderDashboard() {
     const [klassen, alleOpd, alleTaken, gebruikers] = await Promise.all([
       API.getKlassen(), API.getOpdrachten(), API.getTaken(), API.getGebruikers()
     ]);
+
     const cw = getCurrentWeek();
     const nu = new Date();
-
+    const vandaagNaam = ['zondag','maandag','dinsdag','woensdag','donderdag','vrijdag','zaterdag'][nu.getDay()];
+    const datumLang = nu.toLocaleDateString('nl-NL', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
     const uur = nu.getHours();
     const begroeting = uur < 12 ? 'Goedemorgen' : uur < 18 ? 'Goedemiddag' : 'Goedenavond';
     const voornaam = Auth.currentUser?.naam?.split(' ')[0] || '';
 
-    // Voortgang deze week
-    const opdDezeWeek = alleOpd.filter(o => weekInRange(o.weken, cw));
-    const afgerondDezeWeek = opdDezeWeek.filter(o => o.afgevinkt).length;
-    const voortgangPct = opdDezeWeek.length ? Math.round((afgerondDezeWeek / opdDezeWeek.length) * 100) : 0;
-    const donutR = 28;
-    const donutOmtrek = +(2 * Math.PI * donutR).toFixed(1);
-    const donutVuld = +((voortgangPct / 100) * donutOmtrek).toFixed(1);
+    const lessenVandaag = _dbMaakDagLessen(alleOpd, klassen, cw);
+    const openTaken = (alleTaken || [])
+      .filter(t => !t.afgerond)
+      .sort((a, b) => _dbDatumWaarde(a.deadline) - _dbDatumWaarde(b.deadline));
+    const materialen = _dbBenodigdVandaag(lessenVandaag);
+    const totaalMin = lessenVandaag.reduce((som, les) => som + les.minuten, 0);
+    const leerlingen = lessenVandaag.reduce((som, les) => som + (parseInt(les.klas?.aantalLeerlingen || les.klas?.leerlingen || 0) || 0), 0);
 
     document.getElementById('view-dashboard').innerHTML = `
       ${Auth.isManagement() ? `<div class="readonly-notice"><svg width="16" height="16" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="8" stroke="currentColor" stroke-width="1.5"/><path d="M10 6v4M10 14h.01" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>U bent ingelogd als management — u kunt alles bekijken maar niet wijzigen.</div>` : ''}
 
-      <div class="db-layout">
-
-        <!-- ── HOOFDINHOUD ── -->
-        <div class="db-main">
-
-          <!-- Begroeting -->
-          <div class="db-greeting-row">
-            <div>
-              <h1 class="db-begroeting">${escHtml(begroeting)} ${escHtml(voornaam)}!</h1>
-              <div class="db-datum-sub">Hier is je planning voor vandaag.</div>
-            </div>
+      <div class="teacher-dashboard">
+        <div class="td-topbar">
+          <div>
+            <h1>${escHtml(begroeting)} ${escHtml(voornaam)}! <span>👋</span></h1>
+            <p>Hier is je overzicht voor vandaag, ${escHtml(datumLang)}.</p>
           </div>
-
-          <!-- Mobiele voortgang banner -->
-          <div class="db-mobile-vg">
-            <div class="db-mobile-vg-top">
-              <span class="db-mobile-vg-label">Week ${cw} — voortgang</span>
-              <strong class="db-mobile-vg-pct">${voortgangPct}%</strong>
-            </div>
-            <div class="db-mobile-vg-balk">
-              <div class="db-mobile-vg-fill" style="width:${voortgangPct}%"></div>
-            </div>
-            <div class="db-mobile-vg-sub">${afgerondDezeWeek} van ${opdDezeWeek.length} lessen afgerond</div>
+          <div class="td-top-actions">
+            <button class="td-btn td-btn-light" onclick="showView('jaarplanning')">
+              <svg viewBox="0 0 20 20" fill="none"><rect x="3" y="4" width="14" height="13" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M6 2v4M14 2v4M3 8h14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+              Weekoverzicht
+            </button>
+            ${Auth.canEdit() ? `<button class="td-btn td-btn-primary" onclick="showView('jaarplanning')">+ Les voorbereiden</button>` : ''}
           </div>
-
-          <!-- Tabs + Filter -->
-          <div class="db-tabs-row">
-            <div class="db-tabs">
-              <button class="db-tab db-tab-actief" id="tab-vandaag" onclick="switchDashboardTab('vandaag')">
-                <svg viewBox="0 0 20 20" fill="none"><rect x="2" y="3" width="16" height="15" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M6 2v2M14 2v2M2 8h16M6 12h2M10 12h2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-                Vandaag
-              </button>
-              <button class="db-tab" id="tab-week" onclick="switchDashboardTab('week')">
-                <svg viewBox="0 0 20 20" fill="none"><path d="M2 8h16M6 2v4M14 2v4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><rect x="2" y="4" width="16" height="14" rx="2" stroke="currentColor" stroke-width="1.5"/></svg>
-                Week
-              </button>
-              <button class="db-tab" onclick="showView('jaarplanning')">
-                <svg viewBox="0 0 20 20" fill="none"><rect x="2" y="3" width="16" height="15" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M2 8h16M6 2v2M14 2v2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-                Jaarplanning
-              </button>
-            </div>
-            <div class="db-filter-wrap">
-              <svg viewBox="0 0 20 20" fill="none" style="width:14px;height:14px;color:var(--ink-3);flex-shrink:0"><path d="M3 5h14M6 10h8M9 15h2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-              <select class="db-filter-select" id="db-klas-filter" onchange="filterDashboardKlas(this.value)">
-                <option value="">Alle klassen</option>
-                ${klassen.map(k => `<option value="${k.id}">${escHtml(k.naam)}</option>`).join('')}
-              </select>
-            </div>
-          </div>
-
-          <!-- Activiteitenlijst -->
-          <div id="db-activiteiten-wrap">
-            ${renderDashboardVandaag(alleOpd, klassen, cw)}
-          </div>
-
         </div>
 
-        <!-- ── RECHTERPANEEL ── -->
-        <div class="db-right-panel">
+        <div class="td-layout">
+          <main class="td-main">
+            <section class="td-stats">
+              ${_dbStatCard('📅', 'Vandaag', `${lessenVandaag.length} lessen`, 'rood')}
+              ${_dbStatCard('🕘', 'Totaal lesduur', _dbFormatMinuten(totaalMin), 'oranje')}
+              ${_dbStatCard('👥', 'Leerlingen', leerlingen || '—', 'blauw')}
+              ${_dbStatCard('✅', 'Taken te doen', openTaken.length, 'groen')}
+            </section>
 
-          <!-- Voortgang widget -->
-          <div class="db-widget">
-            <div class="db-widget-title">Voortgang deze week</div>
-            <div class="db-voortgang-wrap">
-              <div class="db-donut-wrap">
-                <svg viewBox="0 0 80 80" class="db-donut">
-                  <circle cx="40" cy="40" r="${donutR}" fill="none" stroke="var(--surface-3)" stroke-width="10"/>
-                  <circle cx="40" cy="40" r="${donutR}" fill="none" stroke="var(--accent)" stroke-width="10"
-                    stroke-dasharray="${donutVuld} ${donutOmtrek}"
-                    stroke-dashoffset="${(donutOmtrek * 0.25).toFixed(1)}"
-                    stroke-linecap="round"/>
-                  <text x="40" y="37" text-anchor="middle" font-size="15" font-weight="700" fill="var(--ink)" font-family="Geist,sans-serif">${voortgangPct}%</text>
-                  <text x="40" y="51" text-anchor="middle" font-size="8" fill="var(--ink-3)" font-family="Geist,sans-serif">afgerond</text>
-                </svg>
+            <div class="td-section-head">
+              <h2>${escHtml(_dbKapitaal(vandaagNaam))} ${escHtml(nu.toLocaleDateString('nl-NL', { day: 'numeric', month: 'long' }))}</h2>
+              <label class="td-view-select">Weergave:
+                <select onchange="window._dbWeergave=this.value;_herlaadDashboardLijst()">
+                  <option value="tijdlijn">Tijdlijn</option>
+                  <option value="compact">Compact</option>
+                </select>
+              </label>
+            </div>
+
+            <div id="db-activiteiten-wrap">
+              ${renderDashboardVandaag(lessenVandaag)}
+            </div>
+          </main>
+
+          <aside class="td-side">
+            <section class="td-widget">
+              <div class="td-widget-title">Mijn taken vandaag <span>${openTaken.length}</span></div>
+              <div class="td-task-list">
+                ${openTaken.length ? openTaken.slice(0, 6).map(t => _dbTaakRegel(t)).join('') : `<div class="td-empty-small">Geen open taken.</div>`}
               </div>
-              <div class="db-voortgang-info">
-                <div class="db-voortgang-getal">${afgerondDezeWeek} van ${opdDezeWeek.length}</div>
-                <div class="db-voortgang-label">lessen afgerond</div>
-                <button class="db-voortgang-link" onclick="showView('jaarplanning')">Bekijk weekoverzicht →</button>
+              <button class="td-link" onclick="showView('taken')">Alle taken bekijken →</button>
+            </section>
+
+            <section class="td-widget">
+              <div class="td-widget-title">Benodigd vandaag <span class="td-ok">✓</span></div>
+              <div class="td-need-list">
+                ${materialen.length ? materialen.map(m => _dbMateriaalRegel(m)).join('') : `<div class="td-empty-small">Geen materiaal gekoppeld.</div>`}
               </div>
-            </div>
-          </div>
+              <button class="td-link" onclick="showView('lesmaterialen')">Alles bekijken →</button>
+            </section>
 
-          <!-- Legenda -->
-          <div class="db-widget">
-            <div class="db-widget-title">Legenda</div>
-            <div class="db-legenda">
-              <div class="db-legenda-item"><span class="db-legenda-dot" style="background:var(--blue)"></span>Nog te geven</div>
-              <div class="db-legenda-item"><span class="db-legenda-dot" style="background:var(--amber)"></span>In uitvoering</div>
-              <div class="db-legenda-item"><span class="db-legenda-dot" style="background:var(--accent)"></span>Afgerond</div>
-              <div class="db-legenda-item"><span class="db-legenda-dot" style="background:var(--ink-4)"></span>Geannuleerd</div>
-            </div>
-          </div>
+            ${Auth.canEdit() ? `
+            <section class="td-widget td-actions">
+              <div class="td-widget-title">Snelle acties</div>
+              <button onclick="showView('lesmaterialen')">▣ Nieuw lesmateriaal maken</button>
+              <button onclick="openDashboardNotitiePlaceholder()">✦ AI lesassistent <span>Nieuw</span></button>
+              <button onclick="showView('klassen')">▣ Bericht naar klas sturen</button>
+              <button onclick="showView('toetsen')">☑ Les evalueren</button>
+            </section>` : ''}
 
-          <!-- Snelle acties -->
-          ${Auth.canEdit() ? `
-          <div class="db-widget">
-            <div class="db-widget-title">Snelle acties</div>
-            <div class="db-snelle-acties">
-              <button class="db-snelle-actie" onclick="showView('jaarplanning')">
-                <svg viewBox="0 0 20 20" fill="none"><path d="M10 4v12M4 10h12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-                Les toevoegen
-              </button>
-              <button class="db-snelle-actie" onclick="openDashboardNotitiePlaceholder()">
-                <svg viewBox="0 0 20 20" fill="none"><path d="M4 4h12v10H4z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M4 14l3 3v-3" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>
-                Notitie toevoegen
-              </button>
-              <button class="db-snelle-actie" onclick="showView('lesprofielen')">
-                <svg viewBox="0 0 20 20" fill="none"><rect x="2" y="2" width="16" height="16" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M6 7h8M6 11h8M6 15h4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-                Materiaal toevoegen
-              </button>
-              <button class="db-snelle-actie" onclick="showView('toetsen')">
-                <svg viewBox="0 0 20 20" fill="none"><path d="M6 10l2.5 2.5L14 7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><rect x="3" y="3" width="14" height="14" rx="2" stroke="currentColor" stroke-width="1.5"/></svg>
-                Evaluatie toevoegen
-              </button>
-            </div>
-          </div>` : ''}
-
+            <section class="td-tip">
+              <div>💡 <strong>Tip van de dag</strong></div>
+              <p>Vergeet niet de veiligheidsinstructie te herhalen bij de praktijklessen.</p>
+            </section>
+          </aside>
         </div>
       </div>
     `;
 
-    // Bouw collega-map: welke andere docenten geven vandaag dezelfde klas?
-    const huidigId = Auth.currentUser?.id;
-    const vandaag = ['Zondag','Maandag','Dinsdag','Woensdag','Donderdag','Vrijdag','Zaterdag'][new Date().getDay()];
-    const alleDocentIds = [...new Set(klassen.flatMap(k => (k.docenten || []).filter(id => id !== huidigId)))];
-    const roosterResultaten = await Promise.all(
-      alleDocentIds.map(id => API.getRooster(id).then(r => ({ id, r })).catch(() => ({ id, r: {} })))
-    );
-    const roosterMap = Object.fromEntries(roosterResultaten.map(({ id, r }) => [id, r]));
-    const collegasVandaag = {};
-    klassen.forEach(klas => {
-      const collegas = (klas.docenten || [])
-        .filter(id => id !== huidigId && (roosterMap[id]?.[klas.id] || []).includes(vandaag))
-        .map(id => gebruikers.find(u => u.id === id)).filter(Boolean);
-      if (collegas.length) collegasVandaag[klas.id] = collegas;
-    });
-
     window._dbKlassen = klassen;
     window._dbAlleOpd = alleOpd;
+    window._dbDagLessen = lessenVandaag;
     window._dbTaken = alleTaken;
-    window._dbCollegasVandaag = collegasVandaag;
-    window._dbTab = 'vandaag';
-    window._dbKlasFilter = '';
-
+    window._dbWeergave = 'tijdlijn';
   } catch(e) { showError('Fout bij laden dashboard: ' + e.message); }
 }
 
-// ============================================================
-// LES KAART — expandable
-// ============================================================
+function _dbStatCard(icon, label, waarde, kleur) {
+  return `<div class="td-stat td-stat-${kleur}">
+    <div class="td-stat-icon">${icon}</div>
+    <div><div class="td-stat-label">${escHtml(label)}</div><div class="td-stat-value">${escHtml(String(waarde))}</div></div>
+  </div>`;
+}
+
+function _dbMaakDagLessen(alleOpd, klassen, cw) {
+  const startTijden = ['08:30','09:45','11:00','12:30','13:45','15:05'];
+  return (alleOpd || [])
+    .filter(o => weekInRange(o.weken, cw))
+    .sort((a, b) => (a.naam || '').localeCompare(b.naam || ''))
+    .slice(0, 6)
+    .map((o, i) => {
+      const minuten = Math.max(45, Math.round((parseFloat(o.uren || 1) || 1) * 60));
+      const start = startTijden[i] || '15:05';
+      return { opdracht: o, klas: klassen.find(k => k.id === o.klasId), start, eind: _dbTelMinuten(start, minuten), minuten };
+    });
+}
+
+function renderDashboardVandaag(lessen) {
+  if (!lessen.length) {
+    return `<div class="empty-state" style="padding:48px 24px"><p>Geen lessen gepland voor deze week.</p><button class="btn btn-primary" style="margin-top:16px" onclick="showView('jaarplanning')">Naar jaarplanning →</button></div>`;
+  }
+  const pauze = lessen.length > 3 ? `<div class="td-pause"><div class="td-time"><strong>12:00</strong><span>12:30</span></div><div class="td-pause-card">🍴 <strong>Pauze</strong><span>30 minuten</span></div></div>` : '';
+  return `<div class="td-timeline">
+    ${lessen.slice(0, 3).map(renderLesCard).join('')}
+    ${pauze}
+    ${lessen.slice(3).map(renderLesCard).join('')}
+  </div>`;
+}
+
+function renderLesCard(les) {
+  const o = les.opdracht;
+  const klas = les.klas;
+  const kleur = klas ? _klasKleur(klas.id) : '#94A3B8';
+  const afk = klas ? (klas.naam.match(/\d+\s*[A-Z]+/)?.[0] || klas.naam.slice(0, 3)).replace(/\s/g, '').toUpperCase() : '?';
+  const type = (o.type || 'Les');
+  const lokaal = o.lokaal || o.leslokaal || (type.toLowerCase() === 'praktijk' ? 'Werkplaats' : 'Lokaal');
+  const status = o.afgevinkt ? 'Afgerond' : 'In uitvoering';
+
+  return `<article class="td-lesson ${o.afgevinkt ? 'is-done' : ''}" id="lescard-${o.id}">
+    <div class="td-time"><strong>${escHtml(les.start)}</strong><span>${escHtml(les.eind)}</span><em>${_dbFormatMinutenKort(les.minuten)}</em></div>
+    <div class="td-colorbar" style="background:${kleur}"></div>
+    <div class="td-class" style="background:${kleur}">${escHtml(afk)}</div>
+    <div class="td-lesson-body">
+      <div class="td-lesson-main">
+        <div>
+          <h3>${escHtml(o.naam)}</h3>
+          <div class="td-meta">▣ ${escHtml(type)} <span>•</span> ${klas ? escHtml(klas.naam) : 'Geen klas'} <span>•</span> ${escHtml(lokaal)}</div>
+          <p><strong>Focus:</strong> ${escHtml(o.focus || o.beschrijving || 'Les voorbereiden en uitvoeren volgens de planning.')}</p>
+        </div>
+        <span class="td-status">${escHtml(status)}</span>
+      </div>
+      <div class="td-lesson-actions">
+        ${_dbActionButton(o.theorieLink, 'Lesmateriaal', 'showView(\'lesmaterialen\')')}
+        ${_dbActionButton(o.presentatieLink, 'Presentatie', 'showView(\'lesmaterialen\')')}
+        ${_dbActionButton(o.werkboekLink, 'Werkboekje', 'showView(\'werkboekjes\')')}
+        <button onclick="openLesbrief('${o.id}')">▤ Lesbrief</button>
+        ${Auth.canEdit() ? `<button class="td-finish" onclick="dashboardAfvinken('${o.id}')">✓ ${o.afgevinkt ? 'Heropenen' : 'Les afronden'}</button><button onclick="dbOpenOpmerkingModal('${o.id}')">▣ Opmerking</button>` : ''}
+      </div>
+      ${o.opmerking ? `<div class="td-note">${escHtml(o.opmerking)}</div>` : ''}
+    </div>
+  </article>`;
+}
+
+function _dbActionButton(link, label, fallback) {
+  if (link) return `<a href="${escHtml(link)}" target="_blank" rel="noopener">▤ ${escHtml(label)}</a>`;
+  return `<button onclick="${fallback}">▤ ${escHtml(label)}</button>`;
+}
+
+function _dbTaakRegel(t) {
+  const tijd = t.deadline ? new Date(t.deadline).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' }) : '';
+  return `<div class="td-task">
+    <button class="td-task-check" onclick="dashboardTaakAfvinken('${t.id}')"></button>
+    <span>${escHtml(t.naam)}</span>
+    ${tijd ? `<em>${escHtml(tijd)}</em>` : ''}
+  </div>`;
+}
+
+function _dbBenodigdVandaag(lessen) {
+  const lijst = [];
+  lessen.forEach(({ opdracht: o, klas }) => {
+    const label = klas?.naam || '';
+    if (o.materiaal) lijst.push({ naam: o.materiaal, aantal: label });
+    if (o.materialen) String(o.materialen).split('\n').filter(Boolean).forEach(m => lijst.push({ naam: m.trim(), aantal: label }));
+  });
+  if (lijst.length) return lijst.slice(0, 6);
+  return lessen.slice(0, 5).map(({ opdracht: o, klas }) => ({ naam: o.type?.toLowerCase() === 'praktijk' ? 'Praktijkmateriaal' : 'Lesmateriaal', aantal: klas?.naam || '' }));
+}
+
+function _dbMateriaalRegel(m) {
+  return `<div class="td-need"><span>▣ ${escHtml(m.naam)}</span>${m.aantal ? `<em>${escHtml(m.aantal)}</em>` : ''}</div>`;
+}
+
 function _klasKleur(klasId) {
-  const palet = ['#2563EB','#9333EA','#D97706','#0891B2','#DC2626','#4F46E5','#059669'];
+  const palet = ['#2563EB','#E11D48','#7C3AED','#0891B2','#EA580C','#16A34A','#4F46E5'];
   let h = 0;
-  for (let i = 0; i < (klasId||'').length; i++) h = klasId.charCodeAt(i) + ((h << 5) - h);
+  for (let i = 0; i < (klasId || '').length; i++) h = klasId.charCodeAt(i) + ((h << 5) - h);
   return palet[Math.abs(h) % palet.length];
 }
 
-function _statusInfo(o, cw) {
-  if (o.afgevinkt) return { label: 'Afgerond', cls: 'db-status-afgerond' };
-  const start = parseInt((o.weken || '0').split('-')[0]);
-  if (!isNaN(start) && start <= cw) return { label: 'In uitvoering', cls: 'db-status-uitvoering' };
-  return { label: 'Nog te geven', cls: 'db-status-nog' };
+function _dbTelMinuten(tijd, minuten) {
+  const [u, m] = tijd.split(':').map(Number);
+  const d = new Date();
+  d.setHours(u, m + minuten, 0, 0);
+  return d.toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' });
 }
+function _dbFormatMinuten(min) { const u = Math.floor(min / 60); const m = min % 60; return `${u}u${m ? ' ' + m + 'm' : ''}`; }
+function _dbFormatMinutenKort(min) { return min === 60 ? '1u' : min > 60 ? `${Math.floor(min / 60)}u ${min % 60 || ''}`.trim() : `${min}m`; }
+function _dbDatumWaarde(d) { return d ? new Date(d).getTime() : 9999999999999; }
+function _dbKapitaal(s) { return s ? s.charAt(0).toUpperCase() + s.slice(1) : ''; }
 
-function _typeInfo(type) {
-  switch ((type || '').toLowerCase()) {
-    case 'theorie':  return { icoon: '📖', kleur: 'var(--blue)',   label: 'Theorie' };
-    case 'praktijk': return { icoon: '🔧', kleur: 'var(--accent)', label: 'Praktijk' };
-    case 'toets':    return { icoon: '✅', kleur: 'var(--amber)',   label: 'Toets' };
-    default:         return { icoon: '📋', kleur: 'var(--ink-3)',   label: type || 'Les' };
-  }
-}
-
-function renderLesCard(o, klas, cw) {
-  const status = _statusInfo(o, cw);
-  const kleur = klas ? _klasKleur(klas.id) : '#A8A29E';
-  const afk = klas
-    ? (klas.naam.match(/\d+\s*[A-Z]/)?.[0] || klas.naam.slice(0, 2)).replace(/\s/g, '').toUpperCase()
-    : '?';
-  const ti = _typeInfo(o.type);
-  const heeftLinks = o.theorieLink || o.werkboekLink || o.toetsBestand;
-  const isToets = (o.type || '').toLowerCase() === 'toets';
-
-  const collegas = klas ? ((window._dbCollegasVandaag || {})[klas.id] || []) : [];
-  const collegaHtml = collegas.length
-    ? `<div class="db-collega-initialen">${collegas.map(u => `<span class="db-collega-initiaal" title="${escHtml(u.naam + ' ' + (u.achternaam || ''))}">${escHtml(getInitialen(u))}</span>`).join('')}</div>`
-    : '';
-
-  return `
-    <div class="db-les-card ${o.afgevinkt ? 'db-les-afgerond' : ''}" id="lescard-${o.id}">
-      <div class="db-les-header" onclick="toggleLesCard('${o.id}')">
-        <div class="db-les-header-left">
-          <div class="db-klas-cirkel" style="background:${kleur}">${escHtml(afk)}</div>
-          <div class="db-les-tekst">
-            <div class="db-les-naam">${escHtml(o.naam)}</div>
-            <div class="db-les-sub">
-              <span style="color:${ti.kleur};font-weight:500">${ti.icoon} ${ti.label}</span>
-              ${klas ? ` · ${escHtml(klas.naam)}` : ''}
-              ${o.uren ? ` · ${o.uren}u` : ''}
-              ${o.weken ? ` · Week ${escHtml(o.weken)}` : ''}
-            </div>
-          </div>
-        </div>
-        <div class="db-les-header-right">
-          ${collegaHtml}
-          <span class="db-status-badge ${status.cls}">${status.label}</span>
-          <svg class="db-chevron" id="chev-${o.id}" viewBox="0 0 20 20" fill="none">
-            <path d="M5 8l5 5 5-5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-        </div>
-      </div>
-
-      <div class="db-les-body" id="lesbody-${o.id}" style="display:none">
-        ${o.beschrijving ? `<p class="db-les-beschrijving">${escHtml(o.beschrijving)}</p>` : ''}
-
-        ${heeftLinks ? `
-        <div class="db-les-materialen">
-          ${o.theorieLink ? `
-            <a href="${escHtml(o.theorieLink)}" target="_blank" rel="noopener" class="db-mat-btn" onclick="event.stopPropagation()">
-              <svg viewBox="0 0 20 20" fill="none"><path d="M5 2h8l4 4v12H5V2z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M13 2v4h4" stroke="currentColor" stroke-width="1.5"/></svg>
-              <div><div class="db-mat-label">Lesmateriaal</div><div class="db-mat-sub">Bekijk theoriemateriaal</div></div>
-              <svg viewBox="0 0 20 20" fill="none" class="db-mat-arrow"><path d="M7 13L13 7M13 7H8M13 7v5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            </a>` : ''}
-          ${o.werkboekLink ? `
-            <a href="${escHtml(o.werkboekLink)}" target="_blank" rel="noopener" class="db-mat-btn db-mat-lesbrief" onclick="event.stopPropagation()">
-              <svg viewBox="0 0 20 20" fill="none"><path d="M4 3h9l4 4v11H4V3z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M13 3v4h4M7 9h6M7 12h6M7 15h4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-              <div><div class="db-mat-label">Werkboek</div><div class="db-mat-sub">Leerling werkboek</div></div>
-              <svg viewBox="0 0 20 20" fill="none" class="db-mat-arrow"><path d="M7 13L13 7M13 7H8M13 7v5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            </a>` : ''}
-          ${o.toetsBestand ? `
-            <div class="db-mat-btn db-mat-toets">
-              <svg viewBox="0 0 20 20" fill="none"><path d="M6 10l2.5 2.5L14 7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><rect x="3" y="3" width="14" height="14" rx="2" stroke="currentColor" stroke-width="1.5"/></svg>
-              <div><div class="db-mat-label">Toets</div><div class="db-mat-sub">${escHtml(o.toetsBestand)}</div></div>
-            </div>` : ''}
-        </div>` : ''}
-
-        <div class="db-les-acties">
-          ${!isToets ? `
-          <button class="db-lesbrief-btn" onclick="openLesbrief('${o.id}');event.stopPropagation()" title="Lesbrief bekijken of genereren">
-            <svg viewBox="0 0 20 20" fill="none"><path d="M4 3h9l4 4v11H4V3z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M13 3v4h4M7 9h6M7 12h4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-            Lesbrief
-          </button>` : ''}
-          ${Auth.canEdit() ? `
-          <button class="db-afronden-btn ${o.afgevinkt ? 'db-afronden-klaar' : ''}" onclick="dashboardAfvinken('${o.id}');event.stopPropagation()">
-            <svg viewBox="0 0 20 20" fill="none"><path d="M4 10l5 5 7-8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            ${o.afgevinkt ? 'Afgerond ✓' : 'Afronden'}
-          </button>
-          <button class="db-opmerking-btn" onclick="dbOpenOpmerkingModal('${o.id}');event.stopPropagation()">
-            <svg viewBox="0 0 20 20" fill="none"><path d="M4 4h12v10H4z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M4 14l3 3v-3" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>
-            Opmerking
-          </button>` : ''}
-        </div>
-
-        ${o.opmerking ? `<div class="db-les-opmerking">
-          <svg viewBox="0 0 20 20" fill="none" style="width:13px;height:13px;flex-shrink:0;margin-top:1px"><path d="M4 4h12v10H4z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M4 14l3 3v-3" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>
-          ${escHtml(o.opmerking)}
-        </div>` : ''}
-        ${o.afgevinktDoor ? `<div style="font-size:11px;color:var(--ink-4);margin-top:10px;display:flex;align-items:center;gap:5px">
-          <svg viewBox="0 0 20 20" fill="none" style="width:12px;height:12px"><path d="M4 10l5 5 7-8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          Afgerond door ${escHtml(o.afgevinktDoor)}
-        </div>` : ''}
-      </div>
-    </div>
-  `;
-}
-
-function toggleLesCard(id) {
-  const body = document.getElementById(`lesbody-${id}`);
-  const chev = document.getElementById(`chev-${id}`);
-  if (!body) return;
-  const isOpen = body.style.display !== 'none';
-  body.style.display = isOpen ? 'none' : 'block';
-  if (chev) chev.style.transform = isOpen ? '' : 'rotate(180deg)';
-}
-
-// ============================================================
-// TAB: VANDAAG — activiteiten deze week
-// ============================================================
-function renderDashboardVandaag(alleOpd, klassen, cw) {
-  const opds = alleOpd
-    .filter(o => weekInRange(o.weken, cw))
-    .sort((a, b) => (a.naam || '').localeCompare(b.naam || ''));
-
-  if (!opds.length) {
-    return `<div class="empty-state" style="padding:48px 24px">
-      <p>Geen activiteiten gepland voor week ${cw}.</p>
-      <button class="btn btn-primary" style="margin-top:16px" onclick="showView('jaarplanning')">Naar jaarplanning →</button>
-    </div>`;
-  }
-
-  return `
-    <div class="db-les-lijst">
-      ${opds.map(o => renderLesCard(o, klassen.find(k => k.id === o.klasId), cw)).join('')}
-    </div>
-    <div class="db-bottom-tip">💡 Tip: Klik op een les om deze in detail te bekijken en aan te passen.</div>
-  `;
-}
-
-// ============================================================
-// TAB: WEEK — komende weken gegroepeerd
-// ============================================================
-function renderDashboardWeek(alleOpd, klassen, cw) {
-  const opds = alleOpd
-    .filter(o => {
-      const s = parseInt((o.weken || '0').split('-')[0]);
-      return s >= cw && s <= cw + 4;
-    })
-    .sort((a, b) => parseInt(a.weken) - parseInt(b.weken));
-
-  if (!opds.length) {
-    return `<div class="empty-state" style="padding:48px 24px">
-      <p>Geen activiteiten de komende weken.</p>
-    </div>`;
-  }
-
-  const perWeek = {};
-  opds.forEach(o => {
-    const w = (o.weken || '').split('-')[0].trim();
-    if (!perWeek[w]) perWeek[w] = [];
-    perWeek[w].push(o);
-  });
-
-  return Object.entries(perWeek).map(([wk, list]) => `
-    <div class="db-week-sectie">
-      <div class="db-week-label">
-        <span class="week-pill ${parseInt(wk) === cw ? 'current' : ''}">Week ${wk}</span>
-        <span class="db-week-count">${list.length} activiteit${list.length !== 1 ? 'en' : ''}</span>
-      </div>
-      <div class="db-les-lijst">
-        ${list.map(o => renderLesCard(o, klassen.find(k => k.id === o.klasId), cw)).join('')}
-      </div>
-    </div>
-  `).join('');
-}
-
-// ============================================================
-// TAB WISSELEN + FILTER
-// ============================================================
-function switchDashboardTab(tab) {
-  ['vandaag', 'week'].forEach(t => {
-    const btn = document.getElementById(`tab-${t}`);
-    if (btn) btn.classList.toggle('db-tab-actief', t === tab);
-  });
-  window._dbTab = tab;
-  _herlaadDashboardLijst();
-}
-
-function filterDashboardKlas(klasId) {
-  window._dbKlasFilter = klasId;
-  _herlaadDashboardLijst();
-}
-
+function switchDashboardTab() { _herlaadDashboardLijst(); }
+function filterDashboardKlas() { _herlaadDashboardLijst(); }
 function _herlaadDashboardLijst() {
-  const alleOpd = window._dbAlleOpd || [];
-  const klassen = window._dbKlassen || [];
-  const cw = getCurrentWeek();
-  const filter = window._dbKlasFilter || '';
-  const tab = window._dbTab || 'vandaag';
-  const gefilterd = filter ? alleOpd.filter(o => o.klasId === filter) : alleOpd;
   const wrap = document.getElementById('db-activiteiten-wrap');
-  if (!wrap) return;
-  wrap.innerHTML = tab === 'vandaag'
-    ? renderDashboardVandaag(gefilterd, klassen, cw)
-    : renderDashboardWeek(gefilterd, klassen, cw);
+  if (wrap) wrap.innerHTML = renderDashboardVandaag(window._dbDagLessen || []);
 }
 
-// ============================================================
-// OPMERKING MODAL
-// ============================================================
 function dbOpenOpmerkingModal(id) {
   const opd = (window._dbAlleOpd || []).find(o => o.id === id);
   openModal(`
     <h2>Opmerking toevoegen</h2>
-    <p class="modal-sub">Voeg een persoonlijke notitie toe bij deze activiteit.</p>
+    <p class="modal-sub">Voeg een korte notitie toe bij deze les.</p>
     <div class="form-field">
       <label>Opmerking</label>
       <textarea id="db-opmerking-tekst" rows="4" style="width:100%;padding:10px 12px;border:1.5px solid var(--border-2);border-radius:var(--radius-sm);font-family:var(--font);font-size:14px;resize:vertical;background:var(--surface)">${escHtml(opd?.opmerking || '')}</textarea>
@@ -414,36 +248,22 @@ function dbOpenOpmerkingModal(id) {
 
 async function slaOpmerkingOp(id) {
   const tekst = document.getElementById('db-opmerking-tekst')?.value || '';
-  try {
-    await API.setOpmerking(id, tekst);
-    closeModalDirect();
-    renderDashboard();
-  } catch(e) { showError(e.message); }
+  try { await API.setOpmerking(id, tekst); closeModalDirect(); renderDashboard(); }
+  catch(e) { showError(e.message); }
 }
 
 function openDashboardNotitiePlaceholder() {
-  openModal(`
-    <h2>Notitie toevoegen</h2>
-    <p class="modal-sub">Voeg een persoonlijke notitie toe via de opmerking bij een activiteit.</p>
-    <div class="modal-actions">
-      <button class="btn btn-primary" onclick="closeModalDirect()">Sluiten</button>
-    </div>
-  `);
+  openModal(`<h2>AI lesassistent</h2><p class="modal-sub">Deze knop kan straks openen naar de centrale AI-wizard.</p><div class="modal-actions"><button class="btn btn-primary" onclick="closeModalDirect()">Sluiten</button></div>`);
 }
 
-// ============================================================
-// AFVINKEN
-// ============================================================
 async function dashboardAfvinken(id) {
   try { await API.afvinken(id); renderDashboard(); }
   catch(e) { showError(e.message); }
 }
-
 async function dashboardTaakAfvinken(id) {
   try { await API.taakAfvinken(id); renderDashboard(); }
   catch(e) { showError(e.message); }
 }
-
 async function dashboardTaakOppakken(id) {
   try { await API.taakOppakken(id); renderDashboard(); }
   catch(e) { showError(e.message); }
