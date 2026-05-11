@@ -219,6 +219,11 @@ async function wbAnalyseerUpload() {
   const input = document.getElementById('wb-upload');
   const file = _wbState.uploadFile || input?.files?.[0];
   if (!file) { document.getElementById('wb-result').innerHTML = `<span style="color:var(--red)">Kies eerst een bestand.</span>`; return; }
+  const maxMb = 80;
+  if (file.size > maxMb * 1024 * 1024) {
+    document.getElementById('wb-result').innerHTML = `<span style="color:var(--red)">Dit bestand is te groot (${Math.round(file.size / 1024 / 1024)} MB). Maximaal ${maxMb} MB.</span>`;
+    return;
+  }
   _wbState.uploadFile = file;
   wbSetBusy(true, 'AI analyseert upload. Volgende is tijdelijk uitgeschakeld.');
   try {
@@ -605,7 +610,12 @@ async function wbOpslaan() {
 async function wbJsonOfThrow(res) {
   const txt = await res.text();
   let data;
-  try { data = JSON.parse(txt); } catch { throw new Error('Server gaf geen JSON terug. Waarschijnlijk raakt de API-route niet goed: ' + txt.slice(0,80)); }
+  try {
+    data = JSON.parse(txt);
+  } catch {
+    const kort = txt.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 120);
+    throw new Error('Server gaf geen geldige JSON terug. Controleer de route /api/analyse-werkboekje en PM2 logs. ' + (kort ? 'Reactie: ' + kort : ''));
+  }
   if (!res.ok || data.error) throw new Error(data.error || 'Onbekende fout');
   return data;
 }
