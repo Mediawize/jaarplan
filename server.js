@@ -97,30 +97,7 @@ const storage = multer.diskStorage({
   }
 });
 const upload = multer({ storage, limits: { fileSize: 25 * 1024 * 1024 } });
-const uploadWerkboekjeAnalyse = multer({
-  storage,
-  limits: { fileSize: 80 * 1024 * 1024 },
-  fileFilter: (req, file, cb) => {
-    const ext = path.extname(file.originalname || '').toLowerCase();
-    const toegestaan = ['.pdf', '.docx', '.doc', '.txt'];
-    if (!toegestaan.includes(ext)) return cb(new Error('Alleen PDF, Word of TXT bestanden kunnen worden geanalyseerd.'));
-    cb(null, true);
-  }
-});
 const uploadMemory = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
-
-function multerJson(middleware) {
-  return (req, res, next) => {
-    middleware(req, res, (err) => {
-      if (!err) return next();
-      if (err instanceof multer.MulterError && err.code === 'LIMIT_FILE_SIZE') {
-        return res.status(413).json({ error: 'Bestand is te groot. Voor werkboekje-analyse is maximaal 80 MB toegestaan.' });
-      }
-      return res.status(400).json({ error: err.message || 'Upload mislukt.' });
-    });
-  };
-}
-const uploadWerkboekjeAnalyseJson = multerJson(uploadWerkboekjeAnalyse.single('bestand'));
 
 app.use(helmet({ contentSecurityPolicy: false }));
 app.use(express.json({ limit: '50mb' }));
@@ -496,7 +473,28 @@ app.get('/api/stats', requireAuth, (req, res) => {
 // ============================================================
 app.post('/api/upload', requireCanEdit, upload.single('bestand'), (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'Geen bestand ontvangen' });
-  res.json({ bestandsnaam: req.file.filename, origineel: req.file.originalname });
+  try {
+    const type = (req.body.type || '').trim();
+    const naam = (req.body.naam || req.file.originalname || req.file.filename).trim();
+    let materiaal = null;
+    if (type) {
+      materiaal = db.addMateriaal({
+        type,
+        naam,
+        bestandsnaam: req.file.filename,
+        vak: req.body.vak || ''
+      });
+    }
+    res.json({
+      success: true,
+      bestandsnaam: req.file.filename,
+      origineel: req.file.originalname,
+      materiaalId: materiaal?.id || null,
+      downloadUrl: `/uploads/${req.file.filename}`
+    });
+  } catch (e) {
+    res.status(500).json({ error: 'Upload opgeslagen, maar registreren mislukte: ' + e.message });
+  }
 });
 
 app.get('/api/lesprofiel-template', (req, res) => {
@@ -866,23 +864,12 @@ ${bronTekst.slice(0, 12000)}`;
           .map(s => ({ naam: String(s.naam).trim(), lessen: Array.isArray(s.lessen) ? s.lessen.filter(Boolean).slice(0, 3) : [] }))
       : [];
 
-    const origineleNaam = req.file.originalname;
-    const veiligeNaam = origineleNaam.replace(/\.[^.]+$/, '');
-    const mat = db.addMateriaal({
-      type: 'lesmodule',
-      naam: veiligeNaam,
-      bestandsnaam: req.file.filename,
-      vak: req.body.vak || ''
-    });
-
     return res.json({
       success: true,
-      naam: resultaat.naam || veiligeNaam,
+      naam: resultaat.naam || req.file.originalname.replace(/\.[^.]+$/, ''),
       type: gekozenType,
       stappen,
-      bronBestand: req.file.filename,
-      bronOrigineel: origineleNaam,
-      materiaalId: mat?.id || ''
+      bronBestand: req.file.originalname
     });
   } catch (e) {
     console.error('Fout bij /api/les-modules/analyseer:', e);
@@ -940,44 +927,35 @@ ${bronTekst.slice(0, 8000)}`;
       model: 'claude-sonnet-4-6'
     });
 
-    const origineleNaam = req.file.originalname;
-    const naamZonderExt = origineleNaam.replace(/\.[^.]+$/, '');
-    const bestandsnaam = req.file.filename;
-    const vak = (req.body.vak || '').trim();
-
+    const veiligeNaam = (opdrachtnaam || req.file.originalname || 'Werkboekje').trim();
     const mat = db.addMateriaal({
       type: 'werkboekje',
-      naam: opdrachtnaam || naamZonderExt,
-      bestandsnaam,
-      vak
+      naam: veiligeNaam,
+      bestandsnaam: req.file.filename,
+      vak: ''
     });
-
     const bib = db.addBibliotheekWerkboekje({
-      naam: opdrachtnaam || naamZonderExt,
-      beschrijving: 'Geüpload vanuit lesmodule/praktijkopdracht',
-      vakId: req.body.vakId || null,
+      naam: veiligeNaam,
+      beschrijving: 'Geüpload vanuit lesmodule',
       niveau,
-      aangemaaktDoor: req.session.user.id,
       data: {
-        titel: opdrachtnaam || naamZonderExt,
-        type: 'upload',
-        bestandsnaam,
-        origineel: origineleNaam,
-        downloadUrl: `/uploads/${bestandsnaam}`,
-        materiaalId: mat?.id || '',
-        theorieSectie: resultaat.theorieSectie || '',
-        syllabusCodes: Array.isArray(resultaat.syllabusCodes) ? resultaat.syllabusCodes.filter(Boolean) : []
-      }
+        bestandsnaam: req.file.filename,
+        origineel: req.file.originalname,
+        downloadUrl: `/uploads/${req.file.filename}`
+      },
+      aangemaaktDoor: req.session.user.id
     });
 
     return res.json({
       success: true,
       theorieSectie: resultaat.theorieSectie || '',
       syllabusCodes: Array.isArray(resultaat.syllabusCodes) ? resultaat.syllabusCodes.filter(Boolean) : [],
-      bestandsnaam,
-      origineel: origineleNaam,
-      materiaalId: mat?.id || '',
-      werkboekjeId: bib?.id || ''
+      bestandsnaam: req.file.filename,
+      origineelBestand: req.file.originalname,
+      materiaalId: mat?.id || null,
+      bibliotheekId: bib?.id || null,
+      bibliotheekNaam: bib?.naam || veiligeNaam,
+      downloadUrl: `/uploads/${req.file.filename}`
     });
   } catch (e) {
     console.error('Fout bij /api/les-modules/analyseer-praktijk:', e);
@@ -1840,7 +1818,7 @@ async function bouwWerkboekjeDocxVast({ schoolnaam, logoBestand, data }) {
 // ============================================================
 // WERKBOEKJE — analyseer upload voor wizard (geen blind opslaan)
 // ============================================================
-app.post('/api/analyse-werkboekje', requireCanEdit, uploadWerkboekjeAnalyseJson, async (req, res) => {
+app.post('/api/analyse-werkboekje', requireCanEdit, upload.single('bestand'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'Geen bestand geüpload' });
   try {
     const inhoud = await extractTekstUitBestand(req.file.path, req.file.originalname);
