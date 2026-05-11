@@ -559,6 +559,7 @@ async function lmAnalyseerPraktijkBestand(btn) {
   const theorieInput = rij.querySelector('.lm-po-theorie');
   const codesInput = rij.querySelector('.lm-po-codes');
   const bestandsnaamEl = rij.querySelector('.lm-po-bestandsnaam');
+  const wbidSelect = rij.querySelector('.lm-po-wbid');
   if (!fileInput?.files?.[0]) { alert('Kies eerst een bestand.'); return; }
   const origTekst = btn.textContent;
   btn.disabled = true; btn.textContent = '⏳';
@@ -566,13 +567,74 @@ async function lmAnalyseerPraktijkBestand(btn) {
   fd.append('bestand', fileInput.files[0]);
   fd.append('opdrachtnaam', naamInput?.value || '');
   fd.append('niveau', document.getElementById('lm-niveau')?.value || '');
+  fd.append('vakId', document.getElementById('lm-vak')?.value || '');
+  fd.append('vak', document.getElementById('lm-vak')?.selectedOptions?.[0]?.textContent?.trim() || '');
   try {
     const res = await fetch('/api/les-modules/analyseer-praktijk', { method: 'POST', credentials: 'same-origin', body: fd });
     const data = await res.json();
     if (!res.ok || data.error) throw new Error(data.error || 'Fout');
     if (theorieInput && data.theorieSectie) theorieInput.value = data.theorieSectie;
     if (codesInput && data.syllabusCodes?.length) codesInput.value = data.syllabusCodes.join(', ');
-    if (bestandsnaamEl && data.bestandsnaam) { bestandsnaamEl.textContent = data.bestandsnaam; rij.dataset.werkboekjeBestand = data.bestandsnaam; }
+    if (bestandsnaamEl && data.bestandsnaam) {
+      bestandsnaamEl.innerHTML = `<a href="/uploads/${encodeURIComponent(data.bestandsnaam)}" target="_blank" style="color:var(--accent)">${escHtml(data.origineel || data.bestandsnaam)}</a>`;
+      rij.dataset.werkboekjeBestand = data.bestandsnaam;
+    }
+    if (data.werkboekjeId && wbidSelect) {
+      await lmRefreshBibliotheekOpties(data.werkboekjeId);
+      wbidSelect.value = data.werkboekjeId;
+    }
+  } catch (e) { alert('Fout: ' + e.message); }
+  finally { btn.disabled = false; btn.textContent = origTekst; }
+}
+
+
+async function lmRefreshBibliotheekOpties(selectedId = '') {
+  try {
+    const bib = await fetch('/api/werkboekje-bibliotheek', { credentials: 'same-origin' }).then(r => r.json());
+    window._lmBibliotheek = Array.isArray(bib) ? bib : [];
+    document.querySelectorAll('.lm-po-wbid, .lm-gd-wbid').forEach(select => {
+      const huidige = selectedId || select.value || '';
+      select.innerHTML = '<option value="">— Geen / handmatige link —</option>' + window._lmBibliotheek.map(w => {
+        const label = escHtml(w.naam || w.data?.titel || 'Werkboekje');
+        return `<option value="${w.id}" ${w.id === huidige ? 'selected' : ''}>${label}</option>`;
+      }).join('');
+      if (huidige) select.value = huidige;
+    });
+  } catch (_) {}
+}
+
+async function lmAnalyseerGedeeldBestand(btn) {
+  const rij = btn.closest('.lm-gedeelde-rij');
+  if (!rij) return;
+  const fileInput = rij.querySelector('.lm-gd-bestand');
+  const naamInput = rij.querySelector('.lm-gd-naam');
+  const theorieInput = rij.querySelector('.lm-gd-theorie');
+  const codesInput = rij.querySelector('.lm-gd-codes');
+  const bestandsnaamEl = rij.querySelector('.lm-gd-bestandsnaam');
+  const wbidSelect = rij.querySelector('.lm-gd-wbid');
+  if (!fileInput?.files?.[0]) { alert('Kies eerst een bestand.'); return; }
+  const origTekst = btn.textContent;
+  btn.disabled = true; btn.textContent = '⏳';
+  const fd = new FormData();
+  fd.append('bestand', fileInput.files[0]);
+  fd.append('opdrachtnaam', naamInput?.value || '');
+  fd.append('niveau', document.getElementById('lm-niveau')?.value || '');
+  fd.append('vakId', document.getElementById('lm-vak')?.value || '');
+  fd.append('vak', document.getElementById('lm-vak')?.selectedOptions?.[0]?.textContent?.trim() || '');
+  try {
+    const res = await fetch('/api/les-modules/analyseer-praktijk', { method: 'POST', credentials: 'same-origin', body: fd });
+    const data = await res.json();
+    if (!res.ok || data.error) throw new Error(data.error || 'Fout');
+    if (theorieInput && data.theorieSectie) theorieInput.value = data.theorieSectie;
+    if (codesInput && data.syllabusCodes?.length) codesInput.value = data.syllabusCodes.join(', ');
+    if (bestandsnaamEl && data.bestandsnaam) {
+      bestandsnaamEl.innerHTML = `<a href="/uploads/${encodeURIComponent(data.bestandsnaam)}" target="_blank" style="color:var(--accent)">${escHtml(data.origineel || data.bestandsnaam)}</a>`;
+      rij.dataset.werkboekjeBestand = data.bestandsnaam;
+    }
+    if (data.werkboekjeId && wbidSelect) {
+      await lmRefreshBibliotheekOpties(data.werkboekjeId);
+      wbidSelect.value = data.werkboekjeId;
+    }
   } catch (e) { alert('Fout: ' + e.message); }
   finally { btn.disabled = false; btn.textContent = origTekst; }
 }
@@ -650,6 +712,12 @@ function lmGedeeldeOpdrachtHtml(idx, o, stappen) {
         <input class="lm-gd-codes" value="${escHtml(codes)}" placeholder="K/PIE/2.1, K/DT/3.2"
           style="border:1px solid var(--border);border-radius:6px;padding:3px 7px;font-size:11px;width:100%">
       </div>
+    </div>
+    <div style="display:flex;align-items:center;gap:6px;margin-top:8px">
+      <label style="font-size:10px;color:var(--ink-muted);white-space:nowrap;flex-shrink:0">Werkboekje uploaden:</label>
+      <input class="lm-gd-bestand" type="file" accept=".pdf,.docx" style="font-size:10px;flex:1;min-width:0">
+      <button class="btn btn-sm" onclick="lmAnalyseerGedeeldBestand(this)" style="font-size:10px;padding:3px 8px;white-space:nowrap">AI ▶</button>
+      <span class="lm-gd-bestandsnaam" style="font-size:10px;color:var(--ink-muted)">${o.werkboekjeBestand ? escHtml(o.werkboekjeBestand) : ''}</span>
     </div>
   </div>`;
 }
@@ -737,6 +805,7 @@ function lmLeesGedeeldeOpdrachten() {
       theorieSectie: rij.querySelector('.lm-gd-theorie')?.value.trim() || '',
       syllabusCodes: codesRaw ? codesRaw.split(',').map(s => s.trim()).filter(Boolean) : [],
       stappen: geselecteerdeStappen,
+      werkboekjeBestand: rij.dataset.werkboekjeBestand || rij.querySelector('.lm-gd-bestandsnaam')?.textContent.trim() || '',
     };
   }).filter(o => o.naam);
 }
