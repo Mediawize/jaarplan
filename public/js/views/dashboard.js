@@ -17,7 +17,8 @@ async function renderDashboard() {
     const begroeting = uur < 12 ? 'Goedemorgen' : uur < 18 ? 'Goedemiddag' : 'Goedenavond';
     const voornaam = Auth.currentUser?.naam?.split(' ')[0] || '';
 
-    const lessenVandaag = _dbMaakDagLessen(alleOpd, klassen, cw);
+    const mijnRooster = normaliseerDashboardRooster(await API.getRooster(Auth.currentUser?.id));
+    const lessenVandaag = _dbMaakDagLessen(alleOpd, klassen, cw, mijnRooster, vandaagNaam);
     const openTaken = (alleTaken || [])
       .filter(t => !t.afgerond)
       .sort((a, b) => _dbDatumWaarde(a.deadline) - _dbDatumWaarde(b.deadline));
@@ -117,29 +118,122 @@ function _dbStatCard(icon, label, waarde, kleur) {
   </div>`;
 }
 
-function _dbMaakDagLessen(alleOpd, klassen, cw) {
-  const startTijden = ['08:30','09:45','11:00','12:30','13:45','15:05'];
-  return (alleOpd || [])
-    .filter(o => weekInRange(o.weken, cw))
-    .sort((a, b) => (a.naam || '').localeCompare(b.naam || ''))
-    .slice(0, 6)
-    .map((o, i) => {
-      const minuten = Math.max(45, Math.round((parseFloat(o.uren || 1) || 1) * 60));
-      const start = startTijden[i] || '15:05';
-      return { opdracht: o, klas: klassen.find(k => k.id === o.klasId), start, eind: _dbTelMinuten(start, minuten), minuten };
+function normaliseerDashboardRooster(rooster) {
+  const output = {};
+  Object.entries(rooster || {}).forEach(([klasId, waarde]) => {
+    output[klasId] = {};
+    if (Array.isArray(waarde)) {
+      waarde.forEach(dag => { output[klasId][String(dag).toLowerCase()] = [1]; });
+    } else if (waarde && typeof waarde === 'object') {
+      Object.entries(waarde).forEach(([dag, uren]) => {
+        output[klasId][String(dag).toLowerCase()] = Array.isArray(uren) ? uren.map(Number).filter(Boolean).sort((a,b)=>a-b) : [];
+      });
+    }
+  });
+  return output;
+}
+
+function dashboardRoosterTijden(leerjaar) {
+  const lj = parseInt(leerjaar, 10);
+  const onderbouw = lj === 1 || lj === 2;
+  return {
+    1: ['08:30','09:15'],
+    2: ['09:15','10:00'],
+    3: ['10:20','11:05'],
+    4: ['11:05','11:50'],
+    5: onderbouw ? ['12:15','13:00'] : ['11:50','12:35'],
+    6: ['13:00','13:45'],
+    7: ['13:45','14:30'],
+    8: ['14:45','15:30']
+  };
+}
+
+function dashboardPauzes(leerjaar) {
+  const lj = parseInt(leerjaar, 10);
+  const onderbouw = lj === 1 || lj === 2;
+  return onderbouw
+    ? [['10:00','10:20'], ['11:50','12:15'], ['14:30','14:45']]
+    : [['10:00','10:20'], ['12:35','13:00'], ['14:30','14:45']];
+}
+
+function _dbMaakDagLessen(alleOpd, klassen, cw, rooster, vandaagNaam) {
+  const dag = String(vandaagNaam || '').toLowerCase();
+  const lessen = [];
+
+  klassen.forEach(klas => {
+    const uren = (((rooster[klas.id] || {})[dag]) || []).map(Number).sort((a, b) => a - b);
+    if (!uren.length) return;
+
+    const blokken = maakLesuurBlokken(uren);
+    const opdrachten = (alleOpd || [])
+      .filter(o => o.klasId === klas.id && weekInRange(o.weken, cw))
+      .sort((a, b) => (a.naam || '').localeCompare(b.naam || ''));
+
+    blokken.forEach((blok, index) => {
+      const opdracht = opdrachten[index] || opdrachten[0];
+      if (!opdracht) return;
+      const tijden = dashboardRoosterTijden(klas.leerjaar);
+      const start = tijden[blok[0]]?.[0] || '08:30';
+      const eind = tijden[blok[blok.length - 1]]?.[1] || _dbTelMinuten(start, 45 * blok.length);
+      lessen.push({
+        opdracht,
+        klas,
+        start,
+        eind,
+        minuten: 45 * blok.length,
+        lesuren: blok,
+        sort: tijdNaarMinuten(start)
+      });
     });
+  });
+
+  return lessen.sort((a, b) => a.sort - b.sort);
+}
+
+function maakLesuurBlokken(uren) {
+  const blokken = [];
+  let huidig = [];
+  uren.forEach(uur => {
+    if (!huidig.length || uur === huidig[huidig.length - 1] + 1) huidig.push(uur);
+    else { blokken.push(huidig); huidig = [uur]; }
+  });
+  if (huidig.length) blokken.push(huidig);
+  return blokken;
 }
 
 function renderDashboardVandaag(lessen) {
   if (!lessen.length) {
-    return `<div class="empty-state" style="padding:48px 24px"><p>Geen lessen gepland voor deze week.</p><button class="btn btn-primary" style="margin-top:16px" onclick="showView('jaarplanning')">Naar jaarplanning →</button></div>`;
+    return `<div class="empty-state" style="padding:48px 24px"><p>Geen lessen voor vandaag ingesteld. Stel eerst je lesuren in bij Mijn rooster.</p><button class="btn btn-primary" style="margin-top:16px" onclick="showView('rooster')">Naar rooster →</button></div>`;
   }
-  const pauze = lessen.length > 3 ? `<div class="td-pause"><div class="td-time"><strong>12:00</strong><span>12:30</span></div><div class="td-pause-card">🍴 <strong>Pauze</strong><span>30 minuten</span></div></div>` : '';
+
+  const items = [];
+  lessen.forEach(les => {
+    items.push({ type: 'les', start: les.start, sort: tijdNaarMinuten(les.start), les });
+  });
+
+  const leerjaar = lessen[0]?.klas?.leerjaar || 3;
+  dashboardPauzes(leerjaar).forEach(([start, eind]) => {
+    const begin = tijdNaarMinuten(start);
+    const einde = tijdNaarMinuten(eind);
+    const heeftLesErvoor = lessen.some(l => tijdNaarMinuten(l.start) < begin);
+    const heeftLesErna = lessen.some(l => tijdNaarMinuten(l.eind) > einde);
+    if (heeftLesErvoor && heeftLesErna) items.push({ type: 'pauze', start, eind, sort: begin });
+  });
+
+  items.sort((a, b) => a.sort - b.sort);
+
   return `<div class="td-timeline">
-    ${lessen.slice(0, 3).map(renderLesCard).join('')}
-    ${pauze}
-    ${lessen.slice(3).map(renderLesCard).join('')}
+    ${items.map(item => item.type === 'pauze' ? renderDashboardPauze(item.start, item.eind) : renderLesCard(item.les)).join('')}
   </div>`;
+}
+
+function renderDashboardPauze(start, eind) {
+  return `<div class="td-pause"><div class="td-time"><strong>${escHtml(start)}</strong><span>${escHtml(eind)}</span></div><div class="td-pause-card">🍴 <strong>Pauze</strong><span>${tijdNaarMinuten(eind) - tijdNaarMinuten(start)} minuten</span></div></div>`;
+}
+
+function tijdNaarMinuten(tijd) {
+  const [u, m] = String(tijd || '00:00').split(':').map(Number);
+  return (u || 0) * 60 + (m || 0);
 }
 
 function renderLesCard(les) {
@@ -159,7 +253,7 @@ function renderLesCard(les) {
       <div class="td-lesson-main">
         <div>
           <h3>${escHtml(o.naam)}</h3>
-          <div class="td-meta">▣ ${escHtml(type)} <span>•</span> ${klas ? escHtml(klas.naam) : 'Geen klas'} <span>•</span> ${escHtml(lokaal)}</div>
+          <div class="td-meta">▣ ${escHtml(type)} <span>•</span> ${klas ? escHtml(klas.naam) : 'Geen klas'} <span>•</span> ${escHtml(lokaal)} ${les.lesuren?.length ? `<span>•</span> Lesuur ${les.lesuren.join(', ')}` : ''}</div>
           <p><strong>Focus:</strong> ${escHtml(o.focus || o.beschrijving || 'Les voorbereiden en uitvoeren volgens de planning.')}</p>
         </div>
         <span class="td-status">${escHtml(status)}</span>
