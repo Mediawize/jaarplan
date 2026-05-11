@@ -682,7 +682,7 @@ async function wbBouwHtml(data) {
         </div>
         <div class="tool-raster">${machines.map(m=>`
           <div class="tool-kaart">
-            <div class="tool-foto">${m.afbeeldingBase64?`<img src="${m.afbeeldingBase64}" style="width:100%;height:100%;object-fit:cover">`:'<span>Foto hier</span>'}</div>
+            ${m.afbeeldingBase64 ? `<div class="tool-foto"><img src="${m.afbeeldingBase64}" style="width:100%;height:100%;object-fit:cover"></div>` : ''}
             <strong>${wbEsc(m.naam||'')}</strong>
             <small>${wbEsc(m.omschrijving||'')}</small>
           </div>`).join('')}
@@ -713,7 +713,7 @@ async function wbBouwHtml(data) {
           </div>
         </div>`;
       }
-      if ((st.type||'foto') === 'tekening-upload') {
+      if ((st.type||'foto') === 'tekening-upload' && st.afbeeldingBase64) {
         return `<div style="page-break-before:always;break-before:page;padding:14mm;min-height:100vh;box-sizing:border-box;display:flex;flex-direction:column">
           <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">
             <div class="stap-cirkel">${stapNr}</div>
@@ -721,28 +721,31 @@ async function wbBouwHtml(data) {
           </div>
           ${st.stap?`<p style="font-size:15px;color:var(--tekst-zacht);margin:0 0 14px">${wbEsc(st.stap)}</p>`:''}
           <div style="flex:1;display:flex;align-items:center;justify-content:center">
-            ${st.afbeeldingBase64
-              ? `<img src="${st.afbeeldingBase64}" style="max-width:100%;max-height:220mm;object-fit:contain;border-radius:var(--radius);border:1px solid var(--rand)">`
-              : `<div class="foto-vak" style="width:100%;min-height:180mm;height:100%"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21,15 16,10 5,21"/></svg><span>Tekening hier plaatsen</span></div>`
-            }
+            <img src="${st.afbeeldingBase64}" style="max-width:100%;max-height:220mm;object-fit:contain;border-radius:var(--radius);border:1px solid var(--rand)">
           </div>
         </div>`;
       }
-      const fotoSvg = `<svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21,15 16,10 5,21"/></svg>`;
-      return `<div class="stap">
+      const heeftAfbeelding = !!st.afbeeldingBase64;
+      return `<div class="stap ${heeftAfbeelding ? 'met-foto' : 'zonder-foto'}">
         <div class="stap-nummering"><div class="stap-cirkel">${stapNr}</div></div>
         <div class="stap-kaart">
-          <h3>${wbEsc(sec.titel||'Stap')} ${stapNr}</h3>
-          ${st.stap?`<p>${wbEsc(st.stap)}</p>`:''}
-          <div class="foto-rij een">
-            <div class="foto-vak${st.afbeeldingBase64?' groot':''}">
-              ${st.afbeeldingBase64
-                ? `<img src="${st.afbeeldingBase64}" style="height:100%;width:auto;max-width:100%;object-fit:contain;display:block">`
-                : fotoSvg+'<span>Foto hier plaatsen</span>'}
-              <div class="foto-label">${wbEsc(st.bijschrift||'Bijschrift')}</div>
-            </div>
+          <div class="stap-kopregel">
+            <h3>${wbEsc(sec.titel||'Stap')} ${stapNr}</h3>
+            <span class="stap-badge">Opdracht</span>
           </div>
+          ${st.stap?`<p class="stap-opdracht">${wbEsc(st.stap)}</p>`:''}
+          ${heeftAfbeelding ? `<div class="foto-rij een">
+            <div class="foto-vak groot">
+              <img src="${st.afbeeldingBase64}" style="height:100%;width:auto;max-width:100%;object-fit:contain;display:block">
+              ${st.bijschrift ? `<div class="foto-label">${wbEsc(st.bijschrift)}</div>` : ''}
+            </div>
+          </div>` : ''}
           ${st.tip?`<div class="blok tip"><div class="blok-titel">💡 Tip</div>${wbEsc(st.tip)}</div>`:''}
+          <div class="controleblok">
+            <label>☐ Stap uitgevoerd</label>
+            <label>☐ Netjes gecontroleerd</label>
+            <label>☐ Docentcontrole</label>
+          </div>
         </div>
       </div>`;
     })
@@ -768,6 +771,15 @@ async function wbBouwHtml(data) {
     @page{size:A4;margin:0}
     ${css}
     .tekenvak.heeft-titelbalk{padding-bottom:44px}
+    .tool-kaart:not(:has(.tool-foto)){min-height:auto;padding:16px 14px;text-align:left}
+    .stap.zonder-foto .stap-kaart{padding-bottom:16px}
+    .stap-kopregel{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:8px}
+    .stap-kopregel h3{margin:0}
+    .stap-badge{font-size:11px;font-weight:700;color:var(--blauw);background:#eef4ff;border:1px solid #dbe7ff;border-radius:999px;padding:5px 9px;white-space:nowrap}
+    .stap-opdracht{font-size:14px;line-height:1.55;margin:0 0 12px;color:var(--tekst)}
+    .controleblok{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px;padding-top:10px;border-top:1px solid var(--rand)}
+    .controleblok label{font-size:11px;color:var(--tekst-zacht);background:#f8fafc;border:1px solid var(--rand);border-radius:10px;padding:8px 9px}
+    @media print{.controleblok{break-inside:avoid}.stap{break-inside:avoid;page-break-inside:avoid}}
   </style></head><body>
   ${cover}
   <div class="pagina">${secties.join('\n')}</div>
