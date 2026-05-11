@@ -29,7 +29,7 @@ async function renderKlassen() {
                   </div>
                   <div class="klas-meta-row">
                     Leerjaar ${k.leerjaar||'?'} · ${escHtml(k.niveau)} · ${escHtml(vak?.naam||'—')}
-                    ${k.urenPerWeek?` · ${k.urenPerWeek}u/week`:''}
+                    ${k.urenPerWeek?` · ${k.urenPerWeek}u/week`:''}${k.aantalLeerlingen?` · ${k.aantalLeerlingen} leerlingen`:''}
                   </div>
                   ${klasDocenten.length > 0 ? `
                   <div class="klas-docent-chips">
@@ -95,6 +95,9 @@ async function openKlasModal(id = null) {
       </div>
       <div class="form-field"><label>Uren per week</label>
         <select id="klas-uren">${[1,2,3,4,5,6,7,8,9,10].map(n=>`<option value="${n}" ${(k?.urenPerWeek||3)===n?'selected':''}>${n} uur per week</option>`).join('')}</select>
+      </div>
+      <div class="form-field"><label>Aantal leerlingen</label>
+        <input id="klas-aantal-leerlingen" type="number" min="0" step="1" placeholder="bijv. 24" value="${escHtml(k?.aantalLeerlingen ?? '')}">
       </div>
     </div>
 
@@ -214,6 +217,7 @@ async function saveKlas(id) {
     vakId,
     docentId: docenten[0] || null,
     urenPerWeek: parseInt(document.getElementById('klas-uren').value),
+    aantalLeerlingen: parseInt(document.getElementById('klas-aantal-leerlingen')?.value || 0),
     docenten,
     roulatie,
     roulatieStart: roulatie ? parseInt(document.getElementById('klas-roulatie-start').value) : null,
