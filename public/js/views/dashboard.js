@@ -259,9 +259,7 @@ function renderLesCard(les) {
         <span class="td-status">${escHtml(status)}</span>
       </div>
       <div class="td-lesson-actions">
-        ${_dbActionButton(o.theorieLink, 'Lesmateriaal', 'showView(\'lesmaterialen\')')}
-        ${_dbActionButton(o.presentatieLink, 'Presentatie', 'showView(\'lesmaterialen\')')}
-        ${_dbActionButton(o.werkboekLink, 'Werkboekje', 'showView(\'werkboekjes\')')}
+        ${_dbMateriaalButtons(o)}
         <button onclick="openLesbrief('${o.id}')">▤ Lesbrief</button>
         ${Auth.canEdit() ? `<button class="td-finish" onclick="dashboardAfvinken('${o.id}')">✓ ${o.afgevinkt ? 'Heropenen' : 'Les afronden'}</button><button onclick="dbOpenOpmerkingModal('${o.id}')">▣ Opmerking</button>` : ''}
       </div>
@@ -270,9 +268,26 @@ function renderLesCard(les) {
   </article>`;
 }
 
-function _dbActionButton(link, label, fallback) {
-  if (link) return `<a href="${escHtml(link)}" target="_blank" rel="noopener">▤ ${escHtml(label)}</a>`;
-  return `<button onclick="${fallback}">▤ ${escHtml(label)}</button>`;
+function _dbMateriaalButtons(o) {
+  const knoppen = [];
+
+  const lesmateriaal = _dbEersteWaarde(o.theorieLink, o.lesmateriaalLink, o.lesmateriaalUrl, o.materiaalLink, o.materiaalUrl);
+  const presentatie = _dbEersteWaarde(o.presentatieLink, o.presentatieUrl, o.presentatieBestand, o.slidesLink, o.slidesUrl);
+  const werkboekje = _dbEersteWaarde(o.werkboekLink, o.werkboekjeLink, o.werkboekUrl, o.werkboekjeUrl);
+
+  if (lesmateriaal) knoppen.push(_dbGekoppeldeKnop(lesmateriaal, 'Lesmateriaal'));
+  if (presentatie) knoppen.push(_dbGekoppeldeKnop(presentatie, 'Presentatie'));
+  if (werkboekje) knoppen.push(_dbGekoppeldeKnop(werkboekje, 'Werkboekje'));
+
+  return knoppen.join('');
+}
+
+function _dbEersteWaarde(...waardes) {
+  return waardes.find(v => typeof v === 'string' && v.trim())?.trim() || null;
+}
+
+function _dbGekoppeldeKnop(link, label) {
+  return `<a href="${escHtml(link)}" target="_blank" rel="noopener">▤ ${escHtml(label)}</a>`;
 }
 
 function _dbTaakRegel(t) {
