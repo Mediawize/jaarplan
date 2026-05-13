@@ -1929,6 +1929,8 @@ app.post('/api/lesbrieven', requireCanEdit, (req, res) => {
   try {
     const body = { ...(req.body || {}) };
     if (!body.profielId && body.opdrachtId) body.profielId = body.opdrachtId;
+    if (body.weekIdx === undefined || body.weekIdx === null || body.weekIdx === '') body.weekIdx = 0;
+    if (body.actIdx === undefined || body.actIdx === null || body.actIdx === '') body.actIdx = 0;
     const lb = db.addLesbrief(body);
     res.json(lb);
   } catch (e) {
