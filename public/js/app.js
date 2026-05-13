@@ -39,8 +39,9 @@ function getCurrentWeek() {
 function weekInRange(w, wk) {
   if (!w) return false;
   if (String(w).includes('-')) {
-    const [s, e] = String(w).split('-').map(n => parseInt(n.trim(), 10));
-    return wk >= s && wk <= e;
+    const parts = String(w).split('-').map(n => parseInt(n.trim(), 10));
+    if (parts.length !== 2 || !Number.isFinite(parts[0]) || !Number.isFinite(parts[1])) return false;
+    return wk >= parts[0] && wk <= parts[1];
   }
   return parseInt(w, 10) === wk;
 }
@@ -48,9 +49,9 @@ function weekInRange(w, wk) {
 function getInitialen(user) {
   if (!user) return '???';
   if (user.initialen) return user.initialen.toUpperCase().slice(0, 3);
-  const delen = [(user.naam || ''), (user.achternaam || '')].join(' ').trim().split(/\s+/);
-  if (delen.length >= 3) return (delen[0][0] + delen[1][0] + delen[2][0]).toUpperCase();
-  if (delen.length === 2) return (delen[0][0] + delen[0][1] + delen[1][0]).toUpperCase();
+  const delen = [(user.naam || ''), (user.achternaam || '')].join(' ').trim().split(/\s+/).filter(Boolean);
+  if (delen.length >= 3) return ((delen[0][0] || '') + (delen[1][0] || '') + (delen[2][0] || '')).toUpperCase().padEnd(3, 'X');
+  if (delen.length === 2) return ((delen[0][0] || '') + (delen[0][1] || '') + (delen[1][0] || '')).toUpperCase().padEnd(3, 'X');
   if (delen.length === 1 && delen[0].length >= 3) return delen[0].slice(0, 3).toUpperCase();
   return (delen.join('').slice(0, 3)).toUpperCase().padEnd(3, 'X');
 }

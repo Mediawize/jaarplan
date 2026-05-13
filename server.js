@@ -196,7 +196,7 @@ app.post('/api/login', loginLimiter, (req, res) => {
   if (!user) return res.status(401).json({ error: 'Onjuist e-mailadres of wachtwoord' });
   req.session.user = {
     id: user.id,
-    naam: user.naam + ' ' + user.achternaam,
+    naam: ((user.naam || '') + ' ' + (user.achternaam || '')).trim(),
     rol: user.rol,
     email: user.email,
     vakken: user.vakken || [],
@@ -388,7 +388,7 @@ app.post('/api/opdrachten/:id/afvinken', requireCanEdit, (req, res) => {
   } else {
     db.updateOpdracht(o.id, {
       afgevinkt: true,
-      afgevinktDoor: user.initialen || user.naam.slice(0, 3).toUpperCase(),
+      afgevinktDoor: user.initialen || (user.naam ? user.naam.slice(0, 3).toUpperCase() : '???'),
       afgevinktOp: new Date().toISOString()
     });
   }
@@ -559,7 +559,7 @@ app.post('/api/import-lesprofiel', requireCanEdit, upload.single('bestand'), asy
     if (huidigeWeek) weken.push(huidigeWeek);
     const wekenArray = Array.from({ length: aantalWeken }, (_, i) => weken.find(w => w.weekIndex === i + 1) || { weekIndex: i + 1, thema: '', activiteiten: [] });
     const profiel = db.addLesprofiel({ naam, vakId: vak.id, docentId: req.session.user.id, aantalWeken, urenPerWeek, beschrijving: beschrijving || '', weken: wekenArray });
-    fs.unlinkSync(req.file.path);
+    try { fs.unlinkSync(req.file.path); } catch (_) {}
     res.json({ success: true, profiel, info: `Profiel "${naam}" aangemaakt met ${wekenArray.length} weken en ${wekenArray.reduce((t, w) => t + w.activiteiten.length, 0)} activiteiten.` });
   } catch (e) {
     if (req.file?.path && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
@@ -682,7 +682,12 @@ Zet elke gevonden les- of theoriestap als aparte string in de array. Gebruik de 
 // LESPROFIEL — AI Weekverdeling genereren bij koppelen
 // ============================================================
 app.post('/api/lesprofielen/:id/genereer-verdeling', requireCanEdit, async (req, res) => {
-  const { aantalWeken, klasId } = req.body || {};
+  const { klasId } = req.body || {};
+  const aantalWekenRaw = parseInt(req.body?.aantalWeken, 10);
+  if (!Number.isFinite(aantalWekenRaw) || aantalWekenRaw < 1 || aantalWekenRaw > 52) {
+    return res.status(400).json({ error: 'Aantal weken moet tussen 1 en 52 liggen' });
+  }
+  const aantalWeken = aantalWekenRaw;
   try {
     const profiel = db.getLesprofiel(req.params.id);
     if (!profiel) return res.status(404).json({ error: 'Lesprofiel niet gevonden' });
@@ -1138,7 +1143,7 @@ app.post('/api/instellingen/logo', requireAdmin, upload.single('logo'), (req, re
   if (!req.file) return res.status(400).json({ error: 'Geen bestand ontvangen' });
   const allowed = ['image/png', 'image/jpeg', 'image/jpg', 'image/svg+xml'];
   if (!allowed.includes(req.file.mimetype)) {
-    fs.unlinkSync(req.file.path);
+    try { fs.unlinkSync(req.file.path); } catch (_) {}
     return res.status(400).json({ error: 'Alleen PNG, JPG of SVG toegestaan' });
   }
   const oud = db.getInstelling('logoBestand');
