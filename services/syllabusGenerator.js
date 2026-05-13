@@ -514,7 +514,6 @@ function applyVakCodeToSyllabusValue(value, vakCode) {
   if (value == null) return value;
   const code = normalizeVakCodeForSyllabus(vakCode);
   return String(value)
-    .replace(/P\/\[A-Z\]\+\//gi, `P/${code}/`)
     .replace(/P\/[A-Z]{2,5}\//gi, `P/${code}/`);
 }
 

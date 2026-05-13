@@ -96,7 +96,13 @@ const storage = multer.diskStorage({
     cb(null, Date.now() + '_' + safe);
   }
 });
-const upload = multer({ storage, limits: { fileSize: 25 * 1024 * 1024 } });
+const ALLOWED_UPLOAD_EXTENSIONS = new Set(['.pdf', '.docx', '.doc', '.xlsx', '.xls', '.pptx', '.ppt', '.txt', '.csv', '.png', '.jpg', '.jpeg', '.gif', '.mp4', '.mp3']);
+const uploadFileFilter = (req, file, cb) => {
+  const ext = path.extname(file.originalname).toLowerCase();
+  if (ALLOWED_UPLOAD_EXTENSIONS.has(ext)) cb(null, true);
+  else cb(new Error(`Bestandstype '${ext}' is niet toegestaan`), false);
+};
+const upload = multer({ storage, limits: { fileSize: 25 * 1024 * 1024 }, fileFilter: uploadFileFilter });
 const uploadMemory = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 
 app.use(helmet({ contentSecurityPolicy: false }));
@@ -497,7 +503,7 @@ app.post('/api/upload', requireCanEdit, upload.single('bestand'), (req, res) => 
   }
 });
 
-app.get('/api/lesprofiel-template', (req, res) => {
+app.get('/api/lesprofiel-template', requireAuth, (req, res) => {
   const templatePath = path.join(__dirname, 'public', 'lesprofiel_template.docx');
   if (!fs.existsSync(templatePath)) return res.status(404).json({ error: 'Template niet gevonden' });
   res.download(templatePath, 'lesprofiel_template.docx');
@@ -1929,8 +1935,8 @@ app.post('/api/lesbrieven', requireCanEdit, (req, res) => {
   try {
     const body = { ...(req.body || {}) };
     if (!body.profielId && body.opdrachtId) body.profielId = body.opdrachtId;
-    if (body.weekIdx === undefined || body.weekIdx === null || body.weekIdx === '') body.weekIdx = 0;
-    if (body.actIdx === undefined || body.actIdx === null || body.actIdx === '') body.actIdx = 0;
+    body.weekIdx = (body.weekIdx !== undefined && body.weekIdx !== null && body.weekIdx !== '') ? Math.max(0, parseInt(body.weekIdx, 10) || 0) : 0;
+    body.actIdx  = (body.actIdx  !== undefined && body.actIdx  !== null && body.actIdx  !== '') ? Math.max(0, parseInt(body.actIdx,  10) || 0) : 0;
     const lb = db.addLesbrief(body);
     res.json(lb);
   } catch (e) {
