@@ -37,7 +37,7 @@ async function renderLesprofielen() {
     const moduleMap = Object.fromEntries(modules.map(m => [m.id, m]));
 
     const niveauVolgorde = ['BB', 'KB', 'GL', 'TL', 'Havo', 'VWO'];
-    const niveauKleur = { BB: 'var(--amber)', KB: 'var(--blue)', GL: 'var(--accent)', TL: '#9333EA', Havo: '#0891B2', VWO: '#DC2626' };
+    const niveauKleur = { BB: 'var(--amber)', KB: 'var(--blue)', GL: 'var(--accent)', TL: '#9333EA', Havo: '#0891B2', VWO: 'var(--red-text)' };
 
     document.getElementById('view-lesprofielen').innerHTML = `
       <div class="page-header">
@@ -209,7 +209,7 @@ async function openProfielDetail(profielId) {
   const overlay = document.createElement('div');
   overlay.id = 'profiel-detail-overlay';
   const isMobiel = window.innerWidth <= 768;
-  overlay.style.cssText = `position:fixed;top:${isMobiel ? '56px' : '0'};left:${isMobiel ? '0' : 'var(--sidebar-w,256px)'};right:0;bottom:0;background:#F8F7F4;z-index:400;overflow-y:auto;padding:${isMobiel ? '16px' : '32px'}`;
+  overlay.style.cssText = `position:fixed;top:${isMobiel ? '56px' : '0'};left:${isMobiel ? '0' : 'var(--sidebar-w,256px)'};right:0;bottom:0;background:var(--bg);z-index:400;overflow-y:auto;padding:${isMobiel ? '16px' : '32px'}`;
 
   const gekoppeldHTML = gekoppeldeKlassen.length === 0
     ? `<div style="padding:20px 22px;display:flex;align-items:center;gap:14px">
