@@ -10,6 +10,7 @@ const _lb = {
   actIdx: null,
   opdrachtId: null,
   activiteitInfo: null,
+  moduleContext: null,
   data: null,
   stap: 1,
   opgeslagen: true,
@@ -35,21 +36,26 @@ async function openLesbrief(profielIdOfOpdrachtId, weekIdx, actIdx, activiteitIn
     _lb.weekIdx = null;
     _lb.actIdx = null;
 
-    // Haal opdracht op voor auto-invul
+    // Haal opdracht + gekoppelde lesmodulecontext op voor auto-invul en AI
     try {
-      const opdRes = await fetch(`/api/opdrachten/${opdrachtId}`, { credentials: 'same-origin' });
-      const opdracht = await opdRes.json();
+      const ctxRes = await fetch(`/api/lesbrieven/context/${opdrachtId}`, { credentials: 'same-origin' });
+      const ctx = await ctxRes.json();
+      const opdracht = ctx.opdracht || {};
+      _lb.moduleContext = ctx;
       _lb.activiteitInfo = {
-        naam: opdracht.naam || '',
-        omschrijving: opdracht.naam || '',
+        naam: opdracht.naam || ctx.stap?.naam || '',
+        omschrijving: opdracht.naam || ctx.stap?.naam || '',
         type: opdracht.type || '',
         uren: opdracht.uren || 1,
         klas: opdracht.klasId || '',
         weeknummer: opdracht.weeknummer || '',
         theorieLink: opdracht.theorieLink || '',
         syllabuscodes: opdracht.syllabuscodes || '',
+        profielNaam: ctx.profiel?.naam || '',
+        niveau: ctx.profiel?.niveau || ctx.module?.niveau || '',
+        vak: ctx.profiel?.vakId || ctx.module?.vakId || '',
       };
-    } catch { _lb.activiteitInfo = {}; }
+    } catch { _lb.activiteitInfo = {}; _lb.moduleContext = null; }
 
     // Zoek bestaande lesbrief op opdrachtId
     try {
@@ -268,6 +274,11 @@ function renderLb() {
         <div class="lb-progress-label">Stap ${s} van ${totaal} — ${huidigLabel}</div>
       </div>
 
+      ${!ro ? `<div class="lb-ai-upload" style="margin:0 0 10px;padding:10px 12px;border:1px solid var(--border);border-radius:10px;background:#fff">
+        <label style="font-size:13px;font-weight:700;display:block;margin-bottom:4px">Extra upload voor AI analyse</label>
+        <input id="lb-ai-bestand" type="file" accept=".pdf,.doc,.docx,.txt" style="font-size:13px">
+        <div style="font-size:12px;color:var(--ink-muted);margin-top:4px">Optioneel. AI gebruikt dit samen met alleen de theorie- en praktijkstappen van deze les.</div>
+      </div>` : ''}
       <div id="lb-ai-status" style="font-size:13px;margin-bottom:8px"></div>
       <div id="lb-tab-inhoud">${lbRenderTab(huidigId, ro)}</div>
       <div id="lb-opslaan-status" style="font-size:13px;margin-top:8px"></div>
@@ -571,23 +582,37 @@ async function lbGenereerAI() {
 
   const info = _lb.activiteitInfo || {};
   try {
-    const res = await fetch('/api/lesbrieven/genereer', {
-      method: 'POST', credentials: 'same-origin',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        activiteitNaam: info.omschrijving || info.naam || '',
-        activiteitType: info.type || '',
-        activiteitUren: info.uren || 1,
-        profielNaam: info.profielNaam || '',
-        weekThema: info.weekThema || '',
-        syllabuscodes: info.syllabus || '',
-        niveau: info.niveau || _lb.data.klas || '',
-        vak: info.vak || _lb.data.vak || '',
-        huidigData: _lb.data,
-      }),
-    });
-    const data = await res.json();
-    if (!data.success) throw new Error(data.error || 'Onbekende fout');
+    const payload = {
+      opdrachtId: _lb.opdrachtId || null,
+      activiteitNaam: info.omschrijving || info.naam || '',
+      activiteitType: info.type || '',
+      activiteitUren: info.uren || 1,
+      profielNaam: info.profielNaam || '',
+      weekThema: info.weekThema || '',
+      syllabuscodes: info.syllabus || info.syllabuscodes || '',
+      niveau: info.niveau || _lb.data.klas || '',
+      vak: info.vak || _lb.data.vak || '',
+      huidigData: _lb.data,
+    };
+
+    const bestand = document.getElementById('lb-ai-bestand')?.files?.[0] || null;
+    let res;
+    if (bestand) {
+      const fd = new FormData();
+      fd.append('bestand', bestand);
+      fd.append('payload', JSON.stringify(payload));
+      res = await fetch('/api/lesbrieven/genereer-v2-upload', {
+        method: 'POST', credentials: 'same-origin', body: fd,
+      });
+    } else {
+      res = await fetch('/api/lesbrieven/genereer-v2', {
+        method: 'POST', credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+    }
+    const data = await res.json().catch(async () => ({ error: await res.text().catch(() => 'Server gaf geen JSON terug') }));
+    if (!res.ok || !data.success) throw new Error(data.error || 'Onbekende fout');
 
     _lb.data = { ..._lb.data, ...data.data };
     if (statusEl) statusEl.innerHTML = `<span style="color:var(--accent)">✓ AI heeft de lesbrief ingevuld. Controleer en sla op.</span>`;
