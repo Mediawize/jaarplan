@@ -380,12 +380,12 @@ function renderLesCard(les) {
   const status = o.afgevinkt ? 'Afgerond' : 'In uitvoering';
 
   return `<article class="td-lesson ${o.afgevinkt ? 'is-done' : ''}" id="lescard-${o.id}">
-    <div class="td-lesson-header">
-      <div class="td-time"><strong>${escHtml(les.start)}</strong><span>→ ${escHtml(les.eind)}</span><em>${_dbFormatMinutenKort(les.minuten)}</em></div>
+    <div class="td-lesson-toprow">
       <div class="td-class" style="background:${kleur}">${escHtml(afk)}</div>
-      <h3 class="td-lesson-titel">${escHtml(o.naam)}</h3>
+      <div class="td-time"><strong>${escHtml(les.start)}</strong><span>→ ${escHtml(les.eind)}</span><em>${_dbFormatMinutenKort(les.minuten)}</em></div>
       <span class="td-status">${escHtml(status)}</span>
     </div>
+    <h3 class="td-lesson-titel">${escHtml(o.naam)}</h3>
     <div class="td-colorbar" style="background:${kleur}"></div>
     <div class="td-lesson-body">
       <div class="td-meta">▣ ${escHtml(type)} <span>•</span> ${klas ? escHtml(klas.naam) : 'Geen klas'} <span>•</span> ${escHtml(lokaal)} ${les.lesuren?.length ? `<span>•</span> Lesuur ${les.lesuren.join(', ')}` : ''}</div>
