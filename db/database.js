@@ -644,8 +644,11 @@ module.exports = {
   addLesbrief(d) {
     const id = genId();
     const data = d.data || {};
+    const profielId = d.profielId || d.opdrachtId || 'dashboard';
+    const weekIdx = Number.isFinite(Number(d.weekIdx)) ? Number(d.weekIdx) : 0;
+    const actIdx = Number.isFinite(Number(d.actIdx)) ? Number(d.actIdx) : 0;
     Q.insLesbrief.run(
-      id, d.profielId || d.opdrachtId || null, d.weekIdx ?? null, d.actIdx ?? null,
+      id, profielId, weekIdx, actIdx,
       d.activiteitNaam || '', d.activiteitType || '', d.activiteitUren || 1,
       JSON.stringify(data), d.opdrachtId || null
     );
