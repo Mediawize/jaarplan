@@ -32,8 +32,8 @@ async function openLesbrief(profielIdOfOpdrachtId, weekIdx, actIdx, activiteitIn
     const opdrachtId = profielIdOfOpdrachtId;
     _lb.opdrachtId = opdrachtId;
     _lb.profielId = null;
-    _lb.weekIdx = null;
-    _lb.actIdx = null;
+    _lb.weekIdx = 0;
+    _lb.actIdx = 0;
 
     // Haal opdracht op voor auto-invul
     try {
@@ -519,8 +519,8 @@ async function lbOpslaan() {
   const info = _lb.activiteitInfo || {};
   const payload = {
     profielId: _lb.profielId || _lb.opdrachtId || null,
-    weekIdx: _lb.weekIdx ?? null,
-    actIdx: _lb.actIdx ?? null,
+    weekIdx: _lb.weekIdx ?? 0,
+    actIdx: _lb.actIdx ?? 0,
     opdrachtId: _lb.opdrachtId || null,
     activiteitNaam: info.omschrijving || info.naam || '',
     activiteitType: info.type || '',
