@@ -84,6 +84,7 @@ const Schooljaar = {
     for (const v of vakanties) {
       const van = new Date(v.van);
       const tot = new Date(v.tot);
+      if (isNaN(van.getTime()) || isNaN(tot.getTime())) continue;
       if (maandag <= tot && vrijdag >= van) return v.naam;
     }
     return null;

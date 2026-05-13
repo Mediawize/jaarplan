@@ -179,11 +179,11 @@ function cleanupSyllabusUploadToken(token) {
 
 setInterval(() => {
   const nu = Date.now();
+  const verlopen = [];
   for (const [token, info] of syllabusUploadTokens.entries()) {
-    if (nu - info.createdAt > 30 * 60 * 1000) {
-      cleanupSyllabusUploadToken(token);
-    }
+    if (nu - info.createdAt > 30 * 60 * 1000) verlopen.push(token);
   }
+  verlopen.forEach(cleanupSyllabusUploadToken);
 }, 10 * 60 * 1000);
 
 // ============================================================
@@ -2071,7 +2071,7 @@ async function maakWerkboekjePdfBuffer(html) {
       margin: { top: '0mm', right: '0mm', bottom: '0mm', left: '0mm' }
     });
   } finally {
-    await browser.close();
+    await browser.close().catch(e => console.warn('Browser close fout:', e.message));
   }
 }
 const PLAYWRIGHT_INSTALL_HINT = 'Voer op de server uit: (1) npm install  (2) npx playwright install chromium  (3) npx playwright install-deps chromium';
