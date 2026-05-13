@@ -69,43 +69,24 @@ function openWerkboekjeWizard() {
   wbRender();
 }
 
-async function openWerkboekjeVoorBibliotheek(bibliotheekId) {
-  wbReset();
-  _wbState.isBibliotheek = true;
-  _wbState.bibliotheekId = bibliotheekId || null;
-  _wbState.stap = 2;
-  if (bibliotheekId) {
-    try {
-      const res = await fetch(`/api/werkboekje-bibliotheek`, { credentials: 'same-origin' });
-      const lijst = await res.json();
-      const wb = lijst.find(w => w.id === bibliotheekId);
-      if (wb) _wbState.data = wbNormaliseerData({ ...wbLegeData(), ...wb.data });
-    } catch { /* start leeg */ }
-  }
-  wbRender();
+function openWerkboekjeVoorBibliotheek() {
+  openWerkboekjeWizard();
 }
 
-async function openWerkboekjeVoorActiviteit(profielId, weekIdx, actIdx, activiteitInfo) {
+
+function openWerkboekjeVoorActiviteit(profielId, weekIdx, actIdx, activiteitInfo) {
   wbReset();
   _wbState.profielId = profielId;
   _wbState.weekIdx = weekIdx;
   _wbState.actIdx = actIdx;
   _wbState.activiteitInfo = activiteitInfo || {};
   _wbState.stap = 2;
-  try {
-    const res = await fetch(`/api/werkboekjes?profielId=${profielId}&weekIdx=${weekIdx}&actIdx=${actIdx}`, { credentials: 'same-origin' });
-    const lijst = await res.json();
-    if (lijst && lijst.length > 0) {
-      _wbState.wbId = lijst[0].id;
-      _wbState.data = wbNormaliseerData({ ...wbLegeData(), ...lijst[0].data });
-    } else {
-      const info = activiteitInfo || {};
-      _wbState.data.vak = info.vak || '';
-      _wbState.data.niveau = info.niveau || '';
-    }
-  } catch { /* start leeg */ }
+  const info = activiteitInfo || {};
+  _wbState.data.vak = info.vak || '';
+  _wbState.data.niveau = info.niveau || '';
   wbRender();
 }
+
 
 function wbSetBusy(bezig, tekst) {
   _wbState.busy = !!bezig;
@@ -538,51 +519,12 @@ async function wbMaakPdfPayload() {
 async function wbOpslaan() {
   if (_wbState.busy) return;
   const result = document.getElementById('wb-save-result');
-  if (result) result.innerHTML = `<span style="color:var(--amber)">⏳ Werkboekje wordt opgeslagen als PDF...</span>`;
+  if (result) result.innerHTML = `<span style="color:var(--amber)">⏳ Werkboekje wordt opgeslagen als PDF in Lesmaterialen...</span>`;
   _wbState.busy = true;
 
   try {
-    if (_wbState.isBibliotheek) {
-      const payload = { naam: _wbState.data.titel || 'Werkboekje', data: _wbState.data };
-      if (_wbState.bibliotheekId) {
-        const r = await fetch(`/api/werkboekje-bibliotheek/${_wbState.bibliotheekId}`, {
-          method: 'PUT', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
-        });
-        await wbJsonOfThrow(r);
-      } else {
-        const r = await fetch('/api/werkboekje-bibliotheek', {
-          method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
-        });
-        const wb = await wbJsonOfThrow(r);
-        _wbState.bibliotheekId = wb.id;
-      }
-    } else if (_wbState.profielId != null) {
-      const info = _wbState.activiteitInfo || {};
-      const payload = {
-        profielId: _wbState.profielId,
-        weekIdx: _wbState.weekIdx,
-        actIdx: _wbState.actIdx,
-        activiteitNaam: info.omschrijving || info.naam || '',
-        activiteitType: info.type || '',
-        activiteitUren: info.uren || 1,
-        data: _wbState.data,
-      };
-
-      if (_wbState.wbId) {
-        const r = await fetch(`/api/werkboekjes/${_wbState.wbId}`, {
-          method: 'PUT', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
-        });
-        await wbJsonOfThrow(r);
-      } else {
-        const r = await fetch('/api/werkboekjes', {
-          method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
-        });
-        const wb = await wbJsonOfThrow(r);
-        _wbState.wbId = wb.id;
-      }
-    }
-
-    // Gebruik exact dezelfde HTML als de preview — niet opnieuw bouwen.
+    // Eén centrale opslag: de PDF wordt als type "werkboekje" toegevoegd aan Lesmaterialen.
+    // Oude opslag in werkboekje_bibliotheek of losse werkboekjes per activiteit wordt bewust niet meer gebruikt.
     const html = _wbState.laatsteHtml || await wbBouwHtml(_wbState.data);
     const res = await fetch('/api/werkboekjes/pdf-materiaal', {
       method: 'POST',
@@ -597,7 +539,8 @@ async function wbOpslaan() {
     if (result) {
       result.innerHTML = `<div class="alert alert-info">
         Klaar: <strong>${wbEsc(data.titel || _wbState.data.titel || 'Werkboekje')}</strong><br>
-        <button class="btn btn-sm" style="margin-left:8px" onclick="wbAnnuleer()">Sluiten</button>
+        <a href="/uploads/${wbEsc(data.bestandsnaam)}" download="${wbEsc(data.bestandsnaam)}" style="color:var(--accent);font-weight:600;display:inline-block;margin-top:6px">Werkboekje downloaden</a>
+        <button class="btn btn-sm" style="margin-left:8px" onclick="wbAnnuleer(); if (typeof renderLesmaterialen === 'function') renderLesmaterialen();">Sluiten</button>
       </div>`;
     }
   } catch (e) {

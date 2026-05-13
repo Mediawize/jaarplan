@@ -87,18 +87,13 @@ async function renderLesModules() {
   } catch (e) { showError('Fout: ' + e.message); }
 }
 
-async function verwijderBibliotheekWerkboekje(id, naam) {
-  if (!confirm(`Werkboekje "${naam}" uit bibliotheek verwijderen?`)) return;
-  await fetch(`/api/werkboekje-bibliotheek/${id}`, { method: 'DELETE', credentials: 'same-origin' });
-  await renderToetsen();
-}
 
 // ============================================================
 // BEKIJK MODAL
 // ============================================================
 
 async function bekijkLesModule(moduleId) {
-  const [modules, vakken, toetsen] = await Promise.all([API.getLesModules(), API.getVakken(), API.getMaterialen('toets').catch(() => [])]);
+  const [modules, vakken, toetsen, werkboekjes] = await Promise.all([API.getLesModules(), API.getVakken(), API.getMaterialen('toets').catch(() => []), API.getMaterialen('werkboekje').catch(() => [])]);
   const m = modules.find(x => x.id === moduleId);
   if (!m) return;
   const vak = vakken.find(v => v.id === m.vakId);
@@ -152,7 +147,8 @@ async function bekijkLesModule(moduleId) {
                   <div style="display:flex;flex-wrap:wrap;gap:3px;margin-top:3px">
                     ${o.theorieSectie ? `<span style="background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:20px;font-size:11px;border:1px solid #fde68a">📚 ${escHtml(o.theorieSectie)}</span>` : ''}
                     ${codes.map(c => `<span style="background:#f0fdf4;color:#166534;padding:2px 8px;border-radius:20px;font-size:11px;border:1px solid #bbf7d0">${escHtml(c)}</span>`).join('')}
-                    ${o.werkboekjeLink ? `<a href="${escHtml(o.werkboekjeLink)}" target="_blank" style="font-size:11px;color:var(--accent-text);padding:2px 8px;background:var(--accent-dim);border-radius:20px;border:1px solid rgba(22,163,74,.15)">📗 Werkboekje</a>` : ''}
+                    ${(() => { const wb = o.werkboekjeId ? werkboekjes.find(w => w.id === o.werkboekjeId) : null; return wb ? `<a href="/uploads/${encodeURIComponent(wb.bestandsnaam)}" target="_blank" style="font-size:11px;color:var(--accent-text);padding:2px 8px;background:var(--accent-dim);border-radius:20px;border:1px solid rgba(22,163,74,.15)">📗 ${escHtml(wb.naam || 'Werkboekje')}</a>` : ''; })()}
+                    ${o.werkboekjeLink ? `<a href="${escHtml(o.werkboekjeLink)}" target="_blank" style="font-size:11px;color:var(--accent-text);padding:2px 8px;background:var(--accent-dim);border-radius:20px;border:1px solid rgba(22,163,74,.15)">🔗 Werkboekje</a>` : ''}
                   </div>
                 </div>`;
               }).join('')}
@@ -215,13 +211,14 @@ async function bekijkLesModule(moduleId) {
 // ============================================================
 
 async function openLesModuleModal(moduleId = null) {
-  const [vakken, modules, bibliotheek, toetsen] = await Promise.all([
-    API.getVakken(), API.getLesModules(),
-    fetch('/api/werkboekje-bibliotheek', { credentials: 'same-origin' }).then(r => r.json()).catch(() => []),
+  const [vakken, modules, werkboekjes, toetsen] = await Promise.all([
+    API.getVakken(),
+    API.getLesModules(),
+    API.getMaterialen('werkboekje').catch(() => []),
     API.getMaterialen('toets').catch(() => [])
   ]);
   const m = moduleId ? modules.find(x => x.id === moduleId) : null;
-  window._lmBibliotheek = bibliotheek;
+  window._lmBibliotheek = werkboekjes;
   window._lmToetsen = toetsen;
 
   openModal(`
@@ -381,6 +378,12 @@ function lmHoofdstapHtml(i, stap, bib) {
             onfocus="this.style.borderColor='#b91c1c'" onblur="this.style.borderColor='#fca5a5'">
         </div>
       </div>
+      <div style="display:flex;align-items:center;gap:6px;margin-top:6px">
+        <label style="font-size:10px;color:#b91c1c;white-space:nowrap;flex-shrink:0">Toets uploaden:</label>
+        <input class="lm-toets-bestand" type="file" accept=".pdf,.doc,.docx" style="font-size:10px;flex:1;min-width:0">
+        <button class="btn btn-sm" onclick="lmUploadToetsMateriaal(this)" style="font-size:10px;padding:3px 8px;white-space:nowrap">Upload</button>
+        <span class="lm-toets-bestandsnaam" style="font-size:10px;color:var(--ink-muted)"></span>
+      </div>
     </div>
 
     <div class="lm-lessen" style="padding-left:30px;margin-bottom:8px">
@@ -465,7 +468,7 @@ function lmPraktijkOpdrachtHtml(stapIdx, opIdx, o, bibliotheek) {
   const bib = bibliotheek || window._lmBibliotheek || [];
   const codes = Array.isArray(o.syllabusCodes) ? o.syllabusCodes.join(', ') : '';
   const bibOpties = bib.map(w =>
-    `<option value="${w.id}" ${o.werkboekjeId === w.id ? 'selected' : ''}>${escHtml(w.naam || w.data?.titel || 'Werkboekje')}</option>`
+    `<option value="${w.id}" ${o.werkboekjeId === w.id ? 'selected' : ''}>${escHtml(w.naam || w.bestandsnaam || 'Werkboekje')}</option>`
   ).join('');
 
   return `<div class="lm-praktijk-rij" style="border:1px solid #fde68a;border-radius:8px;padding:10px;margin-bottom:8px;background:#fffdf0">
@@ -484,9 +487,9 @@ function lmPraktijkOpdrachtHtml(stapIdx, opIdx, o, bibliotheek) {
           style="border:1px solid var(--border);border-radius:6px;padding:3px 7px;font-size:11px;width:100%">
       </div>
       <div class="form-field" style="margin:0">
-        <label style="font-size:10px;color:var(--ink-muted)">Werkboekje (bibliotheek)</label>
+        <label style="font-size:10px;color:var(--ink-muted)">Werkboekje uit lesmaterialen</label>
         <select class="lm-po-wbid" style="border:1px solid var(--border);border-radius:6px;padding:3px 7px;font-size:11px;width:100%">
-          <option value="">— Geen / handmatige link —</option>
+          <option value="">— Geen werkboekje gekoppeld —</option>
           ${bibOpties}
         </select>
       </div>
@@ -508,8 +511,8 @@ function lmPraktijkOpdrachtHtml(stapIdx, opIdx, o, bibliotheek) {
     </div>
     <div style="display:flex;align-items:center;gap:6px">
       <label style="font-size:10px;color:var(--ink-muted);white-space:nowrap;flex-shrink:0">Werkboekje uploaden:</label>
-      <input class="lm-po-bestand" type="file" accept=".pdf,.docx" style="font-size:10px;flex:1;min-width:0">
-      <button class="btn btn-sm" onclick="lmAnalyseerPraktijkBestand(this)" style="font-size:10px;padding:3px 8px;white-space:nowrap">AI ▶</button>
+      <input class="lm-po-bestand" type="file" accept=".pdf,.doc,.docx" style="font-size:10px;flex:1;min-width:0">
+      <button class="btn btn-sm" onclick="lmUploadPraktijkMateriaal(this, 'werkboekje')" style="font-size:10px;padding:3px 8px;white-space:nowrap">Upload</button>
       <span class="lm-po-bestandsnaam" style="font-size:10px;color:var(--ink-muted)">${o.werkboekjeBestand ? escHtml(o.werkboekjeBestand) : ''}</span>
     </div>
   </div>`;
@@ -549,6 +552,125 @@ function lmHernummerPraktijk(stapEl) {
     const badge = rij.querySelector('span[style*="f59e0b"]');
     if (badge) badge.textContent = `P${k + 1}`;
   });
+}
+
+
+async function lmUploadBestandAlsMateriaal(file, type, naam, vak) {
+  const fd = new FormData();
+  fd.append('bestand', file);
+  fd.append('type', type);
+  fd.append('naam', naam || file.name || (type === 'toets' ? 'Toets' : 'Werkboekje'));
+  fd.append('vak', vak || '');
+  const res = await fetch('/api/upload', { method: 'POST', credentials: 'same-origin', body: fd });
+  const data = await res.json();
+  if (!res.ok || data.error) throw new Error(data.error || 'Upload mislukt');
+  return data;
+}
+
+async function lmUploadToetsMateriaal(btn) {
+  const stap = btn.closest('.lm-hoofdstap');
+  if (!stap) return;
+  const input = stap.querySelector('.lm-toets-bestand');
+  const bestandEl = stap.querySelector('.lm-toets-bestandsnaam');
+  const select = stap.querySelector('.lm-toets-id');
+  const file = input?.files?.[0];
+  if (!file) { alert('Kies eerst een toetsbestand.'); return; }
+  const stapNaam = stap.querySelector('.lm-hoofdstap-input')?.value.trim() || 'Toets';
+  const vakNaam = document.getElementById('lm-vak')?.selectedOptions?.[0]?.textContent || '';
+  const oudeTekst = btn.textContent;
+  btn.disabled = true; btn.textContent = '⏳';
+  try {
+    const data = await lmUploadBestandAlsMateriaal(file, 'toets', stapNaam, vakNaam);
+    if (bestandEl) bestandEl.textContent = data.bestandsnaam || file.name;
+    if (select && data.materiaalId) {
+      if (![...select.options].some(o => o.value === data.materiaalId)) {
+        select.insertAdjacentHTML('beforeend', `<option value="${data.materiaalId}">${escHtml(stapNaam)}</option>`);
+      }
+      select.value = data.materiaalId;
+    }
+    window._lmToetsen = window._lmToetsen || [];
+    if (data.materiaalId && !window._lmToetsen.some(t => t.id === data.materiaalId)) {
+      window._lmToetsen.push({ id: data.materiaalId, type: 'toets', naam: stapNaam, bestandsnaam: data.bestandsnaam, vak: vakNaam });
+    }
+  } catch (e) {
+    alert('Fout: ' + e.message);
+  } finally {
+    btn.disabled = false; btn.textContent = oudeTekst;
+  }
+}
+
+async function lmUploadPraktijkMateriaal(btn, type) {
+  const rij = btn.closest('.lm-praktijk-rij');
+  if (!rij) return;
+  const input = rij.querySelector('.lm-po-bestand');
+  const naamInput = rij.querySelector('.lm-po-naam');
+  const bestandsnaamEl = rij.querySelector('.lm-po-bestandsnaam');
+  const select = rij.querySelector('.lm-po-wbid');
+  const file = input?.files?.[0];
+  if (!file) { alert('Kies eerst een werkboekje.'); return; }
+  const naam = naamInput?.value.trim() || file.name || 'Werkboekje';
+  const vakNaam = document.getElementById('lm-vak')?.selectedOptions?.[0]?.textContent || '';
+  const oudeTekst = btn.textContent;
+  btn.disabled = true; btn.textContent = '⏳';
+  try {
+    const data = await lmUploadBestandAlsMateriaal(file, type, naam, vakNaam);
+    if (bestandsnaamEl) bestandsnaamEl.textContent = data.bestandsnaam || file.name;
+    if (data.materiaalId) {
+      rij.dataset.werkboekjeId = data.materiaalId;
+      rij.dataset.werkboekjeBestand = data.bestandsnaam || '';
+      if (select) {
+        if (![...select.options].some(o => o.value === data.materiaalId)) {
+          select.insertAdjacentHTML('beforeend', `<option value="${data.materiaalId}">${escHtml(naam)}</option>`);
+        }
+        select.value = data.materiaalId;
+      }
+      window._lmBibliotheek = window._lmBibliotheek || [];
+      if (!window._lmBibliotheek.some(w => w.id === data.materiaalId)) {
+        window._lmBibliotheek.push({ id: data.materiaalId, type, naam, bestandsnaam: data.bestandsnaam, vak: vakNaam });
+      }
+    }
+  } catch (e) {
+    alert('Fout: ' + e.message);
+  } finally {
+    btn.disabled = false; btn.textContent = oudeTekst;
+  }
+}
+
+async function lmUploadGedeeldMateriaal(btn, type) {
+  const rij = btn.closest('.lm-gedeelde-rij');
+  if (!rij) return;
+  const input = rij.querySelector('.lm-gd-bestand');
+  const naamInput = rij.querySelector('.lm-gd-naam');
+  const bestandsnaamEl = rij.querySelector('.lm-gd-bestandsnaam');
+  const select = rij.querySelector('.lm-gd-wbid');
+  const file = input?.files?.[0];
+  if (!file) { alert('Kies eerst een werkboekje.'); return; }
+  const naam = naamInput?.value.trim() || file.name || 'Werkboekje';
+  const vakNaam = document.getElementById('lm-vak')?.selectedOptions?.[0]?.textContent || '';
+  const oudeTekst = btn.textContent;
+  btn.disabled = true; btn.textContent = '⏳';
+  try {
+    const data = await lmUploadBestandAlsMateriaal(file, type, naam, vakNaam);
+    if (bestandsnaamEl) bestandsnaamEl.textContent = data.bestandsnaam || file.name;
+    if (data.materiaalId) {
+      rij.dataset.werkboekjeId = data.materiaalId;
+      rij.dataset.werkboekjeBestand = data.bestandsnaam || '';
+      if (select) {
+        if (![...select.options].some(o => o.value === data.materiaalId)) {
+          select.insertAdjacentHTML('beforeend', `<option value="${data.materiaalId}">${escHtml(naam)}</option>`);
+        }
+        select.value = data.materiaalId;
+      }
+      window._lmBibliotheek = window._lmBibliotheek || [];
+      if (!window._lmBibliotheek.some(w => w.id === data.materiaalId)) {
+        window._lmBibliotheek.push({ id: data.materiaalId, type, naam, bestandsnaam: data.bestandsnaam, vak: vakNaam });
+      }
+    }
+  } catch (e) {
+    alert('Fout: ' + e.message);
+  } finally {
+    btn.disabled = false; btn.textContent = oudeTekst;
+  }
 }
 
 async function lmAnalyseerPraktijkBestand(btn) {
@@ -651,7 +773,7 @@ function lmGedeeldeOpdrachtHtml(idx, o, stappen) {
   const geselecteerd = Array.isArray(o.stappen) ? o.stappen : [];
   const bib = window._lmBibliotheek || [];
   const bibOpties = bib.map(w =>
-    `<option value="${w.id}" ${o.werkboekjeId === w.id ? 'selected' : ''}>${escHtml(w.naam || w.data?.titel || 'Werkboekje')}</option>`
+    `<option value="${w.id}" ${o.werkboekjeId === w.id ? 'selected' : ''}>${escHtml(w.naam || w.bestandsnaam || 'Werkboekje')}</option>`
   ).join('');
 
   const stapCheckboxes = huidigeStappen.map((stap, i) =>
@@ -684,9 +806,9 @@ function lmGedeeldeOpdrachtHtml(idx, o, stappen) {
           style="border:1px solid var(--border);border-radius:6px;padding:3px 7px;font-size:11px;width:100%">
       </div>
       <div class="form-field" style="margin:0">
-        <label style="font-size:10px;color:var(--ink-muted)">Werkboekje (bibliotheek)</label>
+        <label style="font-size:10px;color:var(--ink-muted)">Werkboekje uit lesmaterialen</label>
         <select class="lm-gd-wbid" style="border:1px solid var(--border);border-radius:6px;padding:3px 7px;font-size:11px;width:100%">
-          <option value="">— Geen / handmatige link —</option>
+          <option value="">— Geen werkboekje gekoppeld —</option>
           ${bibOpties}
         </select>
       </div>
@@ -709,7 +831,7 @@ function lmGedeeldeOpdrachtHtml(idx, o, stappen) {
         <label style="font-size:10px;color:var(--ink-muted)">Werkboekje / werkinstructie uploaden</label>
         <div style="display:flex;align-items:center;gap:6px">
           <input class="lm-gd-bestand" type="file" accept=".pdf,.docx,.doc" style="font-size:10px;flex:1;min-width:0">
-          <button class="btn btn-sm" onclick="lmAnalyseerGedeeldBestand(this)" style="font-size:10px;padding:3px 8px;white-space:nowrap">Upload + AI ▶</button>
+          <button class="btn btn-sm" onclick="lmUploadGedeeldMateriaal(this, 'werkboekje')" style="font-size:10px;padding:3px 8px;white-space:nowrap">Upload</button>
           <span class="lm-gd-bestandsnaam" style="font-size:10px;color:var(--ink-muted)">${o.werkboekjeBestand ? escHtml(o.werkboekjeBestand) : ''}</span>
         </div>
       </div>
