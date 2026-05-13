@@ -516,7 +516,7 @@ function _dbKlasGroepHtml(g, defaultOpen = false) {
     `<div class="td-need"><span>${escHtml(item.naam)}</span><em>${escHtml(item.type)}</em></div>`
   ).join('');
   return `<div class="td-need-group${defaultOpen ? ' open' : ''}">
-    <button class="td-need-klas" onclick="this.closest('.td-need-group').classList.toggle('open')">`
+    <button class="td-need-klas" onclick="this.closest('.td-need-group').classList.toggle('open')">
       <span class="td-need-klas-dot" style="background:${g.kleur}"></span>
       <strong>${escHtml(g.klasNaam)}</strong>
       <em>${g.items.length} item${g.items.length !== 1 ? 's' : ''}</em>
