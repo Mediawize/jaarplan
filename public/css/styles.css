@@ -2739,3 +2739,47 @@ input, select, textarea { font-family: var(--font); }
   .rooster-schema-grid { grid-template-columns: 1fr; }
   .rooster-schema div { grid-template-columns: repeat(2, minmax(0,1fr)); }
 }
+
+/* ============================================================
+   FIX 20260513 — Dashboard schaalt netjes binnen hoofdvenster
+   ============================================================ */
+html, body {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+.app-shell,
+.main-content,
+.view,
+#view-dashboard,
+.teacher-dashboard {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.main-content {
+  overflow-x: hidden;
+}
+
+.view {
+  width: 100%;
+  max-width: 100%;
+}
+
+@media (min-width: 901px) {
+  .main-content {
+    width: calc(100vw - var(--sidebar-w));
+    max-width: calc(100vw - var(--sidebar-w));
+  }
+}
+
+@media (max-width: 900px) {
+  .main-content {
+    width: 100%;
+    max-width: 100%;
+  }
+}
