@@ -531,20 +531,26 @@ async function lbOpslaan() {
   try {
     let isNieuw = !_lb.id;
     if (_lb.id) {
-      await fetch(`/api/lesbrieven/${_lb.id}`, {
+      const res = await fetch(`/api/lesbrieven/${_lb.id}`, {
         method: 'PUT', credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
+      const txt = await res.text();
+      const data = txt ? JSON.parse(txt) : {};
+      if (!res.ok || data.success === false) throw new Error(data.error || 'Opslaan mislukt');
     } else {
       const res = await fetch('/api/lesbrieven', {
         method: 'POST', credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
-      const data = await res.json();
+      const txt = await res.text();
+      const data = txt ? JSON.parse(txt) : {};
+      if (!res.ok || data.success === false) throw new Error(data.error || 'Opslaan mislukt');
       if (data.id) _lb.id = data.id;
     }
+    if (_lb.opdrachtId && window.markDashboardLesbriefGemaakt) window.markDashboardLesbriefGemaakt(_lb.opdrachtId);
     // Na opslaan altijd overzicht tonen
     setTimeout(() => lbToonOverzicht(), 400);
   } catch (e) {
