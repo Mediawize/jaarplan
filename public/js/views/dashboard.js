@@ -382,11 +382,13 @@ function renderLesCard(les) {
   return `<article class="td-lesson ${o.afgevinkt ? 'is-done' : ''}" id="lescard-${o.id}">
     <div class="td-time"><strong>${escHtml(les.start)}</strong><span>${escHtml(les.eind)}</span><em>${_dbFormatMinutenKort(les.minuten)}</em></div>
     <div class="td-colorbar" style="background:${kleur}"></div>
-    <div class="td-class" style="background:${kleur}">${escHtml(afk)}</div>
     <div class="td-lesson-body">
       <div class="td-lesson-main">
-        <div>
-          <h3>${escHtml(o.naam)}</h3>
+        <div class="td-lesson-content">
+          <div class="td-lesson-title-row">
+            <div class="td-class" style="background:${kleur}">${escHtml(afk)}</div>
+            <h3>${escHtml(o.naam)}</h3>
+          </div>
           <div class="td-meta">▣ ${escHtml(type)} <span>•</span> ${klas ? escHtml(klas.naam) : 'Geen klas'} <span>•</span> ${escHtml(lokaal)} ${les.lesuren?.length ? `<span>•</span> Lesuur ${les.lesuren.join(', ')}` : ''}</div>
           <p><strong>Focus:</strong> ${escHtml(o.focus || o.beschrijving || 'Les voorbereiden en uitvoeren volgens de planning.')}</p>
         </div>
