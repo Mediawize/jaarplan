@@ -91,9 +91,9 @@ async function renderDashboard() {
             </section>
 
             <section class="td-widget">
-              <div class="td-widget-title">Benodigd vandaag <span class="td-ok">✓</span></div>
+              <div class="td-widget-title">Benodigd vandaag</div>
               <div class="td-need-list">
-                ${materialen.length ? materialen.map(m => _dbMateriaalRegel(m)).join('') : `<div class="td-empty-small">Geen materiaal gekoppeld.</div>`}
+                ${materialen.length ? materialen.map((g, i) => _dbKlasGroepHtml(g, i === 0)).join('') : `<div class="td-empty-small">Geen materiaal gekoppeld.</div>`}
               </div>
               <button class="td-link" onclick="showView('lesmaterialen')">Alles bekijken →</button>
             </section>
@@ -492,22 +492,38 @@ function _dbTaakRegel(t) {
 }
 
 function _dbBenodigdVandaag(lessen) {
-  const lijst = [];
+  const groepen = new Map();
   (lessen || []).forEach(({ opdracht: o, klas, moduleContext }) => {
-    const label = klas?.naam || '';
-    if (o.materiaal) lijst.push({ naam: o.materiaal, aantal: label });
-    if (o.materialen) String(o.materialen).split('\n').filter(Boolean).forEach(m => lijst.push({ naam: m.trim(), aantal: label }));
-    (moduleContext?.praktijk || []).forEach(p => lijst.push({ naam: p.naam || 'Praktijkopdracht', aantal: label }));
-    (moduleContext?.theorie || []).forEach(t => lijst.push({ naam: t.naam || 'Theorie', aantal: t.type === 'taak' ? 'Leerlingtaak' : 'Theorie' }));
-    (moduleContext?.werkboekjes || []).forEach(w => lijst.push({ naam: w.naam || 'Werkboekje', aantal: 'Downloadbaar' }));
-    (moduleContext?.toetsen || []).forEach(t => lijst.push({ naam: t.naam || 'Toets', aantal: 'Downloadbaar' }));
+    const klasId  = klas?.id   || 'onbekend';
+    const klasNaam = klas?.naam || 'Geen klas';
+    const kleur   = klas ? _klasKleur(klas.id) : '#94A3B8';
+    if (!groepen.has(klasId)) groepen.set(klasId, { klasNaam, kleur, items: [] });
+    const g = groepen.get(klasId);
+    if (o.materiaal) g.items.push({ naam: o.materiaal, type: 'Materiaal' });
+    if (o.materialen) String(o.materialen).split('\n').filter(Boolean).forEach(m => g.items.push({ naam: m.trim(), type: 'Materiaal' }));
+    (moduleContext?.theorie  || []).forEach(t => g.items.push({ naam: t.naam || 'Theorie',           type: 'Theorie' }));
+    (moduleContext?.praktijk || []).forEach(p => g.items.push({ naam: p.naam || 'Praktijkopdracht',  type: 'Praktijk' }));
+    (moduleContext?.werkboekjes || []).forEach(w => g.items.push({ naam: w.naam || 'Werkboekje',     type: 'Download' }));
+    (moduleContext?.toetsen   || []).forEach(t => g.items.push({ naam: t.naam || 'Toets',            type: 'Download' }));
+    if (!g.items.length) g.items.push({ naam: o.type?.toLowerCase() === 'praktijk' ? 'Praktijkmateriaal' : 'Lesmateriaal', type: 'Materiaal' });
   });
-  if (lijst.length) return lijst.slice(0, 8);
-  return (lessen || []).slice(0, 5).map(({ opdracht: o, klas }) => ({ naam: o.type?.toLowerCase() === 'praktijk' ? 'Praktijkmateriaal' : 'Lesmateriaal', aantal: klas?.naam || '' }));
+  return Array.from(groepen.values());
 }
 
-function _dbMateriaalRegel(m) {
-  return `<div class="td-need"><span>▣ ${escHtml(m.naam)}</span>${m.aantal ? `<em>${escHtml(m.aantal)}</em>` : ''}</div>`;
+function _dbKlasGroepHtml(g, defaultOpen = false) {
+  const id = `need-${Math.random().toString(36).slice(2)}`;
+  const items = g.items.map(item =>
+    `<div class="td-need"><span>${escHtml(item.naam)}</span><em>${escHtml(item.type)}</em></div>`
+  ).join('');
+  return `<div class="td-need-group${defaultOpen ? ' open' : ''}">
+    <button class="td-need-klas" onclick="this.closest('.td-need-group').classList.toggle('open')">`
+      <span class="td-need-klas-dot" style="background:${g.kleur}"></span>
+      <strong>${escHtml(g.klasNaam)}</strong>
+      <em>${g.items.length} item${g.items.length !== 1 ? 's' : ''}</em>
+      <svg class="td-need-chevron" viewBox="0 0 16 16" fill="none"><path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+    </button>
+    <div class="td-need-items">${items}</div>
+  </div>`;
 }
 
 function _klasKleur(klasId) {
