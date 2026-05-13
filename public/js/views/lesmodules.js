@@ -9,11 +9,14 @@ async function renderLesModules() {
       '<div class="empty-state"><h3>Geen toegang</h3></div>';
     return;
   }
+
   const isAdmin = Auth.isAdmin();
   showLoading('lesmodules');
+
   try {
     const [modules, vakken] = await Promise.all([
-      API.getLesModules(), API.getVakken()
+      API.getLesModules(),
+      API.getVakken()
     ]);
 
     // Docenten zien alleen modules van hun eigen vakken; admins zien alles
@@ -22,71 +25,111 @@ async function renderLesModules() {
       ? modules
       : modules.filter(m => !m.vakId || docentVakken.includes(m.vakId));
 
-    const perType = { profieldeel: [], keuzedeel: [], overig: [] };
+    const typeInfo = {
+      profieldeel: { label: 'Profieldelen', typeLabel: 'Profieldeel', kleur: '#2563EB' },
+      keuzedeel: { label: 'Keuzedelen', typeLabel: 'Keuzedeel', kleur: '#059669' },
+      overig: { label: 'Overig', typeLabel: 'Overig', kleur: '#78716C' }
+    };
+
+    const moduleType = (m) => m.type === 'profieldeel' ? 'profieldeel' : m.type === 'keuzedeel' ? 'keuzedeel' : 'overig';
+    const normaliseerNaam = (naam) => String(naam || 'Naamloze module').trim().toLowerCase();
+    const niveauLabel = (m) => String(m.niveau || '').trim() || 'Alle niveaus';
+    const vakNaam = (m) => vakken.find(v => v.id === m.vakId)?.naam || '';
+    const telPraktijk = (m) => {
+      const stappen = Array.isArray(m.stappen) ? m.stappen : [];
+      return stappen.reduce((sum, s) => sum + (Array.isArray(s.praktijkOpdrachten) ? s.praktijkOpdrachten.length : 0), 0)
+        + (Array.isArray(m.gedeeldeOpdrachten) ? m.gedeeldeOpdrachten.length : 0);
+    };
+    const telToetsen = (m) => {
+      const stappen = Array.isArray(m.stappen) ? m.stappen : [];
+      return stappen.filter(s => s && (s.toetsId || s.toetsUrl)).length;
+    };
+
+    const perType = { profieldeel: new Map(), keuzedeel: new Map(), overig: new Map() };
+
     zichtbaar.forEach(m => {
-      const t = m.type === 'profieldeel' ? 'profieldeel' : m.type === 'keuzedeel' ? 'keuzedeel' : 'overig';
-      perType[t].push(m);
+      const type = moduleType(m);
+      const key = normaliseerNaam(m.naam);
+      if (!perType[type].has(key)) {
+        perType[type].set(key, {
+          naam: String(m.naam || 'Naamloze module').trim() || 'Naamloze module',
+          modules: []
+        });
+      }
+      perType[type].get(key).modules.push(m);
     });
+
+    const renderModuleGroep = (groep, info) => {
+      const lijst = groep.modules.slice().sort((a, b) => niveauLabel(a).localeCompare(niveauLabel(b), 'nl'));
+      const stappenTotaal = lijst.reduce((sum, m) => sum + (Array.isArray(m.stappen) ? m.stappen.length : 0), 0);
+      const praktijkTotaal = lijst.reduce((sum, m) => sum + telPraktijk(m), 0);
+      const toetsTotaal = lijst.reduce((sum, m) => sum + telToetsen(m), 0);
+      const vakkenUniek = [...new Set(lijst.map(vakNaam).filter(Boolean))];
+      const niveaus = [...new Set(lijst.map(niveauLabel))];
+      const meta = [
+        `${niveaus.length} niveau${niveaus.length !== 1 ? 's' : ''}`,
+        stappenTotaal ? `${stappenTotaal} stap${stappenTotaal !== 1 ? 'pen' : ''}` : null,
+        praktijkTotaal ? `${praktijkTotaal} praktijk` : null,
+        toetsTotaal ? `${toetsTotaal} toets${toetsTotaal !== 1 ? 'en' : ''}` : null,
+        vakkenUniek.length ? vakkenUniek.join(', ') : null
+      ].filter(Boolean).join(' · ');
+
+      return `<div class="lm-kaart">
+        <div class="lm-kaart-type">
+          <span class="lm-type-pill" style="background:${info.kleur}">${info.typeLabel}</span>
+          <span style="font-size:11.5px;color:var(--ink-3)">${niveaus.length} niveau${niveaus.length !== 1 ? 's' : ''}</span>
+        </div>
+        <div class="lm-kaart-naam">${escHtml(groep.naam)}</div>
+        <div class="lm-kaart-meta">${escHtml(meta)}</div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:12px">
+          ${lijst.map(m => `<button class="btn btn-sm" onclick="bekijkLesModule('${m.id}')">${escHtml(niveauLabel(m))}</button>`).join('')}
+        </div>
+        ${isAdmin ? `<div class="lm-kaart-acties" style="margin-top:12px">
+          <button class="btn btn-sm btn-primary" style="flex:1" onclick="openLesModuleModal()">+ Niveau toevoegen</button>
+        </div>` : ''}
+      </div>`;
+    };
+
+    const totaalModules = zichtbaar.length;
 
     document.getElementById('view-lesmodules').innerHTML = `
       <div class="page-header">
         <div class="page-header-left">
           <h1>Les Modules</h1>
-          <p class="page-sub">Profiel- en keuzedelen met theoriestappen, praktijk opdrachten en werkboekjes.</p>
+          <p class="page-sub">Profiel- en keuzedelen gegroepeerd per module. Klik op een niveau om te bekijken of te bewerken.</p>
         </div>
         ${isAdmin ? `<button class="btn btn-primary" onclick="openLesModuleModal()">+ Nieuwe les module</button>` : ''}
       </div>
 
-      ${zichtbaar.length === 0
+      ${totaalModules === 0
         ? `<div class="card"><div class="empty-state">
             <h3>Geen les modules</h3>
             ${isAdmin ? `<p>Upload een syllabus PDF of Word-bestand. AI haalt de theoriestappen automatisch eruit.</p><button class="btn btn-primary" onclick="openLesModuleModal()">Eerste module aanmaken</button>` : '<p>Er zijn nog geen les modules beschikbaar voor jouw vakken.</p>'}
            </div></div>`
         : ['profieldeel', 'keuzedeel', 'overig'].map(type => {
-            const lijst = perType[type];
-            if (!lijst.length) return '';
-            const label = type === 'profieldeel' ? 'Profieldelen' : type === 'keuzedeel' ? 'Keuzedelen' : 'Overig';
-            const badgeKleur = type === 'profieldeel' ? '#2563EB' : type === 'keuzedeel' ? '#059669' : '#78716C';
-            const typeLabel = type === 'profieldeel' ? 'Profieldeel' : type === 'keuzedeel' ? 'Keuzedeel' : 'Overig';
+            const groepen = [...perType[type].values()]
+              .sort((a, b) => a.naam.localeCompare(b.naam, 'nl'));
+            if (!groepen.length) return '';
+            const info = typeInfo[type];
             return `<div class="card" style="margin-bottom:20px">
               <div class="card-header">
-                <div><h2>${label}</h2><div class="card-meta">${lijst.length} module${lijst.length !== 1 ? 's' : ''}</div></div>
+                <div>
+                  <h2>${info.label}</h2>
+                  <div class="card-meta">${groepen.length} modulegroep${groepen.length !== 1 ? 'en' : ''} · ${groepen.reduce((sum, g) => sum + g.modules.length, 0)} niveau${groepen.reduce((sum, g) => sum + g.modules.length, 0) !== 1 ? 's' : ''}</div>
+                </div>
                 ${isAdmin ? `<button class="btn btn-sm btn-primary" onclick="openLesModuleModal()">+ Module</button>` : ''}
               </div>
               <div class="lm-grid">
-                ${lijst.map(m => {
-                  const stappen = m.stappen || [];
-                  const aantalPraktijk = stappen.reduce((sum, s) => sum + (Array.isArray(s.praktijkOpdrachten) ? s.praktijkOpdrachten.length : 0), 0)
-                    + (m.gedeeldeOpdrachten || []).length;
-                  const aantalToetsen = stappen.filter(s => s.toetsId || s.toetsUrl).length;
-                  const meta = [
-                    stappen.length ? `${stappen.length} stap${stappen.length !== 1 ? 'pen' : ''}` : null,
-                    aantalPraktijk ? `${aantalPraktijk} praktijk` : null,
-                    aantalToetsen ? `${aantalToetsen} toets${aantalToetsen !== 1 ? 'en' : ''}` : null,
-                  ].filter(Boolean).join(' · ');
-                  return `<div class="lm-kaart">
-                    <div class="lm-kaart-type">
-                      <span class="lm-type-pill" style="background:${badgeKleur}">${typeLabel}</span>
-                      <span style="font-size:11.5px;color:var(--ink-3)">${m.niveau ? escHtml(m.niveau) : 'Alle niveaus'}</span>
-                    </div>
-                    <div class="lm-kaart-naam">${escHtml(m.naam)}</div>
-                    <div class="lm-kaart-meta">${meta || 'Geen stappen'}</div>
-                    <div class="lm-kaart-acties">
-                      <button class="btn btn-sm" style="flex:1" onclick="bekijkLesModule('${m.id}')">Bekijk</button>
-                      ${isAdmin ? `<button class="icon-btn" onclick="openLesModuleModal('${m.id}')" title="Bewerken">✏️</button>` : ''}
-                      ${isAdmin ? `<button class="icon-btn" style="color:var(--red);border-color:rgba(220,38,38,0.3)" onclick="verwijderLesModule('${m.id}','${escHtml(m.naam)}')" title="Verwijderen">🗑</button>` : ''}
-                    </div>
-                  </div>`;
-                }).join('')}
+                ${groepen.map(groep => renderModuleGroep(groep, info)).join('')}
               </div>
             </div>`;
           }).join('')
       }
-
     `;
-  } catch (e) { showError('Fout: ' + e.message); }
+  } catch (e) {
+    showError('Fout: ' + e.message);
+  }
 }
-
 
 // ============================================================
 // BEKIJK MODAL
