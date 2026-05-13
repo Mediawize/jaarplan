@@ -142,7 +142,7 @@ async function doGenererenToets() {
     const msg = e.message || '';
     const isQuota = msg.includes('429') || msg.includes('quota') || msg.includes('AI_QUOTA') || msg.includes('insufficient');
     result.innerHTML = isQuota
-      ? `<div style="padding:12px;background:#FEF3C7;border:1px solid #D97706;border-radius:6px;font-size:13px;color:#92400E">
+      ? `<div style="padding:12px;background:var(--amber-dim);border:1px solid var(--amber);border-radius:6px;font-size:13px;color:var(--amber-text)">
            AI quota bereikt. Klik op Terug en kies Nieuw aanmaken om zonder AI een toets te maken.
          </div>`
       : `<span style="color:var(--red)">Fout: ${escHtml(msg)}</span>`;
@@ -184,7 +184,7 @@ async function doAnalyseToets() {
     const msg = e.message || '';
     const isQuota = msg.includes('AI_QUOTA') || msg.includes('429') || msg.includes('quota');
     result.innerHTML = isQuota
-      ? `<div style="padding:12px;background:#FEF3C7;border:1px solid #D97706;border-radius:6px;font-size:13px;color:#92400E">AI quota bereikt. Probeer het later of kies Nieuw aanmaken.</div>`
+      ? `<div style="padding:12px;background:var(--amber-dim);border:1px solid var(--amber);border-radius:6px;font-size:13px;color:var(--amber-text)">AI quota bereikt. Probeer het later of kies Nieuw aanmaken.</div>`
       : `<span style="color:var(--red)">Fout: ${escHtml(msg)}</span>`;
   }
 }

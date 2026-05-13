@@ -590,7 +590,7 @@ async function wbBouwHtml(data) {
   if (d.introductie || doelen.length) {
     secties.push(`
       <div class="sectie-header"><div class="sectie-icon">🎯</div><h2>Leerdoelen</h2></div>
-      ${d.introductie ? `<p style="margin-bottom:16px;font-size:14px;color:var(--tekst-zacht)">${wbEsc(d.introductie)}</p>` : ''}
+      ${d.introductie ? `<p style="margin-bottom:16px;font-size:14px;color:var(--ink-3)">${wbEsc(d.introductie)}</p>` : ''}
       ${doelen.length ? `<ul class="checklist">${doelen.map(x=>`<li><span class="check-vakje"></span>${wbEsc(x)}</li>`).join('')}</ul>` : ''}
       <hr class="scheidingslijn">`);
   }
@@ -629,7 +629,7 @@ async function wbBouwHtml(data) {
           </div>`).join('')}
         </div>` : ''}
       ${machines.length ? `
-        <div class="sectie-header" style="margin-top:${veilig.length?'32px':'0'};border-bottom-color:var(--rand)">
+        <div class="sectie-header" style="margin-top:${veilig.length?'32px':'0'};border-bottom-color:var(--border)">
           <div class="sectie-icon" style="background:var(--middenblauw)">🔧</div>
           <h2 style="font-size:17px">Gereedschappen</h2>
         </div>
@@ -786,32 +786,32 @@ async function wbBouwHtml(data) {
     .stap.zonder-foto .stap-kaart{padding-bottom:16px}
     .stap-kopregel{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:8px}
     .stap-kopregel h3{margin:0}
-    .stap-badge{font-size:11px;font-weight:700;color:var(--blauw);background:#eef4ff;border:1px solid #dbe7ff;border-radius:999px;padding:5px 9px;white-space:nowrap}
+    .stap-badge{font-size:11px;font-weight:700;color:var(--blue-text);background:var(--blue-dim);border:1px solid var(--blue-dim);border-radius:999px;padding:5px 9px;white-space:nowrap}
     .stap-opdracht{font-size:14px;line-height:1.55;margin:0 0 12px;color:var(--tekst)}
-    .controleblok{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px;padding-top:10px;border-top:1px solid var(--rand)}
-    .controleblok label{font-size:11px;color:var(--tekst-zacht);background:#f8fafc;border:1px solid var(--rand);border-radius:10px;padding:8px 9px}
+    .controleblok{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px;padding-top:10px;border-top:1px solid var(--border)}
+    .controleblok label{font-size:11px;color:var(--ink-3);background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:8px 9px}
     .stappen-sectie{page-break-before:always;break-before:page;padding-top:0}
     .stappen-header{break-after:avoid;page-break-after:avoid;margin-bottom:14px}
     .stappen{display:block}
     .compacte-stappen-pagina{break-after:page;page-break-after:always;padding-top:0}
     .compacte-stappen-pagina:last-child{break-after:auto;page-break-after:auto}
     .stappen-lijst{display:flex;flex-direction:column;gap:12px}
-    .stap-gridkaart{background:var(--wit);border:1px solid var(--rand);border-radius:var(--radius);padding:14px 16px;break-inside:avoid;page-break-inside:avoid}
+    .stap-gridkaart{background:var(--wit);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;break-inside:avoid;page-break-inside:avoid}
     .stap-gridkop{display:flex;align-items:center;gap:10px;margin-bottom:8px}
     .stap-gridkop h3{margin:0;font-size:15px;color:var(--donkerblauw);line-height:1.2}
     .stap-gridkaart .controleblok{grid-template-columns:repeat(3,1fr)}
-    .stap-gridkop span:not(.stap-cirkel){font-size:10px;font-weight:700;color:var(--blauw);text-transform:uppercase;letter-spacing:.04em}
+    .stap-gridkop span:not(.stap-cirkel){font-size:10px;font-weight:700;color:var(--blue-text);text-transform:uppercase;letter-spacing:.04em}
     .stap-cirkel.klein{width:30px;height:30px;font-size:12px;flex:0 0 30px}
     .compacte-tip{font-size:12px;line-height:1.45;margin-top:8px;padding:9px 10px}
     .compacte-tip .blok-titel{font-size:11px;margin-bottom:3px}
     .tekening-pagina{page-break-before:always;break-before:page;padding:14mm;min-height:100vh;box-sizing:border-box;display:flex;flex-direction:column;gap:12px}
     .tekening-kop{display:flex;align-items:center;gap:12px;break-after:avoid}
     .tekening-kop h3{margin:0;font-size:17px;font-weight:700;color:var(--donkerblauw)}
-    .tekening-kop span{font-size:11px;color:var(--tekst-zacht);font-weight:700;text-transform:uppercase;letter-spacing:.04em}
-    .tekening-uitleg{display:grid;grid-template-columns:1fr;gap:8px;background:#f8fafc;border:1px solid var(--rand);border-radius:var(--radius);padding:10px 12px;break-inside:avoid}
-    .tekening-uitleg p{margin:0;font-size:13px;line-height:1.45;color:var(--tekst-zacht)}
+    .tekening-kop span{font-size:11px;color:var(--ink-3);font-weight:700;text-transform:uppercase;letter-spacing:.04em}
+    .tekening-uitleg{display:grid;grid-template-columns:1fr;gap:8px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px;break-inside:avoid}
+    .tekening-uitleg p{margin:0;font-size:13px;line-height:1.45;color:var(--ink-3)}
     .tekening-afbeelding-wrap{flex:1;display:flex;align-items:center;justify-content:center;min-height:0}
-    .tekening-afbeelding{max-width:100%;max-height:210mm;object-fit:contain;border-radius:var(--radius);border:1px solid var(--rand)}
+    .tekening-afbeelding{max-width:100%;max-height:210mm;object-fit:contain;border-radius:var(--radius);border:1px solid var(--border)}
     .tekening-pagina .tekenvak-wrapper{flex:1;display:flex;flex-direction:column}
     .tekening-pagina .tekenvak{flex:1;min-height:170mm}
     @media print{.controleblok,.stap-gridkaart,.stap,.stap-kaart{break-inside:avoid;page-break-inside:avoid}.stappen-sectie{page-break-before:always;break-before:page}.compacte-stappen-pagina{page-break-after:always;break-after:page}.compacte-stappen-pagina:last-child{page-break-after:auto;break-after:auto}.tekening-pagina{page-break-before:always;break-before:page}.stap-gridkaart{margin-bottom:0}}
