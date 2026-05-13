@@ -124,7 +124,7 @@ async function renderDashboard() {
     window._dbModules = modules;
     window._dbWerkboekjes = werkboekjes;
     window._dbToetsen = toetsen;
-    window._dbWeergave = 'tijdlijn';
+    if (!window._dbWeergave) window._dbWeergave = 'tijdlijn';
     setTimeout(_dbVerversLesbriefKnoppen, 0);
   } catch(e) { showError('Fout bij laden dashboard: ' + e.message); }
 }
@@ -533,6 +533,7 @@ function filterDashboardKlas() { _herlaadDashboardLijst(); }
 function _herlaadDashboardLijst() {
   const wrap = document.getElementById('db-activiteiten-wrap');
   if (wrap) wrap.innerHTML = renderDashboardVandaag(window._dbDagLessen || []);
+  setTimeout(_dbVerversLesbriefKnoppen, 0);
 }
 
 function dbOpenOpmerkingModal(id) {
