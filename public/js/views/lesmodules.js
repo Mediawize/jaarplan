@@ -270,7 +270,7 @@ async function openLesModuleModal(moduleId = null) {
         <button class="btn btn-sm" id="lm-voeg-stap-btn" onclick="lmVoegHoofdstapToe()">+ Stap toevoegen</button>
       </div>
       <div id="lm-stappen-lijst" style="border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface);max-height:560px;overflow-y:auto">
-        ${lmStappenHtml(m?.stappen || [], bibliotheek)}
+        ${lmStappenHtml(m?.stappen || [], werkboekjes)}
       </div>
     </div>
 
