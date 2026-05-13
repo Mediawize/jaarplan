@@ -48,7 +48,6 @@ async function renderToetsen() {
           ` : ''}
         </div>
       </div>
-
       <div class="card" style="margin-bottom:20px">
         <div class="card-header">
           <div><h2>📝 Toets bibliotheek (${toetsBib.length})</h2>
@@ -58,7 +57,6 @@ async function renderToetsen() {
           ? `<div class="empty-state"><h3>Nog geen toetsen</h3><p>Genereer een toets via "Toets genereren" hierboven.</p></div>`
           : renderMateriaalRijen(toetsBib)}
       </div>
-
       <div class="card" style="margin-bottom:20px">
         <div class="card-header">
           <div><h2>📓 Werkboekje bibliotheek (${werkBoekBib.length})</h2>
@@ -68,7 +66,6 @@ async function renderToetsen() {
           ? `<div class="empty-state"><h3>Nog geen werkboekjes</h3><p>Genereer een werkboekje via "Werkboekje maken" hierboven.</p></div>`
           : renderMateriaalRijen(werkBoekBib)}
       </div>
-
       <div class="card" style="margin-bottom:20px">
         <div class="card-header"><div><h2>Toetsen (gekoppeld aan opdrachten) (${metToets.length})</h2></div></div>
         ${metToets.length === 0
@@ -330,7 +327,6 @@ async function openToetsGenerator() {
   openModal(`
     <h2>📝 Toets maken</h2>
     <p class="modal-sub">Kies hoe je de toets wilt aanmaken.</p>
-
     ${inst.schoolnaam
       ? `<div style="font-size:13px;color:var(--ink-muted);margin-bottom:16px">
            🏫 <strong>${escHtml(inst.schoolnaam)}</strong>${inst.logoBestand ? ' · Logo ✓' : ''}
@@ -340,7 +336,6 @@ async function openToetsGenerator() {
            <a href="#" onclick="closeModalDirect();openInstellingenModal()" style="color:var(--accent)">⚙️ Instellingen</a>.
          </div>` : ''
     }
-
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:8px">
       <div onclick="openToetsUpload()"
            style="border:1.5px solid var(--border-2);border-radius:var(--radius);padding:20px 16px;cursor:pointer;text-align:center;transition:border-color .15s"
@@ -357,7 +352,6 @@ async function openToetsGenerator() {
         <div style="font-size:12px;color:var(--ink-muted)">Stap voor stap invullen — bronnen, open vragen en meerkeuze</div>
       </div>
     </div>
-
     <div class="modal-actions">
       <button class="btn" onclick="closeModalDirect()">Annuleren</button>
     </div>
@@ -371,7 +365,6 @@ async function openToetsUpload() {
     <h2>📤 Toets uit bestand</h2>
     <p class="modal-sub">Upload lesmateriaal en de AI maakt er een toets van in officiele examen-stijl — met bronnen, pijltjes en meerkeuzetabellen.</p>
     ${inst.schoolnaam ? `<div style="font-size:13px;color:var(--ink-muted);margin-bottom:12px">🏫 <strong>${escHtml(inst.schoolnaam)}</strong>${inst.logoBestand ? ' · Logo ✓' : ''}</div>` : ''}
-
     <div class="form-grid">
       <div class="form-field">
         <label>Documentsoort *</label>
@@ -400,7 +393,6 @@ async function openToetsUpload() {
         <input type="number" id="ts-vragen" value="10" min="1" max="50" placeholder="bijv. 10">
       </div>
     </div>
-
     <div class="form-field">
       <label>Bestand * (Word of PDF)</label>
       <div class="upload-zone" onclick="document.getElementById('ts-bestand').click()" id="ts-zone"
@@ -411,9 +403,7 @@ async function openToetsUpload() {
       </div>
       <input type="file" id="ts-bestand" accept=".docx,.doc,.pdf" style="display:none" onchange="toonBestandsnaamInZone(this,'ts-zone')">
     </div>
-
     <div id="ts-result" style="margin-top:8px;font-size:13px"></div>
-
     <div class="modal-actions">
       <button class="btn" onclick="openToetsGenerator()">← Terug</button>
       ${Auth.isAdmin() ? `<button class="btn" onclick="closeModalDirect();openInstellingenModal()">⚙️ Instellingen</button>` : ''}
