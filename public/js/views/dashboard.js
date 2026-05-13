@@ -392,9 +392,9 @@ function renderLesCard(les) {
       <p><strong>Focus:</strong> ${escHtml(o.focus || o.beschrijving || 'Les voorbereiden en uitvoeren volgens de planning.')}</p>
       <div class="td-lesson-actions">
         ${_dbMateriaalButtons(o, les.moduleContext)}
-        ${Auth.canEdit() ? `<button class="td-finish" onclick="dashboardAfvinken('${o.id}')">✓ ${o.afgevinkt ? 'Heropenen' : 'Les afronden'}</button>` : ''}
+        ${Auth.canEdit() ? `<button class="td-finish${o.afgevinkt ? ' td-finish--done' : ''}" onclick="dashboardAfvinken('${o.id}')">✓ ${o.afgevinkt ? 'Heropenen' : 'Les afronden'}</button>` : ''}
         ${_dbLesbriefButton(o)}
-        ${Auth.canEdit() ? `<button onclick="dbOpenOpmerkingModal('${o.id}')">▣ Opmerking</button>` : ''}
+        ${Auth.canEdit() ? `<button class="${o.opmerking ? 'td-opmerking--heeft' : ''}" onclick="dbOpenOpmerkingModal('${o.id}')">▣ Opmerking</button>` : ''}
       </div>
       ${_dbModulePraktijkHtml(les.moduleContext)}
       ${o.opmerking ? `<div class="td-note">${escHtml(o.opmerking)}</div>` : ''}
