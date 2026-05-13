@@ -645,7 +645,7 @@ module.exports = {
     const id = genId();
     const data = d.data || {};
     Q.insLesbrief.run(
-      id, d.profielId || null, d.weekIdx ?? null, d.actIdx ?? null,
+      id, d.profielId || d.opdrachtId || null, d.weekIdx ?? null, d.actIdx ?? null,
       d.activiteitNaam || '', d.activiteitType || '', d.activiteitUren || 1,
       JSON.stringify(data), d.opdrachtId || null
     );
