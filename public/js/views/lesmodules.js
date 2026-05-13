@@ -26,7 +26,7 @@ async function renderLesModules() {
       : modules.filter(m => !m.vakId || docentVakken.includes(m.vakId));
 
     const typeInfo = {
-      profieldeel: { label: 'Profieldelen', typeLabel: 'Profieldeel', kleur: '#2563EB' },
+      profieldeel: { label: 'Profieldelen', typeLabel: 'Profieldeel', kleur: 'var(--blue-text)' },
       keuzedeel: { label: 'Keuzedelen', typeLabel: 'Keuzedeel', kleur: '#059669' },
       overig: { label: 'Overig', typeLabel: 'Overig', kleur: '#78716C' }
     };
@@ -144,7 +144,7 @@ async function bekijkLesModule(moduleId) {
   const vak = vakken.find(v => v.id === m.vakId);
   const stappen = m.stappen || [];
   const gedeeld = m.gedeeldeOpdrachten || [];
-  const badgeKleur = m.type === 'profieldeel' ? '#3b82f6' : m.type === 'keuzedeel' ? '#10b981' : '#6b7280';
+  const badgeKleur = m.type === 'profieldeel' ? 'var(--blue-text)' : m.type === 'keuzedeel' ? '#10b981' : '#6b7280';
   const typeLabel = m.type === 'profieldeel' ? 'Profieldeel' : m.type === 'keuzedeel' ? 'Keuzedeel' : 'Overig';
 
   let stappenHtml;
@@ -644,7 +644,7 @@ function lmPraktijkOpdrachtHtml(stapIdx, opIdx, o, bibliotheek) {
       <span style="font-size:10px;font-weight:700;background:var(--amber);color:#fff;padding:1px 6px;border-radius:99px;flex-shrink:0">P${opIdx + 1}</span>
       <input class="lm-po-naam" value="${escHtml(o.naam || '')}" placeholder="Naam van de opdracht"
         style="flex:1;border:1px solid var(--border);border-radius:6px;padding:4px 8px;font-size:12px;font-weight:500"
-        onfocus="this.style.borderColor='#f59e0b'" onblur="this.style.borderColor='var(--border)'">
+        onfocus="this.style.borderColor='var(--amber)'" onblur="this.style.borderColor='var(--border)'">
       <button onclick="lmVerwijderPraktijkOpdracht(this)"
         style="background:none;border:none;cursor:pointer;color:var(--ink-muted);font-size:14px;line-height:1;padding:2px 4px">×</button>
     </div>
@@ -717,7 +717,7 @@ function lmUpdatePraktijkCount(stapEl) {
 function lmHernummerPraktijk(stapEl) {
   if (!stapEl) return;
   stapEl.querySelectorAll('.lm-praktijk-rij').forEach((rij, k) => {
-    const badge = rij.querySelector('span[style*="f59e0b"]');
+    const badge = rij.querySelector('span[style*="var(--amber)"]');
     if (badge) badge.textContent = `P${k + 1}`;
   });
 }
@@ -955,7 +955,7 @@ function lmGedeeldeOpdrachtHtml(idx, o, stappen) {
       <span style="font-size:10px;font-weight:700;background:var(--amber);color:#fff;padding:2px 8px;border-radius:99px">Gedeeld ${idx + 1}</span>
       <input class="lm-gd-naam" value="${escHtml(o.naam || '')}" placeholder="Naam van de gedeelde opdracht"
         style="flex:1;border:1px solid var(--border);border-radius:6px;padding:4px 8px;font-size:13px;font-weight:500"
-        onfocus="this.style.borderColor='#f59e0b'" onblur="this.style.borderColor='var(--border)'">
+        onfocus="this.style.borderColor='var(--amber)'" onblur="this.style.borderColor='var(--border)'">
       <button onclick="this.closest('.lm-gedeelde-rij').remove()"
         style="background:none;border:none;cursor:pointer;color:var(--ink-muted);font-size:18px;line-height:1;padding:2px 4px">×</button>
     </div>
