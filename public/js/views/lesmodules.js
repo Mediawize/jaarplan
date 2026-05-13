@@ -74,7 +74,8 @@ async function renderLesModules() {
         vakkenUniek.length ? vakkenUniek.join(', ') : null
       ].filter(Boolean).join(' · ');
 
-      return `<div class="lm-kaart">
+      return `<div class="lm-kaart" style="position:relative">
+        ${isAdmin ? `<button type="button" class="lm-blok-delete" style="position:absolute;top:12px;right:12px;width:28px;height:28px;border:0;background:transparent;color:#0f172a;font-size:28px;line-height:24px;font-weight:500;cursor:pointer;border-radius:999px" title="Verwijder blok" aria-label="Verwijder blok" onmouseover="this.style.background='#fef2f2';this.style.color='#b91c1c'" onmouseout="this.style.background='transparent';this.style.color='#0f172a'" onclick="verwijderLesModuleGroep('${lijst[0].id}')">×</button>` : ''}
         <div class="lm-kaart-type">
           <span class="lm-type-pill" style="background:${info.kleur}">${info.typeLabel}</span>
           <span style="font-size:11.5px;color:var(--ink-3)">${niveaus.length} niveau${niveaus.length !== 1 ? 's' : ''}</span>
@@ -87,7 +88,6 @@ async function renderLesModules() {
         ${isAdmin ? `<div class="lm-kaart-acties" style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
           <button class="btn btn-sm btn-primary" style="flex:1" onclick="openLesModuleNiveauToevoegen('${lijst[0].id}')">+ Niveau toevoegen</button>
           <button class="btn btn-sm" onclick="openLesModuleGroepBewerken('${lijst[0].id}')">Bewerk blok</button>
-          <button class="btn btn-sm" style="color:#b91c1c;border-color:#fecaca" onclick="verwijderLesModuleGroep('${lijst[0].id}')">Verwijder blok</button>
         </div>` : ''}
       </div>`;
     };
