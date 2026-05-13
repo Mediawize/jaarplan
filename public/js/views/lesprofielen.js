@@ -260,13 +260,13 @@ async function openProfielDetail(profielId) {
               <div class="lp-stap-header">
                 <span class="lp-stap-nr">${si + 1}</span>
                 <span class="lp-stap-naam">${escHtml(stap.naam || '')}</span>
-                ${heeftToets ? `<span style="font-size:11px;background:#fef2f2;color:#b91c1c;padding:3px 10px;border-radius:20px;border:1px solid #fca5a5;font-weight:600">📝 Toets</span>` : ''}
+                ${heeftToets ? `<span style="font-size:11px;background:var(--red-dim);color:var(--red-text);padding:3px 10px;border-radius:20px;border:1px solid var(--red-dim);font-weight:600">📝 Toets</span>` : ''}
                 ${stap.url ? `<a href="${escHtml(stap.url)}" target="_blank" style="font-size:12px;color:var(--blue-text);margin-left:auto;white-space:nowrap" onclick="event.stopPropagation()">🔗 Leslink</a>` : ''}
               </div>
               ${heeftToets ? `<div class="lp-toets-balk">
                 📝 Toets:
-                ${toetsMat ? `<strong>${escHtml(toetsMat.naam)}</strong> <a href="/uploads/${encodeURIComponent(toetsMat.bestandsnaam)}" target="_blank" style="font-size:11px;color:#b91c1c">⬇ Download</a>` : ''}
-                ${stap.toetsUrl ? `<a href="${escHtml(stap.toetsUrl)}" target="_blank" style="color:#b91c1c;font-size:11px">${escHtml(stap.toetsUrl.length > 50 ? stap.toetsUrl.slice(0,50)+'…' : stap.toetsUrl)}</a>` : ''}
+                ${toetsMat ? `<strong>${escHtml(toetsMat.naam)}</strong> <a href="/uploads/${encodeURIComponent(toetsMat.bestandsnaam)}" target="_blank" style="font-size:11px;color:var(--red-text)">⬇ Download</a>` : ''}
+                ${stap.toetsUrl ? `<a href="${escHtml(stap.toetsUrl)}" target="_blank" style="color:var(--red-text);font-size:11px">${escHtml(stap.toetsUrl.length > 50 ? stap.toetsUrl.slice(0,50)+'…' : stap.toetsUrl)}</a>` : ''}
               </div>` : ''}
               <div class="lp-stap-body">
                 ${stap.leerlingTaak ? `<div style="font-size:12.5px;color:var(--ink-2);background:var(--surface-2);padding:7px 12px;border-radius:5px;margin-bottom:8px;line-height:1.5">📝 ${escHtml(stap.leerlingTaak)}</div>` : ''}
