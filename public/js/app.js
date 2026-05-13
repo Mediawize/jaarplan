@@ -77,7 +77,16 @@ function showError(msg) {
 
 function openModal(content) {
   const o = document.getElementById('modal-overlay');
-  o.innerHTML = `<div class="modal-overlay-inner" onclick="closeModal(event)"><div class="modal-box">${content}</div></div>`;
+  const inner = document.createElement('div');
+  inner.className = 'modal-overlay-inner';
+  inner.addEventListener('click', closeModal);
+  const box = document.createElement('div');
+  box.className = 'modal-box';
+  if (typeof content === 'string') box.innerHTML = content;
+  else box.appendChild(content);
+  inner.appendChild(box);
+  o.innerHTML = '';
+  o.appendChild(inner);
   o.style.cssText = 'display:flex;position:fixed;inset:0;z-index:1000;align-items:center;justify-content:center;background:rgba(26,23,20,0.55)';
 }
 function closeModal(e) { if (e.target.classList.contains('modal-overlay-inner')) closeModalDirect(); }
