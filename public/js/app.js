@@ -78,6 +78,7 @@ function showError(msg) {
 
 function openModal(content) {
   const o = document.getElementById('modal-overlay');
+  if (!o) return;
   const inner = document.createElement('div');
   inner.className = 'modal-overlay-inner';
   inner.addEventListener('click', closeModal);
@@ -91,7 +92,7 @@ function openModal(content) {
   o.style.cssText = 'display:flex;position:fixed;inset:0;z-index:1000;align-items:center;justify-content:center;background:rgba(26,23,20,0.55)';
 }
 function closeModal(e) { if (e.target.classList.contains('modal-overlay-inner')) closeModalDirect(); }
-function closeModalDirect() { const o = document.getElementById('modal-overlay'); o.style.display = 'none'; o.innerHTML = ''; }
+function closeModalDirect() { const o = document.getElementById('modal-overlay'); if (!o) return; o.style.display = 'none'; o.innerHTML = ''; }
 
 function showLoading(viewId) {
   const el = document.getElementById('view-' + viewId);
