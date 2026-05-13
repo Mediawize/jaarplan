@@ -1862,6 +1862,18 @@ app.get('/api/materialen', requireAuth, (req, res) => {
   res.json(db.getMaterialen(type || null));
 });
 
+
+app.post('/api/materialen/upload', requireCanEdit, upload.single('bestand'), (req, res) => {
+  if (!req.file) return res.status(400).json({ error: 'Geen bestand ontvangen' });
+  const typeIn = String(req.body?.type || '').toLowerCase();
+  const type = typeIn === 'werkboekje' ? 'werkboekje' : 'toets';
+  const naam = String(req.body?.naam || req.file.originalname || 'Materiaal').trim();
+  const vak = String(req.body?.vak || '').trim();
+  const bestandsnaam = req.file.filename;
+  const mat = db.addMateriaal({ type, naam, bestandsnaam, vak });
+  return res.json({ success: true, materiaalId: mat?.id, bestandsnaam, naam, type });
+});
+
 app.delete('/api/materialen/:id', requireCanEdit, (req, res) => {
   const mat = db.getMateriaal(req.params.id);
   if (!mat) return res.status(404).json({ error: 'Niet gevonden' });

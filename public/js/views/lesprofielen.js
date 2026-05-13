@@ -765,14 +765,46 @@ function bewerkActiviteit(profielId, weekIdx, actIdx) {
         <div class="form-field form-full"><label>Omschrijving</label><input id="act-omschrijving" value="${escHtml(a.omschrijving || '')}"></div>
         <div class="form-field form-full"><label>Link</label><input id="act-link" type="url" placeholder="https://..." value="${escHtml(a.link || '')}"></div>
         <div class="form-field form-full"><label>Syllabuscodes</label><input id="act-syllabus" placeholder="bijv. PIE-1.1" value="${escHtml(a.syllabus || '')}"></div>
-        <div class="form-field form-full"><label>Toets bestandsnaam</label><input id="act-bestand" placeholder="bijv. toets_p1.pdf" value="${escHtml(a.bestand || '')}"></div>
+        <div class="form-field form-full"><label>Bestandsnaam / gekoppeld materiaal</label><input id="act-bestand" placeholder="bijv. toets_p1.pdf" value="${escHtml(a.bestand || '')}"></div>
+        <div class="form-field form-full"><label>Kies uit Lesmaterialen</label><select id="act-materiaal-select"><option value="">— laden... —</option></select></div>
+        <div class="form-field form-full"><label>Of upload nieuw materiaal</label><input id="act-upload" type="file" accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.png,.jpg,.jpeg"></div>
       </div>
       <div class="modal-actions">
         <button class="btn" onclick="closeModalDirect()">Annuleren</button>
         <button class="btn btn-primary" onclick="slaActiviteitBewerkingOp('${profielId}',${weekIdx},${actIdx})">Opslaan</button>
       </div>
     `);
+    laadLesmaterialenSelect(a.bestand || '');
   });
+}
+
+
+async function laadLesmaterialenSelect(geselecteerdBestand = '') {
+  const sel = document.getElementById('act-materiaal-select');
+  if (!sel) return;
+  try {
+    const materialen = await API.getMaterialen();
+    const opties = ['<option value="">— kies bestaand materiaal —</option>']
+      .concat((materialen || []).map(m => `<option value="${escHtml(m.bestandsnaam)}" ${m.bestandsnaam===geselecteerdBestand?'selected':''}>${escHtml((m.type||'materiaal') + ' · ' + (m.naam||m.bestandsnaam))}</option>`));
+    sel.innerHTML = opties.join('');
+    sel.onchange = () => { if (sel.value) document.getElementById('act-bestand').value = sel.value; };
+  } catch {
+    sel.innerHTML = '<option value="">(laden mislukt)</option>';
+  }
+}
+
+async function uploadLesmateriaalVoorActiviteit() {
+  const input = document.getElementById('act-upload');
+  const type = (document.getElementById('act-type')?.value || '').toLowerCase() === 'toets' ? 'toets' : 'werkboekje';
+  if (!input?.files?.[0]) return null;
+  const fd = new FormData();
+  fd.append('bestand', input.files[0]);
+  fd.append('type', type);
+  fd.append('naam', input.files[0].name);
+  const res = await fetch('/api/materialen/upload', { method:'POST', credentials:'same-origin', body: fd });
+  const data = await res.json();
+  if (!res.ok || data.error) throw new Error(data.error || 'Upload mislukt');
+  return data.bestandsnaam;
 }
 
 async function slaActiviteitBewerkingOp(profielId, weekIdx, actIdx) {
@@ -781,7 +813,9 @@ async function slaActiviteitBewerkingOp(profielId, weekIdx, actIdx) {
   const omschrijving = document.getElementById('act-omschrijving').value.trim();
   const link = document.getElementById('act-link').value.trim();
   const syllabus = document.getElementById('act-syllabus').value.trim();
-  const bestand = document.getElementById('act-bestand').value.trim();
+  let bestand = document.getElementById('act-bestand').value.trim();
+  const geupload = await uploadLesmateriaalVoorActiviteit();
+  if (geupload) bestand = geupload;
   const profielen = await API.getLesprofielen();
   const p = profielen.find(x => x.id === profielId);
   if (!p) return;
@@ -814,13 +848,16 @@ function openActiviteitModal(profielId, weekIdx) {
       <div class="form-field form-full"><label>Omschrijving</label><input id="act-omschrijving" placeholder="bijv. Uitleg businessmodel canvas"></div>
       <div class="form-field form-full"><label>Link</label><input id="act-link" type="url" placeholder="https://..."></div>
       <div class="form-field form-full"><label>Syllabuscodes</label><input id="act-syllabus" placeholder="bijv. PIE-1.1"></div>
-      <div class="form-field form-full"><label>Toets bestandsnaam</label><input id="act-bestand" placeholder="bijv. toets_p1.pdf"></div>
+      <div class="form-field form-full"><label>Bestandsnaam / gekoppeld materiaal</label><input id="act-bestand" placeholder="bijv. toets_p1.pdf"></div>
+      <div class="form-field form-full"><label>Kies uit Lesmaterialen</label><select id="act-materiaal-select"><option value="">— laden... —</option></select></div>
+      <div class="form-field form-full"><label>Of upload nieuw materiaal</label><input id="act-upload" type="file" accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.png,.jpg,.jpeg"></div>
     </div>
     <div class="modal-actions">
       <button class="btn" onclick="closeModalDirect()">Annuleren</button>
       <button class="btn btn-primary" onclick="slaActiviteitOp('${profielId}',${weekIdx})">Toevoegen</button>
     </div>
   `);
+  laadLesmaterialenSelect('');
 }
 
 async function slaActiviteitOp(profielId, weekIdx) {
@@ -829,7 +866,9 @@ async function slaActiviteitOp(profielId, weekIdx) {
   const omschrijving = document.getElementById('act-omschrijving').value.trim();
   const link = document.getElementById('act-link').value.trim();
   const syllabus = document.getElementById('act-syllabus').value.trim();
-  const bestand = document.getElementById('act-bestand').value.trim();
+  let bestand = document.getElementById('act-bestand').value.trim();
+  const geupload = await uploadLesmateriaalVoorActiviteit();
+  if (geupload) bestand = geupload;
   const profielen = await API.getLesprofielen();
   const p = profielen.find(x => x.id === profielId);
   if (!p) return;
