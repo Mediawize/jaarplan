@@ -1907,6 +1907,194 @@ app.post('/api/genereer-werkboekje-handmatig', requireCanEdit, async (req, res) 
 });
 
 
+
+
+// ============================================================
+// LESBRIEF CONTEXT — haalt alleen de data op die bij deze les hoort
+// ============================================================
+function _tekstWaarde(v) {
+  return typeof v === 'string' ? v.trim() : '';
+}
+
+function _lesbriefStapScore(opdracht, stap) {
+  const bron = [opdracht?.naam, opdracht?.beschrijving, opdracht?.type].map(_tekstWaarde).join(' ').toLowerCase();
+  const termen = [
+    stap?.naam,
+    ...(Array.isArray(stap?.lessen) ? stap.lessen.map(l => typeof l === 'string' ? l : l?.naam) : []),
+    ...(Array.isArray(stap?.praktijkOpdrachten) ? stap.praktijkOpdrachten.map(p => typeof p === 'string' ? p : p?.naam) : []),
+  ].map(_tekstWaarde).filter(Boolean);
+  let score = 0;
+  termen.forEach(t => {
+    const tl = t.toLowerCase();
+    if (tl && bron.includes(tl)) score += t === stap?.naam ? 8 : 4;
+    tl.split(/\s+/).filter(w => w.length >= 4).forEach(w => { if (bron.includes(w)) score += 1; });
+  });
+  return score;
+}
+
+function bouwLesbriefContext(opdrachtId) {
+  const opdracht = db.getOpdracht(opdrachtId);
+  if (!opdracht) return null;
+
+  const profiel = opdracht.profielId ? db.getLesprofiel(opdracht.profielId) : null;
+  const module = profiel?.moduleId ? db.getLesModule(profiel.moduleId) : null;
+  const stappen = Array.isArray(module?.stappen) ? module.stappen : [];
+
+  let stapIndex = -1;
+  let besteScore = -1;
+  stappen.forEach((stap, i) => {
+    const score = _lesbriefStapScore(opdracht, stap);
+    if (score > besteScore) { besteScore = score; stapIndex = i; }
+  });
+  if (besteScore <= 0) stapIndex = -1;
+
+  const stap = stapIndex >= 0 ? stappen[stapIndex] : null;
+  const theorie = stap ? (Array.isArray(stap.lessen) ? stap.lessen : []) : [];
+  const praktijk = stap ? (Array.isArray(stap.praktijkOpdrachten) ? stap.praktijkOpdrachten : []) : [];
+
+  const materiaal = [];
+  function voegMateriaalToe(id, label) {
+    if (!id) return;
+    try {
+      const mat = db.getMateriaal(id);
+      if (mat) materiaal.push({ type: mat.type || label, naam: mat.naam || mat.bestandsnaam || label, bestandsnaam: mat.bestandsnaam || '' });
+    } catch (_) {}
+  }
+  voegMateriaalToe(stap?.toetsId, 'toets');
+  praktijk.forEach(p => voegMateriaalToe(p?.materiaalId || p?.werkboekjeId || p?.bestandId, 'werkboekje'));
+
+  return {
+    opdracht,
+    profiel: profiel ? { id: profiel.id, naam: profiel.naam, niveau: profiel.niveau, vakId: profiel.vakId } : null,
+    module: module ? { id: module.id, naam: module.naam, niveau: module.niveau, vakId: module.vakId, type: module.type } : null,
+    stap: stap ? {
+      index: stapIndex,
+      naam: stap.naam || `Stap ${stapIndex + 1}`,
+      theorie: theorie.map(x => typeof x === 'string' ? { naam: x } : x),
+      praktijk: praktijk.map(x => typeof x === 'string' ? { naam: x } : x),
+      toetsId: stap.toetsId || null,
+      toetsUrl: stap.toetsUrl || null,
+    } : null,
+    materiaal,
+  };
+}
+
+app.get('/api/lesbrieven/context/:opdrachtId', requireAuth, (req, res) => {
+  const context = bouwLesbriefContext(req.params.opdrachtId);
+  if (!context) return res.status(404).json({ error: 'Les niet gevonden' });
+  res.json(context);
+});
+
+function _lesbriefContextTekst(context) {
+  if (!context) return 'Geen lesmodule-context gevonden.';
+  const o = context.opdracht || {};
+  const stap = context.stap || {};
+  const theorie = Array.isArray(stap.theorie) ? stap.theorie.map(x => x?.naam || x).filter(Boolean) : [];
+  const praktijk = Array.isArray(stap.praktijk) ? stap.praktijk.map(x => x?.naam || x).filter(Boolean) : [];
+  const materiaal = Array.isArray(context.materiaal) ? context.materiaal.map(m => `${m.type || 'materiaal'}: ${m.naam || m.bestandsnaam}`).filter(Boolean) : [];
+  return [
+    `Les: ${o.naam || ''}`,
+    `Beschrijving: ${o.beschrijving || ''}`,
+    `Type: ${o.type || ''}`,
+    `Lesprofiel: ${context.profiel?.naam || ''}`,
+    `Module: ${context.module?.naam || ''}`,
+    `Niveau: ${context.profiel?.niveau || context.module?.niveau || ''}`,
+    `Module stap: ${stap.naam || ''}`,
+    `Theorie binnen deze les: ${theorie.join(' | ') || 'geen aparte theorie gevonden'}`,
+    `Praktijk binnen deze les: ${praktijk.join(' | ') || 'geen aparte praktijk gevonden'}`,
+    `Gekoppelde materialen: ${materiaal.join(' | ') || 'geen'}`,
+  ].join('\n');
+}
+
+async function genereerLesbriefData({ body, uploadTekst = '' }) {
+  const { activiteitNaam, activiteitType, activiteitUren, profielNaam, weekThema, syllabuscodes, niveau, vak, huidigData, opdrachtId } = body || {};
+  const context = opdrachtId ? bouwLesbriefContext(opdrachtId) : null;
+  const opdracht = context?.opdracht || {};
+  const minuten = Math.round((Number(activiteitUren || opdracht.uren) || 1) * 45);
+  const lesuren = Number(activiteitUren || opdracht.uren) || 1;
+  const niveauLabel = niveau || context?.profiel?.niveau || context?.module?.niveau || huidigData?.klas || 'VMBO';
+  const vakLabel = vak || huidigData?.vak || context?.profiel?.vakId || context?.module?.vakId || '';
+  const naam = activiteitNaam || opdracht.naam || context?.stap?.naam || 'onbekend';
+  const type = activiteitType || opdracht.type || 'Theorie';
+
+  const t = (frac) => { const m = Math.round(minuten * frac); return Math.floor(m/60) + ':' + String(m % 60).padStart(2,'0'); };
+  const faseringVoorbeeld = lesuren >= 2
+    ? `[{"fase":"Fase 1 — Leerdoelen","tijd":"0:00–${t(0.06)}","activiteitLeraar":"...","activiteitLeerling":"...","hulpmiddelen":"..."},{"fase":"Fase 2 — Voorkennis activeren","tijd":"${t(0.06)}–${t(0.18)}","activiteitLeraar":"...","activiteitLeerling":"...","hulpmiddelen":"..."},{"fase":"Fase 3 — Instructie","tijd":"${t(0.18)}–${t(0.40)}","activiteitLeraar":"...","activiteitLeerling":"...","hulpmiddelen":"..."},{"fase":"Fase 4 — Zelfstandig verwerken","tijd":"${t(0.40)}–${t(0.72)}","activiteitLeraar":"...","activiteitLeerling":"...","hulpmiddelen":"..."},{"fase":"Fase 5 — Terugkoppeling","tijd":"${t(0.72)}–${t(0.88)}","activiteitLeraar":"...","activiteitLeerling":"...","hulpmiddelen":"..."},{"fase":"Fase 6 — Afsluiting","tijd":"${t(0.88)}–${t(1.0)}","activiteitLeraar":"...","activiteitLeerling":"...","hulpmiddelen":"..."}]`
+    : `[{"fase":"Fase 1 — Leerdoelen","tijd":"0:00–${t(0.11)}","activiteitLeraar":"...","activiteitLeerling":"...","hulpmiddelen":"..."},{"fase":"Fase 2 — Voorkennis activeren","tijd":"${t(0.11)}–${t(0.27)}","activiteitLeraar":"...","activiteitLeerling":"...","hulpmiddelen":"..."},{"fase":"Fase 3 — Instructie","tijd":"${t(0.27)}–${t(0.55)}","activiteitLeraar":"...","activiteitLeerling":"...","hulpmiddelen":"..."},{"fase":"Fase 4 — Zelfstandig verwerken","tijd":"${t(0.55)}–${t(0.80)}","activiteitLeraar":"...","activiteitLeerling":"...","hulpmiddelen":"..."},{"fase":"Fase 5 — Afsluiting","tijd":"${t(0.80)}–${t(1.0)}","activiteitLeraar":"...","activiteitLeerling":"...","hulpmiddelen":"..."}]`;
+
+  const contextTekst = _lesbriefContextTekst(context);
+  const uploadBlok = uploadTekst ? `\n\nGEANALYSEERDE UPLOAD VAN DE DOCENT:\n${uploadTekst.slice(0, 12000)}` : '';
+
+  return chatJson({
+    system: `Je bent een ervaren VMBO/MBO docent die een lesvoorbereidingsformulier invult vanuit de docent.
+Je schrijft in de eerste persoon: Ik start, ik leg uit, ik begeleid.
+Gebruik alleen de lesmodule-stap, theorie, praktijkonderdelen en eventuele upload die bij deze les horen. Maak geen lesbrief voor de hele module.
+Geef altijd alleen geldig JSON terug.`,
+    user: `Maak een lesvoorbereidingsformulier voor deze ene les.
+
+CONTEXT UIT JAARPLAN:
+${contextTekst}${uploadBlok}
+
+AANVULLENDE GEGEVENS:
+- Lesomschrijving: "${naam}"
+- Lestype: ${type}
+- Duur: ${lesuren} lesuur/lesuren = ${minuten} minuten
+- Weekthema: ${weekThema || '—'}
+- Vak: ${vakLabel || '—'}
+- Lesprofiel: ${profielNaam || context?.profiel?.naam || '—'}
+- Niveau: ${niveauLabel}
+- Syllabuscodes: ${syllabuscodes || '—'}
+
+Geef ALLEEN geldige JSON terug met exact deze sleutels:
+{
+  "lesdoel": "3-5 concrete lesdoelen als Leerlingen kunnen...",
+  "beginsituatie": "2-3 zinnen over voorkennis en aandachtspunten",
+  "watDoekIk": "Eerste persoon. Concrete aanpak voor alleen deze les.",
+  "watDoetDeLeerling": "Wat leerlingen concreet doen met de theorie en praktijkonderdelen uit deze les.",
+  "evaluatie": "Hoe ik controleer of deze theorie/praktijk is begrepen en uitgevoerd.",
+  "reflectie": "Wat ik als docent wil laten zien en kort achteraf check.",
+  "fasering": ${faseringVoorbeeld}
+}
+
+Regels:
+- Verwerk de theorie-stappen en praktijkonderdelen uit de module-stap zichtbaar in de lesbrief.
+- Gebruik de upload alleen als extra bronmateriaal voor deze les.
+- Vul alle faseringvelden volledig in.
+- Schrijf concreet en praktisch Nederlands.`,
+    maxTokens: 4000,
+    temperature: 0.3
+  });
+}
+
+app.post('/api/lesbrieven/genereer-v2', requireCanEdit, async (req, res) => {
+  try {
+    const data = await genereerLesbriefData({ body: req.body || {} });
+    res.json({ success: true, data });
+  } catch (e) {
+    const msg = e.message || '';
+    const isQuota = msg.includes('429') || msg.includes('quota') || msg.includes('insufficient');
+    console.error('Lesbrief AI fout:', e);
+    res.status(500).json({ error: isQuota ? 'AI_QUOTA' : 'Fout bij genereren: ' + msg });
+  }
+});
+
+app.post('/api/lesbrieven/genereer-v2-upload', requireCanEdit, upload.single('bestand'), async (req, res) => {
+  try {
+    let uploadTekst = '';
+    if (req.file) uploadTekst = await extractTekstUitBestand(req.file.path, req.file.originalname);
+    if (req.file?.path && fs.existsSync(req.file.path)) { try { fs.unlinkSync(req.file.path); } catch (_) {} }
+    const body = req.body?.payload ? JSON.parse(req.body.payload) : req.body || {};
+    const data = await genereerLesbriefData({ body, uploadTekst });
+    res.json({ success: true, data });
+  } catch (e) {
+    if (req.file?.path && fs.existsSync(req.file.path)) { try { fs.unlinkSync(req.file.path); } catch (_) {} }
+    const msg = e.message || '';
+    const isQuota = msg.includes('429') || msg.includes('quota') || msg.includes('insufficient');
+    console.error('Lesbrief AI upload fout:', e);
+    res.status(500).json({ error: isQuota ? 'AI_QUOTA' : 'Fout bij genereren met upload: ' + msg });
+  }
+});
+
 // ============================================================
 // LESBRIEVEN — CRUD + AI genereren
 // ============================================================
