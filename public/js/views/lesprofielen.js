@@ -575,37 +575,9 @@ async function slaKoppelingOp(profielId) {
   const aantalWeken = parseInt(document.getElementById('koppel-weken')?.value || 8);
   if (!klasId || !startweek) { alert('Selecteer een klas en startweek.'); return; }
 
-  const [profielen, klassen, modules, werkboekjes] = await Promise.all([
-    API.getLesprofielen(),
-    API.getKlassen(),
-    API.getLesModules().catch(() => []),
-    API.getMaterialen('werkboekje').catch(() => [])
-  ]);
+  const [profielen, klassen] = await Promise.all([API.getLesprofielen(), API.getKlassen()]);
   const p = profielen.find(x => x.id === profielId);
   const klas = klassen.find(k => k.id === klasId);
-  const gekoppeldeModule = p?.moduleId ? modules.find(m => m.id === p.moduleId) : null;
-  const werkboekMap = {};
-  (werkboekjes || []).forEach(w => { if (w?.id) werkboekMap[w.id] = w; });
-  const vindPraktijkMateriaal = (pr) => {
-    if (!gekoppeldeModule || !pr) return null;
-    const zoek = `${pr.naam || ''} ${pr.omschrijving || ''}`.toLowerCase();
-    let gevonden = null;
-    (gekoppeldeModule.stappen || []).forEach(stap => {
-      (stap.praktijkOpdrachten || []).forEach(po => {
-        if (gevonden) return;
-        const naam = String(po.naam || '').toLowerCase();
-        const oms = String(po.omschrijving || '').toLowerCase();
-        if ((naam && zoek.includes(naam)) || (oms && zoek.includes(oms))) gevonden = po;
-      });
-    });
-    if (!gevonden) return null;
-    if (gevonden.werkboekjeId && werkboekMap[gevonden.werkboekjeId]?.bestandsnaam) {
-      return `/uploads/${encodeURIComponent(werkboekMap[gevonden.werkboekjeId].bestandsnaam)}`;
-    }
-    if (gevonden.werkboekjeLink) return gevonden.werkboekjeLink;
-    if (gevonden.werkboekjeBestand) return `/uploads/${encodeURIComponent(gevonden.werkboekjeBestand)}`;
-    return null;
-  };
   if (!p || !klas) return;
 
   // Verwijder bestaande gekoppelde opdrachten
@@ -625,6 +597,7 @@ async function slaKoppelingOp(profielId) {
       if (!wk) continue;
       const periode = getPeriodeVoorWeekLP(Number(sw.weeknummer));
       for (const t of (wk.theorie || [])) {
+        const stapInfo = (_lpVerdelingStappen || []).find(s => s.naam === t.stapNaam);
         await API.addOpdracht({
           naam: t.omschrijving || t.stapNaam || 'Theorie',
           klasId, periode, weeknummer: Number(sw.weeknummer),
@@ -632,9 +605,11 @@ async function slaKoppelingOp(profielId) {
           type: 'Theorie', uren: t.uren || p.urenTheorie || 1,
           beschrijving: wk.thema ? `${wk.thema} — ${p.naam}` : p.naam,
           profielId: p.id,
+          moduleId: p.moduleId || null,
+          stapNaam: t.stapNaam || stapInfo?.naam || '',
+          stapIndex: stapInfo?.index ?? null,
         });
         // Voeg toets toe als de stap een toets heeft
-        const stapInfo = (_lpVerdelingStappen || []).find(s => s.naam === t.stapNaam);
         if (stapInfo && stapInfo.heeftToets) {
           await API.addOpdracht({
             naam: `Toets — ${t.stapNaam || p.naam}`,
@@ -644,19 +619,21 @@ async function slaKoppelingOp(profielId) {
             beschrijving: wk.thema ? `${wk.thema} — ${p.naam}` : p.naam,
             theorieLink: stapInfo.toetsUrl || '',
             profielId: p.id,
+            moduleId: p.moduleId || null,
+            stapNaam: t.stapNaam || stapInfo?.naam || '',
+            stapIndex: stapInfo?.index ?? null,
           });
         }
       }
       for (const pr of (wk.praktijk || [])) {
-        const werkboekLink = vindPraktijkMateriaal(pr);
         await API.addOpdracht({
           naam: pr.omschrijving || pr.naam || 'Praktijk',
           klasId, periode, weeknummer: Number(sw.weeknummer),
           weken: String(sw.weeknummer), schooljaar: klas.schooljaar,
           type: 'Praktijk', uren: pr.uren || p.urenPraktijk || 1,
           beschrijving: wk.thema ? `${wk.thema} — ${p.naam}` : p.naam,
-          werkboekLink: werkboekLink || '',
           profielId: p.id,
+          moduleId: p.moduleId || null,
         });
       }
     }
@@ -672,6 +649,7 @@ async function slaKoppelingOp(profielId) {
         uren: p.urenPerWeek || (p.urenTheorie || 0) + (p.urenPraktijk || 0) || 1,
         beschrijving: `Uit lesprofiel: ${p.naam}`,
         profielId: p.id,
+        moduleId: p.moduleId || null,
       });
     }
   }

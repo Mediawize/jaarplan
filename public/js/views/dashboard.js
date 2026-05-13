@@ -5,7 +5,7 @@
 async function renderDashboard() {
   showLoading('dashboard');
   try {
-    const [klassen, alleOpd, alleTaken, gebruikers, lesprofielen, lesmodules, werkboekjes] = await Promise.all([
+    const [klassen, alleOpd, alleTaken, gebruikers, profielen, modules, werkboekjes] = await Promise.all([
       API.getKlassen(),
       API.getOpdrachten(),
       API.getTaken(),
@@ -24,14 +24,15 @@ async function renderDashboard() {
     const voornaam = Auth.currentUser?.naam?.split(' ')[0] || '';
 
     const mijnRooster = normaliseerDashboardRooster(await API.getRooster(Auth.currentUser?.id));
-    const lessenVandaag = _dbMaakDagLessen(alleOpd, klassen, cw, mijnRooster, vandaagNaam);
+    const lessenVandaag = _dbVerrijkLessenMetModules(
+      _dbMaakDagLessen(alleOpd, klassen, cw, mijnRooster, vandaagNaam),
+      profielen,
+      modules,
+      werkboekjes
+    );
     const openTaken = (alleTaken || [])
       .filter(t => !t.afgerond)
       .sort((a, b) => _dbDatumWaarde(a.deadline) - _dbDatumWaarde(b.deadline));
-    const moduleContext = _dbMaakModuleContext(lesprofielen, lesmodules, werkboekjes);
-    lessenVandaag.forEach(les => { les.moduleContext = moduleContext; });
-    window._dbModuleContext = moduleContext;
-
     const materialen = _dbBenodigdVandaag(lessenVandaag);
     const totaalMin = lessenVandaag.reduce((som, les) => som + les.minuten, 0);
     const leerlingen = lessenVandaag.reduce((som, les) => som + (parseInt(les.klas?.aantalLeerlingen || les.klas?.leerlingen || 0) || 0), 0);
@@ -117,6 +118,9 @@ async function renderDashboard() {
     window._dbAlleOpd = alleOpd;
     window._dbDagLessen = lessenVandaag;
     window._dbTaken = alleTaken;
+    window._dbProfielen = profielen;
+    window._dbModules = modules;
+    window._dbWerkboekjes = werkboekjes;
     window._dbWeergave = 'tijdlijn';
   } catch(e) { showError('Fout bij laden dashboard: ' + e.message); }
 }
@@ -211,6 +215,95 @@ function maakLesuurBlokken(uren) {
   return blokken;
 }
 
+
+function _dbVerrijkLessenMetModules(lessen, profielen, modules, werkboekjes) {
+  const profielMap = Object.fromEntries((profielen || []).map(p => [p.id, p]));
+  const moduleMap = Object.fromEntries((modules || []).map(m => [m.id, m]));
+
+  return (lessen || []).map(les => {
+    const opdracht = les.opdracht || {};
+    const profiel = opdracht.profielId ? profielMap[opdracht.profielId] : null;
+    const module = profiel?.moduleId ? moduleMap[profiel.moduleId] : null;
+    const stap = module ? _dbVindModuleStapVoorOpdracht(opdracht, module) : null;
+    const praktijk = _dbPraktijkVoorOpdracht(opdracht, module, stap);
+    const werkboekjesBijLes = _dbWerkboekjesVoorPraktijk(praktijk, werkboekjes);
+
+    return {
+      ...les,
+      moduleContext: module ? { profiel, module, stap, praktijk, werkboekjes: werkboekjesBijLes } : null
+    };
+  });
+}
+
+function _dbVindModuleStapVoorOpdracht(opdracht, module) {
+  const stappen = Array.isArray(module?.stappen) ? module.stappen : [];
+  if (!stappen.length) return null;
+
+  if (opdracht.stapIndex != null && stappen[Number(opdracht.stapIndex)]) return stappen[Number(opdracht.stapIndex)];
+  if (opdracht.stapNaam) {
+    const exact = stappen.find(s => _dbNorm(s.naam) === _dbNorm(opdracht.stapNaam));
+    if (exact) return exact;
+  }
+
+  const tekst = _dbNorm([opdracht.naam, opdracht.beschrijving, opdracht.focus].filter(Boolean).join(' '));
+  let beste = null;
+  let score = 0;
+
+  stappen.forEach(stap => {
+    let s = 0;
+    const stapNaam = _dbNorm(stap.naam || '');
+    if (stapNaam && tekst.includes(stapNaam)) s += 8;
+    (stap.lessen || []).forEach(les => {
+      const naam = _dbNorm(typeof les === 'string' ? les : les.naam);
+      if (!naam) return;
+      if (tekst.includes(naam)) s += 6;
+      naam.split(' ').filter(w => w.length > 4).forEach(w => { if (tekst.includes(w)) s += 1; });
+    });
+    if (s > score) { score = s; beste = stap; }
+  });
+
+  return score > 0 ? beste : stappen[0];
+}
+
+function _dbPraktijkVoorOpdracht(opdracht, module, stap) {
+  const direct = Array.isArray(opdracht.praktijkOpdrachten) ? opdracht.praktijkOpdrachten : [];
+  const vanStap = Array.isArray(stap?.praktijkOpdrachten) ? stap.praktijkOpdrachten : [];
+  const stapIndex = Array.isArray(module?.stappen) && stap ? module.stappen.indexOf(stap) : -1;
+  const gedeeld = (module?.gedeeldeOpdrachten || []).filter(o => {
+    if (!Array.isArray(o.stappen) || !o.stappen.length) return true;
+    return stapIndex >= 0 && o.stappen.map(Number).includes(stapIndex);
+  });
+
+  return [...direct, ...vanStap, ...gedeeld].filter(o => o && (o.naam || o.werkboekjeId || o.werkboekjeLink || o.werkboekjeBestand));
+}
+
+function _dbWerkboekjesVoorPraktijk(praktijk, werkboekjes) {
+  const map = Object.fromEntries((werkboekjes || []).map(w => [w.id, w]));
+  const gezien = new Set();
+  const uit = [];
+
+  (praktijk || []).forEach(o => {
+    if (o.werkboekjeId && map[o.werkboekjeId] && !gezien.has('id:' + o.werkboekjeId)) {
+      gezien.add('id:' + o.werkboekjeId);
+      uit.push({ naam: map[o.werkboekjeId].naam || map[o.werkboekjeId].bestandsnaam || 'Werkboekje', url: '/uploads/' + encodeURIComponent(map[o.werkboekjeId].bestandsnaam || '') });
+    }
+    if (o.werkboekjeLink && !gezien.has('link:' + o.werkboekjeLink)) {
+      gezien.add('link:' + o.werkboekjeLink);
+      uit.push({ naam: o.naam ? 'Werkboekje ' + o.naam : 'Werkboekje', url: o.werkboekjeLink });
+    }
+    if (o.werkboekjeBestand && !o.werkboekjeId && !gezien.has('bestand:' + o.werkboekjeBestand)) {
+      gezien.add('bestand:' + o.werkboekjeBestand);
+      uit.push({ naam: o.naam ? 'Werkboekje ' + o.naam : o.werkboekjeBestand, url: '/uploads/' + encodeURIComponent(o.werkboekjeBestand) });
+    }
+  });
+
+  return uit.filter(w => w.url && !w.url.endsWith('/uploads/'));
+}
+
+function _dbNorm(v) {
+  return String(v || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
+}
+
 function renderDashboardVandaag(lessen) {
   if (!lessen.length) {
     return `<div class="empty-state" style="padding:48px 24px"><p>Geen lessen voor vandaag ingesteld. Stel eerst je lesuren in bij Mijn rooster.</p><button class="btn btn-primary" style="margin-top:16px" onclick="showView('rooster')">Naar rooster →</button></div>`;
@@ -273,24 +366,37 @@ function renderLesCard(les) {
         <button onclick="openLesbrief('${o.id}')">▤ Lesbrief</button>
         ${Auth.canEdit() ? `<button class="td-finish" onclick="dashboardAfvinken('${o.id}')">✓ ${o.afgevinkt ? 'Heropenen' : 'Les afronden'}</button><button onclick="dbOpenOpmerkingModal('${o.id}')">▣ Opmerking</button>` : ''}
       </div>
-      ${_dbPraktijkStappenBlok(o, les.moduleContext)}
+      ${_dbModulePraktijkHtml(les.moduleContext)}
       ${o.opmerking ? `<div class="td-note">${escHtml(o.opmerking)}</div>` : ''}
     </div>
   </article>`;
 }
 
-function _dbMateriaalButtons(o, context) {
+function _dbModulePraktijkHtml(ctx) {
+  if (!ctx || (!ctx.praktijk?.length && !ctx.werkboekjes?.length)) return '';
+
+  return `<div class="td-module-praktijk" style="margin-top:12px;border-top:1px solid var(--border);padding-top:10px">
+    ${ctx.stap?.naam ? `<div style="font-size:12px;color:var(--ink-muted);margin-bottom:6px">Module stap: <strong>${escHtml(ctx.stap.naam)}</strong></div>` : ''}
+    ${ctx.praktijk?.length ? `<div style="font-size:12.5px;color:var(--ink-2);line-height:1.6">🔧 Praktijk: ${ctx.praktijk.map(o => escHtml(o.naam || 'Praktijkopdracht')).join(' · ')}</div>` : ''}
+    ${ctx.werkboekjes?.length ? `<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px">${ctx.werkboekjes.map(w => `<a href="${escHtml(w.url)}" target="_blank" rel="noopener" style="font-size:12px;font-weight:600;color:#15803d;background:#ecfdf5;border:1px solid #bbf7d0;border-radius:8px;padding:6px 10px;text-decoration:none">📗 Download ${escHtml(w.naam || 'werkboekje')}</a>`).join('')}</div>` : ''}
+  </div>`;
+}
+
+function _dbMateriaalButtons(o) {
   const knoppen = [];
 
   const lesmateriaal = _dbEersteWaarde(o.theorieLink, o.lesmateriaalLink, o.lesmateriaalUrl, o.materiaalLink, o.materiaalUrl);
   const presentatie = _dbEersteWaarde(o.presentatieLink, o.presentatieUrl, o.presentatieBestand, o.slidesLink, o.slidesUrl);
   const werkboekje = _dbEersteWaarde(o.werkboekLink, o.werkboekjeLink, o.werkboekUrl, o.werkboekjeUrl);
-  const praktijkWerkboekjes = _dbVindPraktijkStappen(o, context).flatMap(p => p.werkboekjes || []);
 
   if (lesmateriaal) knoppen.push(_dbGekoppeldeKnop(lesmateriaal, 'Lesmateriaal'));
   if (presentatie) knoppen.push(_dbGekoppeldeKnop(presentatie, 'Presentatie'));
   if (werkboekje) knoppen.push(_dbGekoppeldeKnop(werkboekje, 'Werkboekje'));
-  praktijkWerkboekjes.forEach((wb, i) => knoppen.push(_dbGekoppeldeKnop(wb.url, wb.label || `Werkboekje ${i + 1}`)));
+
+  const ctx = arguments[1];
+  if (ctx?.werkboekjes?.length) {
+    ctx.werkboekjes.forEach((w, i) => knoppen.push(_dbGekoppeldeKnop(w.url, i ? 'Werkboekje' : 'Werkboekje')));
+  }
 
   return knoppen.join('');
 }
@@ -301,70 +407,6 @@ function _dbEersteWaarde(...waardes) {
 
 function _dbGekoppeldeKnop(link, label) {
   return `<a href="${escHtml(link)}" target="_blank" rel="noopener">▤ ${escHtml(label)}</a>`;
-}
-
-
-function _dbMaakModuleContext(lesprofielen, lesmodules, werkboekjes) {
-  const profielMap = {};
-  const moduleMap = {};
-  const werkboekMap = {};
-  (lesprofielen || []).forEach(p => { if (p?.id) profielMap[p.id] = p; });
-  (lesmodules || []).forEach(m => { if (m?.id) moduleMap[m.id] = m; });
-  (werkboekjes || []).forEach(w => { if (w?.id) werkboekMap[w.id] = w; });
-  return { profielMap, moduleMap, werkboekMap };
-}
-
-function _dbVindPraktijkStappen(o, context) {
-  if (!o || !context || !o.profielId) return [];
-  const profiel = context.profielMap?.[o.profielId];
-  const module = profiel?.moduleId ? context.moduleMap?.[profiel.moduleId] : null;
-  if (!module) return [];
-
-  const zoekTekst = `${o.naam || ''} ${o.beschrijving || ''}`.toLowerCase();
-  const alle = [];
-  (module.stappen || []).forEach((stap, si) => {
-    (stap.praktijkOpdrachten || []).forEach((po, pi) => {
-      const naam = po.naam || `Praktijk opdracht ${pi + 1}`;
-      const omschrijving = po.omschrijving || '';
-      const matchTekst = `${naam} ${omschrijving} ${stap.naam || ''}`.toLowerCase();
-      const match = zoekTekst && (
-        zoekTekst.includes(String(naam).toLowerCase()) ||
-        (omschrijving && zoekTekst.includes(String(omschrijving).toLowerCase())) ||
-        matchTekst.includes(String(o.naam || '').toLowerCase())
-      );
-      const werkboekjes = [];
-      if (po.werkboekjeId && context.werkboekMap?.[po.werkboekjeId]?.bestandsnaam) {
-        const wb = context.werkboekMap[po.werkboekjeId];
-        werkboekjes.push({ label: wb.naam || naam || 'Werkboekje', url: `/uploads/${encodeURIComponent(wb.bestandsnaam)}` });
-      }
-      if (po.werkboekjeLink) werkboekjes.push({ label: 'Werkboekje link', url: po.werkboekjeLink });
-      if (po.werkboekjeBestand) werkboekjes.push({ label: 'Werkboekje bestand', url: `/uploads/${encodeURIComponent(po.werkboekjeBestand)}` });
-      alle.push({ stapNaam: stap.naam || `Stap ${si + 1}`, naam, omschrijving, match, werkboekjes });
-    });
-  });
-
-  const direct = alle.filter(x => x.match);
-  if (direct.length) return direct;
-
-  // Als het om een praktijkles uit dit profiel gaat, toon de praktijkstappen als houvast.
-  if (String(o.type || '').toLowerCase().includes('praktijk')) return alle.slice(0, 6);
-  return [];
-}
-
-function _dbPraktijkStappenBlok(o, context) {
-  const stappen = _dbVindPraktijkStappen(o, context);
-  if (!stappen.length) return '';
-  return `<div class="td-note" style="margin-top:10px;background:#fffdf0;border-left-color:#f59e0b">
-    <strong>Praktijkstappen uit lesmodule</strong>
-    <div style="display:grid;gap:6px;margin-top:6px">
-      ${stappen.map((s, i) => `<div style="font-size:12.5px;color:var(--ink-2)">
-        <span style="font-weight:700;color:#92400e">${i + 1}. ${escHtml(s.naam)}</span>
-        ${s.stapNaam ? `<span style="color:var(--ink-muted)"> · ${escHtml(s.stapNaam)}</span>` : ''}
-        ${s.omschrijving ? `<div style="font-size:12px;color:var(--ink-muted);margin-top:2px">${escHtml(s.omschrijving)}</div>` : ''}
-        ${s.werkboekjes?.length ? `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px">${s.werkboekjes.map(w => `<a href="${escHtml(w.url)}" target="_blank" rel="noopener" style="font-size:11px;color:var(--accent-text);padding:2px 8px;background:var(--accent-dim);border-radius:20px;border:1px solid rgba(22,163,74,.15)">⬇ ${escHtml(w.label || 'Werkboekje')}</a>`).join('')}</div>` : ''}
-      </div>`).join('')}
-    </div>
-  </div>`;
 }
 
 function _dbTaakRegel(t) {
@@ -378,13 +420,15 @@ function _dbTaakRegel(t) {
 
 function _dbBenodigdVandaag(lessen) {
   const lijst = [];
-  lessen.forEach(({ opdracht: o, klas }) => {
+  (lessen || []).forEach(({ opdracht: o, klas, moduleContext }) => {
     const label = klas?.naam || '';
     if (o.materiaal) lijst.push({ naam: o.materiaal, aantal: label });
     if (o.materialen) String(o.materialen).split('\n').filter(Boolean).forEach(m => lijst.push({ naam: m.trim(), aantal: label }));
+    (moduleContext?.praktijk || []).forEach(p => lijst.push({ naam: p.naam || 'Praktijkopdracht', aantal: label }));
+    (moduleContext?.werkboekjes || []).forEach(w => lijst.push({ naam: w.naam || 'Werkboekje', aantal: 'Downloadbaar' }));
   });
-  if (lijst.length) return lijst.slice(0, 6);
-  return lessen.slice(0, 5).map(({ opdracht: o, klas }) => ({ naam: o.type?.toLowerCase() === 'praktijk' ? 'Praktijkmateriaal' : 'Lesmateriaal', aantal: klas?.naam || '' }));
+  if (lijst.length) return lijst.slice(0, 8);
+  return (lessen || []).slice(0, 5).map(({ opdracht: o, klas }) => ({ naam: o.type?.toLowerCase() === 'praktijk' ? 'Praktijkmateriaal' : 'Lesmateriaal', aantal: klas?.naam || '' }));
 }
 
 function _dbMateriaalRegel(m) {
