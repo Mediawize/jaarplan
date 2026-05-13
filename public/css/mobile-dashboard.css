@@ -815,3 +815,98 @@
     min-height: 44px !important;
   }
 }
+
+/* ============================================================
+   FIX 20260513 — Mobiel leskaart volle breedte
+   Zet de oranje tijdlijn onder de tijd, zodat de inhoud breder wordt.
+   ============================================================ */
+@media (max-width: 760px) {
+  .td-lesson {
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    gap: 0 !important;
+    padding: 16px !important;
+  }
+
+  .td-time {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: baseline !important;
+    gap: 10px !important;
+    width: 100% !important;
+    font-size: 14px !important;
+    margin-bottom: 10px !important;
+  }
+
+  .td-time strong {
+    font-size: 16px !important;
+  }
+
+  .td-time span {
+    font-size: 14px !important;
+  }
+
+  .td-time em {
+    margin-top: 0 !important;
+    margin-left: auto !important;
+    font-size: 13px !important;
+  }
+
+  .td-colorbar {
+    width: 100% !important;
+    height: 4px !important;
+    min-height: 4px !important;
+    max-height: 4px !important;
+    align-self: auto !important;
+    margin: 0 0 14px 0 !important;
+    border-radius: 999px !important;
+  }
+
+  .td-class {
+    display: none !important;
+  }
+
+  .td-lesson-body {
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  .td-lesson-main {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 10px !important;
+    margin-bottom: 12px !important;
+  }
+
+  .td-lesson h3 {
+    font-size: 20px !important;
+    line-height: 1.18 !important;
+  }
+
+  .td-status {
+    align-self: flex-start !important;
+  }
+
+  .td-meta {
+    font-size: 13px !important;
+    line-height: 1.35 !important;
+  }
+
+  .td-lesson p {
+    font-size: 14px !important;
+  }
+}
+
+@media (max-width: 420px) {
+  .td-lesson {
+    padding: 14px !important;
+  }
+
+  .td-lesson h3 {
+    font-size: 18px !important;
+  }
+
+  .td-time {
+    gap: 8px !important;
+  }
+}
