@@ -1,21 +1,90 @@
+/* =========================
+   MOBIEL DASHBOARD FIX
+========================= */
 
 @media (max-width:768px){
 
-.dashboard-leskaart{
-  display:flex;
-  flex-direction:column;
-}
+  .dashboard-stats{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:12px;
+  }
 
-.dashboard-leskaart .les-header{
-  border-bottom:4px solid #f05a00;
-  padding-bottom:14px;
-  margin-bottom:16px;
-}
+  .dashboard-stat-card{
+    min-height:110px;
+    padding:16px;
+    border-radius:18px;
+  }
 
-.dashboard-leskaart .les-tijden{
-  display:flex;
-  justify-content:space-between;
-  margin-bottom:12px;
-}
+  .dashboard-stat-card .icon{
+    width:48px;
+    height:48px;
+    font-size:20px;
+  }
 
+  .dashboard-stat-card h3{
+    font-size:15px;
+    margin-bottom:4px;
+  }
+
+  .dashboard-stat-card .value{
+    font-size:22px;
+    line-height:1.2;
+  }
+
+  .dashboard-top-actions{
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+  }
+
+  .dashboard-top-actions .btn{
+    width:100%;
+  }
+
+  .dashboard-leskaart{
+    display:flex;
+    flex-direction:column;
+    padding:18px;
+  }
+
+  .dashboard-leskaart .les-tijden{
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-start;
+    margin-bottom:12px;
+    font-size:15px;
+  }
+
+  .dashboard-leskaart .les-header{
+    border-bottom:4px solid #f05a00;
+    padding-bottom:14px;
+    margin-bottom:16px;
+  }
+
+  .dashboard-leskaart h2,
+  .dashboard-leskaart h3{
+    font-size:20px;
+    line-height:1.3;
+  }
+
+  .dashboard-leskaart .les-actions{
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+  }
+
+  .dashboard-leskaart .les-actions .btn{
+    width:100%;
+  }
+
+  .dashboard-leskaart .download-buttons{
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+  }
+
+  .dashboard-leskaart .download-buttons .btn{
+    width:100%;
+  }
 }
