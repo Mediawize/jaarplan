@@ -84,8 +84,10 @@ async function renderLesModules() {
         <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:12px">
           ${lijst.map(m => `<button class="btn btn-sm" onclick="bekijkLesModule('${m.id}')">${escHtml(niveauLabel(m))}</button>`).join('')}
         </div>
-        ${isAdmin ? `<div class="lm-kaart-acties" style="margin-top:12px">
-          <button class="btn btn-sm btn-primary" style="flex:1" onclick="openLesModuleModal()">+ Niveau toevoegen</button>
+        ${isAdmin ? `<div class="lm-kaart-acties" style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-sm btn-primary" style="flex:1" onclick="openLesModuleNiveauToevoegen('${lijst[0].id}')">+ Niveau toevoegen</button>
+          <button class="btn btn-sm" onclick="openLesModuleGroepBewerken('${lijst[0].id}')">Bewerk blok</button>
+          <button class="btn btn-sm" style="color:#b91c1c;border-color:#fecaca" onclick="verwijderLesModuleGroep('${lijst[0].id}')">Verwijder blok</button>
         </div>` : ''}
       </div>`;
     };
@@ -249,11 +251,118 @@ async function bekijkLesModule(moduleId) {
   `);
 }
 
+
+// ============================================================
+// GROEP ACTIES
+// ============================================================
+
+async function openLesModuleNiveauToevoegen(basisModuleId) {
+  const modules = await API.getLesModules();
+  const basis = modules.find(m => m.id === basisModuleId);
+  if (!basis) return alert('Basismodule niet gevonden.');
+  const basisKey = String(basis.naam || '').trim().toLowerCase();
+  const bestaandeNiveaus = modules
+    .filter(m => String(m.naam || '').trim().toLowerCase() === basisKey)
+    .map(m => String(m.niveau || '').trim());
+  openLesModuleModal(null, {
+    basisModuleId,
+    naam: basis.naam || '',
+    vakId: basis.vakId || '',
+    type: basis.type || 'profieldeel',
+    beschrijving: basis.beschrijving || '',
+    bestaandeNiveaus
+  });
+}
+
+async function openLesModuleGroepBewerken(basisModuleId) {
+  const [modules, vakken] = await Promise.all([API.getLesModules(), API.getVakken()]);
+  const basis = modules.find(m => m.id === basisModuleId);
+  if (!basis) return alert('Blok niet gevonden.');
+  const basisKey = String(basis.naam || '').trim().toLowerCase();
+  const groep = modules.filter(m => String(m.naam || '').trim().toLowerCase() === basisKey);
+
+  openModal(`
+    <h2>Moduleblok bewerken</h2>
+    <p class="modal-sub">Dit past naam, vak en type aan voor alle niveaus binnen dit blok.</p>
+    <div class="form-grid">
+      <div class="form-field form-full">
+        <label>Naam *</label>
+        <input id="lm-groep-naam" value="${escHtml(basis.naam || '')}">
+      </div>
+      <div class="form-field">
+        <label>Type</label>
+        <select id="lm-groep-type">
+          <option value="profieldeel" ${basis.type === 'profieldeel' ? 'selected' : ''}>Profieldeel</option>
+          <option value="keuzedeel" ${basis.type === 'keuzedeel' ? 'selected' : ''}>Keuzedeel</option>
+        </select>
+      </div>
+      <div class="form-field">
+        <label>Vak</label>
+        <select id="lm-groep-vak">
+          <option value="">Geen specifiek vak</option>
+          ${vakken.map(v => `<option value="${v.id}" ${basis.vakId === v.id ? 'selected' : ''}>${escHtml(v.naam)}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-field form-full">
+        <label>Beschrijving</label>
+        <textarea id="lm-groep-beschrijving" rows="2">${escHtml(basis.beschrijving || '')}</textarea>
+      </div>
+    </div>
+    <div style="margin-top:12px;font-size:12px;color:var(--ink-muted)">
+      Niveaus in dit blok: ${groep.map(m => escHtml(String(m.niveau || '').trim() || 'Alle niveaus')).join(', ')}
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModalDirect()">Annuleren</button>
+      <button class="btn btn-primary" onclick="slaLesModuleGroepOp('${basisModuleId}')">Opslaan</button>
+    </div>
+  `);
+}
+
+async function slaLesModuleGroepOp(basisModuleId) {
+  const modules = await API.getLesModules();
+  const basis = modules.find(m => m.id === basisModuleId);
+  if (!basis) return alert('Blok niet gevonden.');
+  const basisKey = String(basis.naam || '').trim().toLowerCase();
+  const groep = modules.filter(m => String(m.naam || '').trim().toLowerCase() === basisKey);
+  const naam = document.getElementById('lm-groep-naam')?.value.trim();
+  if (!naam) return alert('Vul een naam in.');
+  const type = document.getElementById('lm-groep-type')?.value || 'profieldeel';
+  const vakId = document.getElementById('lm-groep-vak')?.value || null;
+  const beschrijving = document.getElementById('lm-groep-beschrijving')?.value.trim() || '';
+
+  try {
+    for (const m of groep) {
+      await fetch(`/api/les-modules/${m.id}`, {
+        method: 'PUT', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...m, naam, type, vakId, beschrijving })
+      });
+    }
+    closeModalDirect();
+    await renderLesModules();
+  } catch (e) { alert('Fout bij opslaan: ' + e.message); }
+}
+
+async function verwijderLesModuleGroep(basisModuleId) {
+  const modules = await API.getLesModules();
+  const basis = modules.find(m => m.id === basisModuleId);
+  if (!basis) return alert('Blok niet gevonden.');
+  const basisKey = String(basis.naam || '').trim().toLowerCase();
+  const groep = modules.filter(m => String(m.naam || '').trim().toLowerCase() === basisKey);
+  const niveaus = groep.map(m => String(m.niveau || '').trim() || 'Alle niveaus').join(', ');
+  if (!confirm(`Moduleblok "${basis.naam}" verwijderen?\n\nDit verwijdert ${groep.length} niveau(s): ${niveaus}`)) return;
+  try {
+    for (const m of groep) {
+      await fetch(`/api/les-modules/${m.id}`, { method: 'DELETE', credentials: 'same-origin' });
+    }
+    await renderLesModules();
+  } catch (e) { alert('Fout bij verwijderen: ' + e.message); }
+}
+
 // ============================================================
 // BEWERK/NIEUW MODAL
 // ============================================================
 
-async function openLesModuleModal(moduleId = null) {
+async function openLesModuleModal(moduleId = null, preset = {}) {
   const [vakken, modules, werkboekjes, toetsen] = await Promise.all([
     API.getVakken(),
     API.getLesModules(),
@@ -261,8 +370,20 @@ async function openLesModuleModal(moduleId = null) {
     API.getMaterialen('toets').catch(() => [])
   ]);
   const m = moduleId ? modules.find(x => x.id === moduleId) : null;
+  const basisModule = preset?.basisModuleId ? modules.find(x => x.id === preset.basisModuleId) : null;
+  const basisNaam = preset?.naam ?? basisModule?.naam ?? '';
+  const basisVakId = preset?.vakId ?? basisModule?.vakId ?? '';
+  const basisType = preset?.type ?? basisModule?.type ?? 'profieldeel';
+  const basisBeschrijving = preset?.beschrijving ?? basisModule?.beschrijving ?? '';
+  const bestaandeNiveaus = Array.isArray(preset?.bestaandeNiveaus)
+    ? preset.bestaandeNiveaus
+    : basisModule ? modules
+        .filter(x => String(x.naam || '').trim().toLowerCase() === String(basisModule.naam || '').trim().toLowerCase())
+        .map(x => String(x.niveau || '').trim())
+      : [];
   window._lmBibliotheek = werkboekjes;
   window._lmToetsen = toetsen;
+  window._lmBestaandeNiveaus = bestaandeNiveaus;
 
   openModal(`
     <h2>${m ? 'Les module bewerken' : 'Nieuwe les module'}</h2>
@@ -271,26 +392,30 @@ async function openLesModuleModal(moduleId = null) {
       <div class="form-field">
         <label>Type *</label>
         <select id="lm-type" onchange="lmOnTypeChange()">
-          <option value="profieldeel" ${(!m || m.type === 'profieldeel') ? 'selected' : ''}>Profieldeel (max 8 stappen)</option>
-          <option value="keuzedeel" ${m?.type === 'keuzedeel' ? 'selected' : ''}>Keuzedeel (max 5 stappen)</option>
+          <option value="profieldeel" ${((m?.type || basisType) === 'profieldeel') ? 'selected' : ''}>Profieldeel (max 8 stappen)</option>
+          <option value="keuzedeel" ${((m?.type || basisType) === 'keuzedeel') ? 'selected' : ''}>Keuzedeel (max 5 stappen)</option>
         </select>
       </div>
       <div class="form-field">
         <label>Niveau</label>
         <select id="lm-niveau">
-          ${['BB', 'KB', 'GL', 'TL', 'Havo', 'VWO', ''].map(n => `<option value="${n}" ${(m?.niveau || '') === n ? 'selected' : ''}>${n || 'Alle niveaus'}</option>`).join('')}
+          ${['BB', 'KB', 'GL', 'TL', 'Havo', 'VWO', ''].map(n => {
+            const gekozen = (m?.niveau || '') === n;
+            const bestaatAl = !m && bestaandeNiveaus.includes(n);
+            return `<option value="${n}" ${gekozen ? 'selected' : ''} ${bestaatAl ? 'disabled' : ''}>${n || 'Alle niveaus'}${bestaatAl ? ' — bestaat al' : ''}</option>`;
+          }).join('')}
         </select>
       </div>
       <div class="form-field">
         <label>Vak</label>
         <select id="lm-vak">
           <option value="">Geen specifiek vak</option>
-          ${vakken.map(v => `<option value="${v.id}" ${m?.vakId === v.id ? 'selected' : ''}>${escHtml(v.naam)}</option>`).join('')}
+          ${vakken.map(v => `<option value="${v.id}" ${((m?.vakId || basisVakId) === v.id) ? 'selected' : ''}>${escHtml(v.naam)}</option>`).join('')}
         </select>
       </div>
-      <div class="form-field form-full"><label>Naam *</label><input id="lm-naam" value="${escHtml(m?.naam || '')}" placeholder="bijv. Profieldeel Wonen - GL"></div>
+      <div class="form-field form-full"><label>Naam *</label><input id="lm-naam" value="${escHtml(m?.naam || basisNaam || '')}" placeholder="bijv. Booglasprocessen"></div>
       <div class="form-field form-full"><label>Beschrijving</label>
-        <textarea id="lm-beschrijving" rows="2" style="resize:vertical" placeholder="Korte omschrijving">${escHtml(m?.beschrijving || '')}</textarea>
+        <textarea id="lm-beschrijving" rows="2" style="resize:vertical" placeholder="Korte omschrijving">${escHtml(m?.beschrijving || basisBeschrijving || '')}</textarea>
       </div>
     </div>
 
@@ -1006,13 +1131,18 @@ async function analyseerLesModuleBestand() {
 async function slaLesModuleOp(moduleId) {
   const naam = document.getElementById('lm-naam')?.value.trim();
   if (!naam) { alert('Vul een naam in.'); return; }
+  const niveau = document.getElementById('lm-niveau')?.value || '';
+  if (!moduleId && Array.isArray(window._lmBestaandeNiveaus) && window._lmBestaandeNiveaus.includes(niveau)) {
+    alert('Dit niveau bestaat al binnen deze module. Kies een ander niveau.');
+    return;
+  }
 
   const payload = {
     naam,
     type: document.getElementById('lm-type')?.value || 'profieldeel',
     categorie: 'theorie',
     vakId: document.getElementById('lm-vak')?.value || null,
-    niveau: document.getElementById('lm-niveau')?.value || '',
+    niveau,
     beschrijving: document.getElementById('lm-beschrijving')?.value.trim() || '',
     stappen: lmLeesStappen(),
     gedeeldeOpdrachten: lmLeesGedeeldeOpdrachten(),
