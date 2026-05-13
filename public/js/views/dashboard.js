@@ -5,8 +5,14 @@
 async function renderDashboard() {
   showLoading('dashboard');
   try {
-    const [klassen, alleOpd, alleTaken, gebruikers] = await Promise.all([
-      API.getKlassen(), API.getOpdrachten(), API.getTaken(), API.getGebruikers()
+    const [klassen, alleOpd, alleTaken, gebruikers, lesprofielen, lesmodules, werkboekjes] = await Promise.all([
+      API.getKlassen(),
+      API.getOpdrachten(),
+      API.getTaken(),
+      API.getGebruikers(),
+      API.getLesprofielen().catch(() => []),
+      API.getLesModules().catch(() => []),
+      API.getMaterialen('werkboekje').catch(() => [])
     ]);
 
     const cw = getCurrentWeek();
@@ -22,6 +28,10 @@ async function renderDashboard() {
     const openTaken = (alleTaken || [])
       .filter(t => !t.afgerond)
       .sort((a, b) => _dbDatumWaarde(a.deadline) - _dbDatumWaarde(b.deadline));
+    const moduleContext = _dbMaakModuleContext(lesprofielen, lesmodules, werkboekjes);
+    lessenVandaag.forEach(les => { les.moduleContext = moduleContext; });
+    window._dbModuleContext = moduleContext;
+
     const materialen = _dbBenodigdVandaag(lessenVandaag);
     const totaalMin = lessenVandaag.reduce((som, les) => som + les.minuten, 0);
     const leerlingen = lessenVandaag.reduce((som, les) => som + (parseInt(les.klas?.aantalLeerlingen || les.klas?.leerlingen || 0) || 0), 0);
@@ -259,25 +269,28 @@ function renderLesCard(les) {
         <span class="td-status">${escHtml(status)}</span>
       </div>
       <div class="td-lesson-actions">
-        ${_dbMateriaalButtons(o)}
+        ${_dbMateriaalButtons(o, les.moduleContext)}
         <button onclick="openLesbrief('${o.id}')">▤ Lesbrief</button>
         ${Auth.canEdit() ? `<button class="td-finish" onclick="dashboardAfvinken('${o.id}')">✓ ${o.afgevinkt ? 'Heropenen' : 'Les afronden'}</button><button onclick="dbOpenOpmerkingModal('${o.id}')">▣ Opmerking</button>` : ''}
       </div>
+      ${_dbPraktijkStappenBlok(o, les.moduleContext)}
       ${o.opmerking ? `<div class="td-note">${escHtml(o.opmerking)}</div>` : ''}
     </div>
   </article>`;
 }
 
-function _dbMateriaalButtons(o) {
+function _dbMateriaalButtons(o, context) {
   const knoppen = [];
 
   const lesmateriaal = _dbEersteWaarde(o.theorieLink, o.lesmateriaalLink, o.lesmateriaalUrl, o.materiaalLink, o.materiaalUrl);
   const presentatie = _dbEersteWaarde(o.presentatieLink, o.presentatieUrl, o.presentatieBestand, o.slidesLink, o.slidesUrl);
   const werkboekje = _dbEersteWaarde(o.werkboekLink, o.werkboekjeLink, o.werkboekUrl, o.werkboekjeUrl);
+  const praktijkWerkboekjes = _dbVindPraktijkStappen(o, context).flatMap(p => p.werkboekjes || []);
 
   if (lesmateriaal) knoppen.push(_dbGekoppeldeKnop(lesmateriaal, 'Lesmateriaal'));
   if (presentatie) knoppen.push(_dbGekoppeldeKnop(presentatie, 'Presentatie'));
   if (werkboekje) knoppen.push(_dbGekoppeldeKnop(werkboekje, 'Werkboekje'));
+  praktijkWerkboekjes.forEach((wb, i) => knoppen.push(_dbGekoppeldeKnop(wb.url, wb.label || `Werkboekje ${i + 1}`)));
 
   return knoppen.join('');
 }
@@ -288,6 +301,70 @@ function _dbEersteWaarde(...waardes) {
 
 function _dbGekoppeldeKnop(link, label) {
   return `<a href="${escHtml(link)}" target="_blank" rel="noopener">▤ ${escHtml(label)}</a>`;
+}
+
+
+function _dbMaakModuleContext(lesprofielen, lesmodules, werkboekjes) {
+  const profielMap = {};
+  const moduleMap = {};
+  const werkboekMap = {};
+  (lesprofielen || []).forEach(p => { if (p?.id) profielMap[p.id] = p; });
+  (lesmodules || []).forEach(m => { if (m?.id) moduleMap[m.id] = m; });
+  (werkboekjes || []).forEach(w => { if (w?.id) werkboekMap[w.id] = w; });
+  return { profielMap, moduleMap, werkboekMap };
+}
+
+function _dbVindPraktijkStappen(o, context) {
+  if (!o || !context || !o.profielId) return [];
+  const profiel = context.profielMap?.[o.profielId];
+  const module = profiel?.moduleId ? context.moduleMap?.[profiel.moduleId] : null;
+  if (!module) return [];
+
+  const zoekTekst = `${o.naam || ''} ${o.beschrijving || ''}`.toLowerCase();
+  const alle = [];
+  (module.stappen || []).forEach((stap, si) => {
+    (stap.praktijkOpdrachten || []).forEach((po, pi) => {
+      const naam = po.naam || `Praktijk opdracht ${pi + 1}`;
+      const omschrijving = po.omschrijving || '';
+      const matchTekst = `${naam} ${omschrijving} ${stap.naam || ''}`.toLowerCase();
+      const match = zoekTekst && (
+        zoekTekst.includes(String(naam).toLowerCase()) ||
+        (omschrijving && zoekTekst.includes(String(omschrijving).toLowerCase())) ||
+        matchTekst.includes(String(o.naam || '').toLowerCase())
+      );
+      const werkboekjes = [];
+      if (po.werkboekjeId && context.werkboekMap?.[po.werkboekjeId]?.bestandsnaam) {
+        const wb = context.werkboekMap[po.werkboekjeId];
+        werkboekjes.push({ label: wb.naam || naam || 'Werkboekje', url: `/uploads/${encodeURIComponent(wb.bestandsnaam)}` });
+      }
+      if (po.werkboekjeLink) werkboekjes.push({ label: 'Werkboekje link', url: po.werkboekjeLink });
+      if (po.werkboekjeBestand) werkboekjes.push({ label: 'Werkboekje bestand', url: `/uploads/${encodeURIComponent(po.werkboekjeBestand)}` });
+      alle.push({ stapNaam: stap.naam || `Stap ${si + 1}`, naam, omschrijving, match, werkboekjes });
+    });
+  });
+
+  const direct = alle.filter(x => x.match);
+  if (direct.length) return direct;
+
+  // Als het om een praktijkles uit dit profiel gaat, toon de praktijkstappen als houvast.
+  if (String(o.type || '').toLowerCase().includes('praktijk')) return alle.slice(0, 6);
+  return [];
+}
+
+function _dbPraktijkStappenBlok(o, context) {
+  const stappen = _dbVindPraktijkStappen(o, context);
+  if (!stappen.length) return '';
+  return `<div class="td-note" style="margin-top:10px;background:#fffdf0;border-left-color:#f59e0b">
+    <strong>Praktijkstappen uit lesmodule</strong>
+    <div style="display:grid;gap:6px;margin-top:6px">
+      ${stappen.map((s, i) => `<div style="font-size:12.5px;color:var(--ink-2)">
+        <span style="font-weight:700;color:#92400e">${i + 1}. ${escHtml(s.naam)}</span>
+        ${s.stapNaam ? `<span style="color:var(--ink-muted)"> · ${escHtml(s.stapNaam)}</span>` : ''}
+        ${s.omschrijving ? `<div style="font-size:12px;color:var(--ink-muted);margin-top:2px">${escHtml(s.omschrijving)}</div>` : ''}
+        ${s.werkboekjes?.length ? `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px">${s.werkboekjes.map(w => `<a href="${escHtml(w.url)}" target="_blank" rel="noopener" style="font-size:11px;color:var(--accent-text);padding:2px 8px;background:var(--accent-dim);border-radius:20px;border:1px solid rgba(22,163,74,.15)">⬇ ${escHtml(w.label || 'Werkboekje')}</a>`).join('')}</div>` : ''}
+      </div>`).join('')}
+    </div>
+  </div>`;
 }
 
 function _dbTaakRegel(t) {
