@@ -162,6 +162,10 @@ async function bekijkLesModule(moduleId) {
       stappenHtml = stappen.map((stap, i) => {
         const lessen = Array.isArray(stap.lessen) ? stap.lessen : [];
         const opdrachten = Array.isArray(stap.praktijkOpdrachten) ? stap.praktijkOpdrachten : [];
+        const totaalUren = [
+          ...lessen.map(l => (typeof l === 'object' ? l?.lesuren : 0) || 0),
+          ...opdrachten.map(o => o?.lesuren || 0)
+        ].reduce((s, n) => s + n, 0);
         const toetsMat = stap.toetsId ? toetsen.find(t => t.id === stap.toetsId) : null;
         const heeftToets = toetsMat || stap.toetsUrl;
         return `<div class="lm-bekijk-stap">
@@ -169,6 +173,7 @@ async function bekijkLesModule(moduleId) {
             <span class="lm-bekijk-stap-nr">${i + 1}</span>
             <span style="font-weight:600;font-size:14px;flex:1;color:var(--ink)">${escHtml(stap.naam)}</span>
             ${stap.url ? `<a href="${escHtml(stap.url)}" target="_blank" style="font-size:12px;color:var(--blue-text);font-weight:500" onclick="event.stopPropagation()">🔗 Leslink</a>` : ''}
+            ${totaalUren ? `<span style="font-size:11px;font-weight:700;color:var(--ink-3);background:var(--surface-2);padding:2px 8px;border-radius:20px;border:1px solid var(--border)">⏱ ${totaalUren} lesuur${totaalUren !== 1 ? 'uren' : ''}</span>` : ''}
             ${heeftToets ? `<span style="font-size:11px;color:var(--red-text);background:var(--red-dim);padding:2px 8px;border-radius:20px;border:1px solid var(--red-dim);font-weight:600">📝 Toets</span>` : ''}
           </div>
           ${heeftToets ? `<div class="lp-toets-balk">
@@ -178,17 +183,25 @@ async function bekijkLesModule(moduleId) {
           </div>` : ''}
           ${stap.leerlingTaak ? `<div style="padding:7px 14px;font-size:12.5px;color:var(--ink-2);background:var(--surface-2);border-bottom:1px solid var(--border)">📝 ${escHtml(stap.leerlingTaak)}</div>` : ''}
           <div class="lm-bekijk-stap-body">
-            ${lessen.map((les, j) => `
-              <div class="lm-bekijk-les">
+            ${lessen.map((les, j) => {
+              const lNaam   = typeof les === 'string' ? les : (les?.naam || '');
+              const lUrl    = typeof les === 'object' ? les?.url : null;
+              const lUren   = typeof les === 'object' ? les?.lesuren : null;
+              return `<div class="lm-bekijk-les">
                 <span style="min-width:32px;font-size:11px;color:var(--ink-4);font-family:var(--font-mono);flex-shrink:0">${i+1}.${j+1}</span>
-                <span>${escHtml(les)}</span>
-              </div>`).join('')}
+                <span style="flex:1">${lUrl ? `<a href="${escHtml(lUrl)}" target="_blank" style="color:var(--blue-text);font-weight:600;text-decoration:none">${escHtml(lNaam)}</a>` : escHtml(lNaam)}</span>
+                ${lUren ? `<span style="font-size:10px;font-weight:700;color:var(--ink-3);background:var(--surface-2);padding:1px 6px;border-radius:20px;border:1px solid var(--border);flex-shrink:0">⏱ ${lUren}u</span>` : ''}
+              </div>`;
+            }).join('')}
             ${opdrachten.length ? `<div class="lm-bekijk-praktijk-blok">
               <div style="font-size:11px;font-weight:700;color:var(--amber-text);margin-bottom:6px;text-transform:uppercase;letter-spacing:.04em">🔧 Praktijk (${opdrachten.length})</div>
               ${opdrachten.map((o, k) => {
                 const codes = Array.isArray(o.syllabusCodes) ? o.syllabusCodes : [];
                 return `<div style="margin-bottom:6px;font-size:12.5px">
-                  <strong>${k + 1}. ${escHtml(o.naam || '')}</strong>
+                  <div style="display:flex;align-items:center;gap:6px">
+                    <strong>${k + 1}. ${escHtml(o.naam || '')}</strong>
+                    ${o.lesuren ? `<span style="font-size:10px;font-weight:700;color:var(--ink-3);background:var(--surface-2);padding:1px 6px;border-radius:20px;border:1px solid var(--border)">⏱ ${o.lesuren}u</span>` : ''}
+                  </div>
                   <div style="display:flex;flex-wrap:wrap;gap:3px;margin-top:3px">
                     ${o.theorieSectie ? `<span style="background:var(--amber-dim);color:var(--amber-text);padding:2px 8px;border-radius:20px;font-size:11px;border:1px solid var(--amber-dim)">📚 ${escHtml(o.theorieSectie)}</span>` : ''}
                     ${codes.map(c => `<span style="background:#f0fdf4;color:#166534;padding:2px 8px;border-radius:20px;font-size:11px;border:1px solid #bbf7d0">${escHtml(c)}</span>`).join('')}
@@ -579,10 +592,20 @@ function lmHoofdstapHtml(i, stap, bib) {
 // ============================================================
 
 function lmLesHtml(stapIdx, lesIdx, les) {
-  return `<div class="lm-les-rij" style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
+  const naam    = typeof les === 'string' ? les : (les?.naam || '');
+  const url     = typeof les === 'object' ? (les?.url || '') : '';
+  const lesuren = typeof les === 'object' ? (les?.lesuren || '') : '';
+  return `<div class="lm-les-rij" style="display:flex;align-items:center;gap:6px;margin-bottom:4px;flex-wrap:wrap">
     <span style="font-size:11px;color:var(--ink-muted);min-width:28px;flex-shrink:0">${stapIdx + 1}.${lesIdx + 1}</span>
-    <input class="lm-les-input" value="${escHtml(les)}" placeholder="Naam van de sub-les"
-      style="flex:1;border:1px solid var(--border);border-radius:6px;padding:4px 8px;font-size:12px"
+    <input class="lm-les-input" value="${escHtml(naam)}" placeholder="Naam van de sub-les (ELO-stap)"
+      style="flex:2;min-width:120px;border:1px solid var(--border);border-radius:6px;padding:4px 8px;font-size:12px"
+      onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'">
+    <input class="lm-les-url" value="${escHtml(url)}" placeholder="URL (ELO / LessonUp)"
+      style="flex:2;min-width:120px;border:1px solid var(--border);border-radius:6px;padding:4px 8px;font-size:12px"
+      onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'">
+    <input class="lm-les-uren" type="number" min="0.5" max="20" step="0.5" value="${escHtml(String(lesuren))}" placeholder="uren"
+      title="Aantal lesuren"
+      style="width:64px;flex-shrink:0;border:1px solid var(--border);border-radius:6px;padding:4px 6px;font-size:12px;text-align:center"
       onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'">
     <button onclick="lmVerwijderLes(this)" style="background:none;border:none;cursor:pointer;color:var(--ink-muted);font-size:14px;line-height:1;padding:2px 4px">×</button>
   </div>`;
@@ -648,7 +671,7 @@ function lmPraktijkOpdrachtHtml(stapIdx, opIdx, o, bibliotheek) {
       <button onclick="lmVerwijderPraktijkOpdracht(this)"
         style="background:none;border:none;cursor:pointer;color:var(--ink-muted);font-size:14px;line-height:1;padding:2px 4px">×</button>
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:6px">
+    <div style="display:grid;grid-template-columns:1fr 1fr 80px;gap:6px;margin-bottom:6px">
       <div class="form-field" style="margin:0">
         <label style="font-size:10px;color:var(--ink-muted)">Omschrijving</label>
         <input class="lm-po-omschrijving" value="${escHtml(o.omschrijving || '')}" placeholder="Korte omschrijving"
@@ -670,6 +693,13 @@ function lmPraktijkOpdrachtHtml(stapIdx, opIdx, o, bibliotheek) {
         <label style="font-size:10px;color:var(--ink-muted)">Theorie-onderdeel</label>
         <input class="lm-po-theorie" value="${escHtml(o.theorieSectie || '')}" placeholder="AI of handmatig"
           style="border:1px solid var(--border);border-radius:6px;padding:3px 7px;font-size:11px;width:100%">
+      </div>
+      <div class="form-field" style="margin:0">
+        <label style="font-size:10px;color:var(--ink-muted)">Lesuren</label>
+        <input class="lm-po-uren" type="number" min="0.5" max="20" step="0.5" value="${escHtml(String(o.lesuren || ''))}" placeholder="bv. 2"
+          title="Aantal lesuren dat leerlingen hieraan werken"
+          style="border:1px solid var(--border);border-radius:6px;padding:3px 7px;font-size:11px;width:100%;text-align:center"
+          onfocus="this.style.borderColor='var(--amber)'" onblur="this.style.borderColor='var(--border)'">
       </div>
       <div class="form-field" style="margin:0;grid-column:1/-1">
         <label style="font-size:10px;color:var(--ink-muted)">Syllabus codes (komma-gescheiden)</label>
@@ -1059,7 +1089,13 @@ function lmLeesStappen() {
     const naam = stap.querySelector('.lm-hoofdstap-input')?.value.trim() || '';
     const url = stap.querySelector('.lm-url-input')?.value.trim() || '';
     const leerlingTaak = stap.querySelector('.lm-taak-input')?.value.trim() || '';
-    const lessen = Array.from(stap.querySelectorAll('.lm-les-input')).map(i => i.value.trim()).filter(Boolean);
+    const lessen = Array.from(stap.querySelectorAll('.lm-les-rij')).map(rij => {
+      const naam   = rij.querySelector('.lm-les-input')?.value.trim() || '';
+      const url    = rij.querySelector('.lm-les-url')?.value.trim() || '';
+      const uren   = parseFloat(rij.querySelector('.lm-les-uren')?.value) || 0;
+      if (!naam) return null;
+      return { naam, url, lesuren: uren || undefined };
+    }).filter(Boolean);
     const praktijkOpdrachten = Array.from(stap.querySelectorAll('.lm-praktijk-rij')).map(rij => {
       const codesRaw = rij.querySelector('.lm-po-codes')?.value.trim() || '';
       return {
@@ -1070,6 +1106,7 @@ function lmLeesStappen() {
         theorieSectie: rij.querySelector('.lm-po-theorie')?.value.trim() || '',
         syllabusCodes: codesRaw ? codesRaw.split(',').map(s => s.trim()).filter(Boolean) : [],
         werkboekjeBestand: rij.dataset.werkboekjeBestand || rij.querySelector('.lm-po-bestandsnaam')?.textContent.trim() || '',
+        lesuren: parseFloat(rij.querySelector('.lm-po-uren')?.value) || undefined,
       };
     }).filter(o => o.naam);
     const toetsId = stap.querySelector('.lm-toets-id')?.value || '';
