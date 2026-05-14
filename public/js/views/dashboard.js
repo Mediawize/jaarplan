@@ -662,6 +662,62 @@ function openDashboardNotitiePlaceholder() {
 }
 
 async function dashboardAfvinken(id) {
+  const les = (window._dbDagLessen || []).find(l => l.opdracht?.id == id);
+  // Als al afgerond: direct heropenen zonder modal
+  if (les?.opdracht?.afgevinkt) {
+    try { await API.afvinken(id); renderDashboard(); }
+    catch(e) { showError(e.message); }
+    return;
+  }
+  // Takenlijst opbouwen vanuit moduleContext
+  const ctx = les?.moduleContext;
+  const taken = [];
+  (ctx?.theorie || []).forEach(t => {
+    taken.push({ label: t.naam || 'Theorie', icon: '📖', url: t.url || null, cat: 'Theorie' });
+  });
+  (ctx?.praktijk || []).forEach(p => {
+    taken.push({ label: p.naam || 'Praktijkopdracht', icon: '🔧', cat: 'Praktijk' });
+  });
+  (ctx?.werkboekjes || []).forEach(w => {
+    taken.push({ label: w.naam || 'Werkboekje', icon: '📗', url: w.url || null, cat: 'Werkboekje' });
+  });
+  (ctx?.toetsen || []).forEach(t => {
+    taken.push({ label: t.naam || 'Toets', icon: '📝', url: t.url || null, cat: 'Toets' });
+  });
+  const o = les?.opdracht;
+  if (o?.theorieLink || o?.lesmateriaalLink) taken.push({ label: 'Lesmateriaal / ELO', icon: '🔗', url: o.theorieLink || o.lesmateriaalLink, cat: 'Materiaal' });
+  if (o?.presentatieLink) taken.push({ label: 'Presentatie', icon: '🖥️', url: o.presentatieLink, cat: 'Materiaal' });
+  taken.push({ label: 'Lesbrief ingevuld', icon: '📋', cat: 'Controle' });
+
+  const klasNaam = les?.klas?.naam || '';
+  const taakRijen = taken.map((t, i) => `
+    <label class="db-taak-item">
+      <input type="checkbox" id="dbtaak-${i}">
+      <span class="db-taak-check"></span>
+      <span class="db-taak-icon">${t.icon}</span>
+      <span class="db-taak-label">
+        ${t.url ? `<a href="${escHtml(t.url)}" target="_blank" rel="noopener">${escHtml(t.label)}</a>` : escHtml(t.label)}
+        <em>${escHtml(t.cat)}</em>
+      </span>
+    </label>`).join('');
+
+  const leeg = `<p class="db-taak-leeg">Geen gekoppelde taken gevonden. Je kunt de les direct afronden.</p>`;
+
+  openModal(`
+    <h2>Les afronden${klasNaam ? ` — ${escHtml(klasNaam)}` : ''}</h2>
+    <p class="modal-sub">Vink af wat je hebt behandeld en klik daarna op <strong>Bevestig afronden</strong>.</p>
+    <div class="db-taak-lijst">
+      ${taken.length ? taakRijen : leeg}
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModalDirect()">Annuleren</button>
+      <button class="btn btn-primary" onclick="dashboardAfvinkenBevestig('${escHtml(String(id))}')">✓ Bevestig afronden</button>
+    </div>
+  `);
+}
+
+async function dashboardAfvinkenBevestig(id) {
+  closeModalDirect();
   try { await API.afvinken(id); renderDashboard(); }
   catch(e) { showError(e.message); }
 }
