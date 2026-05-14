@@ -662,6 +662,81 @@ function openDashboardNotitiePlaceholder() {
 }
 
 async function dashboardAfvinken(id) {
+  const les = (window._dbDagLessen || []).find(l => l.opdracht?.id == id);
+  // Als al afgerond: direct heropenen zonder modal
+  if (les?.opdracht?.afgevinkt) {
+    try { await API.afvinken(id); renderDashboard(); }
+    catch(e) { showError(e.message); }
+    return;
+  }
+
+  // Takenlijst per categorie
+  const ctx = les?.moduleContext;
+  const o   = les?.opdracht;
+  const secties = [];
+
+  // Theorie
+  const theorieTaken = [];
+  (ctx?.theorie || []).forEach(t => {
+    // De les zelf (URL aanwezig = klikbare taak)
+    if (t.url) theorieTaken.push({ label: t.naam || 'Theorieles', icon: '🔗', url: t.url });
+    else       theorieTaken.push({ label: t.naam || 'Theorieles', icon: '📖' });
+  });
+  if (o?.theorieLink || o?.lesmateriaalLink)
+    theorieTaken.push({ label: 'ELO / Lesmateriaal', icon: '🔗', url: o.theorieLink || o.lesmateriaalLink });
+  if (theorieTaken.length) secties.push({ titel: 'Theorie', icon: '📖', taken: theorieTaken });
+
+  // Praktijk
+  const praktijkTaken = [];
+  (ctx?.praktijk || []).forEach(p => {
+    praktijkTaken.push({ label: p.naam || 'Praktijkopdracht', icon: '🔧', url: p.url || null });
+  });
+  if (o?.presentatieLink) praktijkTaken.push({ label: 'Presentatie', icon: '🖥️', url: o.presentatieLink });
+  if (praktijkTaken.length) secties.push({ titel: 'Praktijk', icon: '🔧', taken: praktijkTaken });
+
+  // Werkboekjes & toetsen
+  const downloadTaken = [
+    ...(ctx?.werkboekjes || []).map(w => ({ label: w.naam || 'Werkboekje', icon: '📗', url: w.url || null })),
+    ...(ctx?.toetsen    || []).map(t => ({ label: t.naam || 'Toets',       icon: '📝', url: t.url || null })),
+  ];
+  if (downloadTaken.length) secties.push({ titel: 'Downloads', icon: '📎', taken: downloadTaken });
+
+  let idx = 0;
+  const sectiHtml = secties.map(s => {
+    const rijen = s.taken.map(t => {
+      const i = idx++;
+      const link = t.url
+        ? `<a href="${escHtml(t.url)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${escHtml(t.label)}</a>`
+        : escHtml(t.label);
+      return `<label class="db-taak-item">
+        <input type="checkbox" id="dbtaak-${i}">
+        <span class="db-taak-check"></span>
+        <span class="db-taak-icon">${t.icon}</span>
+        <span class="db-taak-label">${link}</span>
+      </label>`;
+    }).join('');
+    return `<div class="db-taak-sectie">
+      <div class="db-taak-sectie-titel">${s.icon} ${escHtml(s.titel)}</div>
+      ${rijen}
+    </div>`;
+  }).join('');
+
+  const klasNaam = les?.klas?.naam || '';
+  openModal(`
+    <h2>Les afronden${klasNaam ? ` — ${escHtml(klasNaam)}` : ''}</h2>
+    <p class="modal-sub">Vink af wat je hebt behandeld en klik daarna op <strong>Bevestig afronden</strong>.</p>
+    <div class="db-taak-lijst">
+      ${secties.length ? sectiHtml : '<p class="db-taak-leeg">Geen gekoppelde taken gevonden. Je kunt de les direct afronden.</p>'}
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModalDirect()">Annuleren</button>
+      <button class="btn btn-primary" onclick="dashboardAfvinkenBevestig('${escHtml(String(id))}')">✓ Bevestig afronden</button>
+    </div>
+  `);
+}
+
+async function dashboardAfvinkenBevestig(id) {
+  closeModalDirect();
   try { await API.afvinken(id); renderDashboard(); }
   catch(e) { showError(e.message); }
 }
