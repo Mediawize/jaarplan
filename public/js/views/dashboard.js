@@ -436,13 +436,13 @@ function renderLesCard(les) {
       <div class="td-meta">▣ ${escHtml(type)} <span>•</span> ${escHtml(lokaal)}${les.lesuren?.length ? ` <span>•</span> Lesuur ${les.lesuren.join(', ')}` : ''}</div>
       ${focus ? `<p><strong>Focus:</strong> ${escHtml(focus)}</p>` : ''}
       <div class="td-lesson-actions">
-        <div class="td-actions-materialen">
+        <div class="td-actions-secondary">
           ${_dbMateriaalButtons(o, les.moduleContext)}
-          ${_dbLesbriefButton(o)}
-        </div>
-        <div class="td-actions-admin">
           ${Auth.canEdit() ? `<button class="${o.opmerking ? 'td-opmerking--heeft' : ''}" onclick="dbOpenOpmerkingModal('${o.id}')">▣ Opmerking</button>` : ''}
           ${_dbUrenKnop(o.id, les)}
+        </div>
+        <div class="td-actions-primary">
+          ${_dbLesbriefButton(o)}
           ${Auth.canEdit() ? `<button class="td-finish ${o.afgevinkt ? 'td-finish--heropenen' : 'td-finish--todo'}" onclick="dashboardAfvinken('${o.id}')">${o.afgevinkt ? '↩ Heropenen' : '✓ Les afronden'}</button>` : ''}
         </div>
       </div>
@@ -490,13 +490,13 @@ function renderCombinedLesCard(lessen) {
     return `<div class="td-combined-klas-row">
       <div class="td-class td-class--sm" style="background:${kleur}">${escHtml(afk)}</div>
       <div class="td-lesson-actions">
-        <div class="td-actions-materialen">
+        <div class="td-actions-secondary">
           ${_dbMateriaalButtons(o, l.moduleContext)}
-          ${_dbLesbriefButton(o)}
-        </div>
-        <div class="td-actions-admin">
           ${Auth.canEdit() ? `<button class="${o.opmerking ? 'td-opmerking--heeft' : ''}" onclick="dbOpenOpmerkingModal('${o.id}')">▣ Opmerking</button>` : ''}
           ${_dbUrenKnop(o.id, l)}
+        </div>
+        <div class="td-actions-primary">
+          ${_dbLesbriefButton(o)}
           ${Auth.canEdit() ? `<button class="td-finish ${o.afgevinkt ? 'td-finish--heropenen' : 'td-finish--todo'}" onclick="dashboardAfvinken('${o.id}')">${o.afgevinkt ? '↩ Heropenen' : '✓ Les afronden'}</button>` : ''}
         </div>
       </div>
