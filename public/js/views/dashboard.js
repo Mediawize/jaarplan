@@ -491,11 +491,16 @@ function renderCombinedLesCard(lessen) {
     const o = l.opdracht;
     const kleur = l.klas ? _klasKleur(l.klas.id) : '#94A3B8';
     const afk = l.klas ? (l.klas.naam.match(/\d+\s*[A-Z]+/)?.[0] || l.klas.naam.slice(0, 3)).replace(/\s/g, '').toUpperCase() : '?';
+    // Alleen "Heropenen" tonen als ALLE klassen in dit tijdslot afgerond zijn
+    const knopKls  = !o.afgevinkt ? 'td-finish--todo'
+                   : alleAfgerond  ? 'td-finish--heropenen'
+                                   : 'td-finish--deels';
+    const knopTxt  = o.afgevinkt && alleAfgerond ? '↩ Heropenen' : '✓ Les afronden';
     return `<div class="td-combined-klas-row">
       <div class="td-class td-class--sm" style="background:${kleur}">${escHtml(afk)}</div>
       <div class="td-acties-hoofd td-acties-hoofd--inline">
         ${Auth.canEdit() ? _dbUrenKnop(o.id, l) : ''}
-        ${Auth.canEdit() ? `<button class="td-finish ${o.afgevinkt ? 'td-finish--heropenen' : 'td-finish--todo'}" onclick="dashboardAfvinken('${o.id}')">${o.afgevinkt ? '↩ Heropenen' : '✓ Les afronden'}</button>` : ''}
+        ${Auth.canEdit() ? `<button class="td-finish ${knopKls}" onclick="dashboardAfvinken('${o.id}')">${knopTxt}</button>` : ''}
       </div>
       <div class="td-combined-detail">
         ${_dbLesbriefButton(o)}
