@@ -2572,6 +2572,7 @@ input, select, textarea { font-family: var(--font); }
 /* ============================================================
    Rooster
    ============================================================ */
+/* nieuwe rooster stijlen staan hieronder — .rr-* */
 .rooster-table { width: 100%; border-collapse: collapse; min-width: 600px; }
 .rooster-table th {
   text-align: left;
@@ -3055,6 +3056,206 @@ input, select, textarea { font-family: var(--font); }
 @media (max-width: 900px) {
   .rooster-schema-grid { grid-template-columns: 1fr; }
   .rooster-schema div { grid-template-columns: repeat(2, minmax(0,1fr)); }
+}
+
+/* ============================================================
+   Rooster — nieuwe stijl (.rr-*)
+   ============================================================ */
+.rr-wrapper { max-width: 780px; }
+
+.rr-legenda {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+.rr-legenda-blok {
+  flex: 1;
+  min-width: 220px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+.rr-legenda-titel {
+  width: 100%;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ink-3);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 2px;
+}
+.rr-legenda-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 3px 7px;
+  font-size: 11px;
+  color: var(--ink-3);
+}
+.rr-legenda-item strong { color: var(--ink); font-weight: 600; }
+
+.rr-snelknoppen {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+.rr-snelknoppen-label { font-size: 12px; color: var(--ink-3); font-weight: 500; }
+.rr-snelknop {
+  padding: 5px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--ink-2);
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.12s, border-color 0.12s, color 0.12s;
+}
+.rr-snelknop:hover { background: var(--surface-2); border-color: var(--ink-4); color: var(--ink); }
+.rr-snelknop--leeg { color: var(--ink-3); margin-left: 4px; }
+.rr-snelknop--leeg:hover { background: #FEE2E2; border-color: #FCA5A5; color: #DC2626; }
+
+.rr-klas-kaart {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  margin-bottom: 10px;
+  overflow: hidden;
+}
+.rr-klas-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px 12px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-2);
+}
+.rr-klas-naam { font-weight: 600; font-size: 15px; color: var(--ink); }
+.rr-klas-sub { font-size: 11px; color: var(--ink-3); margin-top: 2px; }
+.rr-klas-acties { display: flex; align-items: center; gap: 8px; }
+.rr-klas-totaal {
+  background: var(--accent-dim);
+  color: var(--accent-text);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 99px;
+}
+.rr-klas-leeg-btn {
+  width: 28px; height: 28px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--ink-4);
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: background 0.12s, color 0.12s;
+}
+.rr-klas-leeg-btn:hover { background: #FEE2E2; color: #DC2626; border-color: #FCA5A5; }
+
+.rr-dag-lijst { padding: 6px 0; }
+
+.rr-dag-rij {
+  display: flex;
+  align-items: center;
+  padding: 7px 18px;
+  gap: 12px;
+  transition: background 0.1s;
+}
+.rr-dag-rij:hover { background: var(--surface-2); }
+.rr-dag-rij--vandaag { background: var(--accent-dim); }
+.rr-dag-rij--vandaag:hover { background: #bbf7d0; }
+
+.rr-dag-label {
+  width: 30px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.rr-dag-naam { font-size: 12px; font-weight: 600; color: var(--ink-3); }
+.rr-dag-rij--vandaag .rr-dag-naam { color: var(--accent-text); }
+.rr-vandaag-dot {
+  width: 6px; height: 6px;
+  background: var(--accent);
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.rr-uren { display: flex; gap: 5px; flex: 1; flex-wrap: wrap; }
+
+.rr-pill {
+  width: 34px; height: 34px;
+  border: 1.5px solid var(--border);
+  border-radius: 9px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px; font-weight: 600;
+  color: var(--ink-3);
+  background: var(--surface);
+  cursor: pointer;
+  transition: border-color 0.12s, background 0.12s, color 0.12s, box-shadow 0.12s;
+  flex-shrink: 0;
+}
+.rr-pill input { display: none; }
+.rr-pill:hover { border-color: var(--accent); color: var(--accent-text); background: var(--accent-dim); }
+.rr-pill--actief {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+  box-shadow: 0 4px 10px rgba(22,163,74,.2);
+}
+.rr-pill--actief:hover { background: var(--accent-text); border-color: var(--accent-text); }
+
+.rr-dag-info {
+  min-width: 110px;
+  text-align: right;
+  flex-shrink: 0;
+}
+.rr-dag-tijd { font-size: 12px; color: var(--ink-2); margin-right: 6px; }
+.rr-dag-uren {
+  font-size: 11px; font-weight: 600;
+  background: var(--accent-dim); color: var(--accent-text);
+  padding: 2px 6px; border-radius: 99px;
+}
+.rr-dag-leeg { font-size: 12px; color: var(--ink-4); }
+
+.rr-preview-sectie {
+  margin-top: 20px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px 20px;
+}
+.rr-preview-titel { font-size: 13px; font-weight: 600; color: var(--ink-2); margin-bottom: 10px; }
+.rr-preview-lijst { display: flex; gap: 8px; flex-wrap: wrap; }
+.rr-preview-chip {
+  background: var(--accent-dim);
+  border-radius: var(--radius-sm);
+  padding: 8px 14px;
+}
+.rr-preview-naam { font-weight: 600; font-size: 13px; color: var(--accent-text); }
+.rr-preview-meta { font-size: 11px; color: var(--accent-text); opacity: 0.75; margin-top: 2px; }
+.rr-preview-leeg {
+  display: flex; align-items: center; gap: 8px;
+  color: var(--ink-3); font-size: 13px;
+}
+
+@media (max-width: 640px) {
+  .rr-dag-info { display: none; }
+  .rr-pill { width: 30px; height: 30px; font-size: 12px; }
+  .rr-legenda { display: none; }
 }
 
 /* ============================================================
