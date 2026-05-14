@@ -2728,6 +2728,193 @@ input, select, textarea { font-family: var(--font); }
 }
 
 /* ============================================================
+   Gebruikers — nieuwe stijl
+   ============================================================ */
+.gu-wrapper { max-width: 860px; }
+
+.gu-stats {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+.gu-stat {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 18px;
+  flex: 1;
+  min-width: 80px;
+  text-align: center;
+}
+.gu-stat-num { font-size: 26px; font-weight: 700; color: var(--ink); letter-spacing: -1px; line-height: 1; }
+.gu-stat-label { font-size: 11px; color: var(--ink-3); margin-top: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
+.gu-stat--groen .gu-stat-num { color: var(--accent); }
+.gu-stat--paars .gu-stat-num { color: #7C3AED; }
+.gu-stat--blauw .gu-stat-num { color: #2563EB; }
+.gu-stat--amber .gu-stat-num { color: #D97706; }
+
+.gu-info-banner {
+  background: #EFF6FF;
+  border: 1px solid #BFDBFE;
+  border-radius: var(--radius-sm);
+  padding: 11px 14px;
+  font-size: 13px;
+  color: #1E40AF;
+  margin-bottom: 20px;
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  line-height: 1.5;
+}
+
+.gu-filter {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+.gu-zoek-wrap {
+  flex: 1;
+  min-width: 200px;
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.gu-zoek-wrap svg {
+  position: absolute;
+  left: 11px;
+  color: var(--ink-4);
+  pointer-events: none;
+}
+.gu-zoek-wrap input {
+  width: 100%;
+  padding: 8px 12px 8px 34px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  background: var(--surface);
+  color: var(--ink);
+  font-family: inherit;
+}
+.gu-zoek-wrap input:focus { outline: none; border-color: var(--accent); }
+
+.gu-tabs {
+  display: flex;
+  gap: 2px;
+  background: var(--surface-2);
+  padding: 3px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+}
+.gu-tab {
+  padding: 5px 12px;
+  border: none;
+  background: none;
+  border-radius: 6px;
+  font-size: 12px;
+  color: var(--ink-3);
+  cursor: pointer;
+  font-family: inherit;
+  font-weight: 500;
+  transition: background 0.12s, color 0.12s;
+  white-space: nowrap;
+}
+.gu-tab.active {
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: var(--shadow-sm);
+}
+.gu-tab:hover:not(.active) { color: var(--ink-2); }
+
+.gu-list { display: flex; flex-direction: column; gap: 6px; }
+
+.gu-kaart {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  transition: box-shadow 0.15s, border-color 0.15s;
+}
+.gu-kaart:hover { box-shadow: var(--shadow-sm); border-color: var(--ink-4); }
+
+.gu-avatar {
+  width: 42px; height: 42px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  flex-shrink: 0;
+}
+.gu-avatar--docent    { background: var(--accent-dim);  color: var(--accent-text); }
+.gu-avatar--admin     { background: #EDE9FE; color: #6D28D9; }
+.gu-avatar--management { background: #DBEAFE; color: #1D4ED8; }
+
+.gu-body { flex: 1; min-width: 0; }
+.gu-naam-rij {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 3px;
+}
+.gu-naam { font-weight: 600; font-size: 14px; color: var(--ink); }
+.gu-email { font-size: 12px; color: var(--ink-3); margin-bottom: 5px; }
+
+.gu-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 7px;
+  border-radius: 99px;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.5;
+}
+.gu-badge--docent     { background: var(--accent-dim);  color: var(--accent-text); }
+.gu-badge--admin      { background: #EDE9FE; color: #6D28D9; }
+.gu-badge--management { background: #DBEAFE; color: #1D4ED8; }
+.gu-badge--tl         { background: #F3E8FF; color: #7E22CE; }
+.gu-badge--self       { background: var(--surface-3); color: var(--ink-3); }
+.gu-badge--actief     { background: var(--accent-dim);  color: var(--accent-text); }
+.gu-badge--tijdelijk  { background: var(--amber-dim);   color: var(--amber-text); }
+
+.gu-vakken { display: flex; flex-wrap: wrap; gap: 4px; }
+.gu-vak {
+  background: var(--surface-2);
+  color: var(--ink-2);
+  padding: 2px 8px;
+  border-radius: 99px;
+  font-size: 11px;
+  border: 1px solid var(--border);
+}
+
+.gu-acties { display: flex; gap: 4px; flex-shrink: 0; }
+.gu-btn {
+  width: 32px; height: 32px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--ink-3);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
+  flex-shrink: 0;
+}
+.gu-btn svg { width: 15px; height: 15px; }
+.gu-btn:hover { background: var(--surface-2); color: var(--ink); border-color: var(--ink-4); }
+.gu-btn--danger:hover { background: #FEE2E2; color: #DC2626; border-color: #FCA5A5; }
+
+
+/* ============================================================
    Opdrachten filter
    ============================================================ */
 .opd-filter-balk {
