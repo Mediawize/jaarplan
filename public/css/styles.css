@@ -867,6 +867,28 @@ input, select, textarea { font-family: var(--font); }
 
 .db-taak-leeg { color: var(--ink-3); font-size: 14px; padding: 8px 0; }
 
+/* Aangevinkt */
+.db-taak-item--checked { background: var(--surface-2); }
+.db-taak-item--checked .db-taak-label { color: var(--ink-3); text-decoration: line-through; }
+.db-taak-item--checked .db-taak-label a { color: var(--ink-3); }
+
+/* Initialen badge */
+.db-taak-init {
+  font-size: 10px;
+  font-weight: 800;
+  color: var(--accent-text);
+  background: var(--accent-dim);
+  border-radius: 999px;
+  padding: 2px 7px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* Bevestig-knop kleurvarianten */
+.db-bevestig-btn { transition: background 0.2s, border-color 0.2s, color 0.2s; }
+.db-bevestig--oranje { background: #fff7ed !important; color: #c2410c !important; border-color: #fdba74 !important; }
+.db-bevestig--groen  { background: #f0fdf4 !important; color: #047857 !important; border-color: #86efac !important; font-weight: 800 !important; }
+
 .db-taak-sectie { margin-bottom: 14px; }
 .db-taak-sectie:last-child { margin-bottom: 0; }
 .db-taak-sectie-titel {
