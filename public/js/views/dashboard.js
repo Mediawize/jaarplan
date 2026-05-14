@@ -712,51 +712,53 @@ async function dashboardAfvinken(id) {
   const secties = [];
 
   const theorieTaken = [];
+  let _eloHeaderActief = false;
   (ctx?.theorie || []).forEach(t => {
     if (t.type === 'theorie_module') {
       const urenLabel = t.urenType === 'split' ? `${t.uren}u gesplitst` : `${t.uren}u ${t.urenType}`;
-      theorieTaken.push({ label: `📚 ${t.naam} (${urenLabel})`, icon: '📚', url: null });
+      theorieTaken.push({ label: `📚 ${t.naam} (${urenLabel})`, icon: '📚', url: null, isHeader: false, isSubItem: false });
+      _eloHeaderActief = false;
+    } else if (t.url) {
+      theorieTaken.push({ label: t.naam || 'ELO / Lesmateriaal', icon: '🔗', url: t.url, isHeader: true, isSubItem: false });
+      _eloHeaderActief = true;
     } else {
-      theorieTaken.push({ label: t.naam || 'Theorieles', icon: t.url ? '🔗' : '📖', url: t.url || null });
+      theorieTaken.push({ label: t.naam || 'Theorieles', icon: '📖', url: null, isHeader: false, isSubItem: _eloHeaderActief });
     }
   });
   if (o?.theorieLink || o?.lesmateriaalLink)
-    theorieTaken.push({ label: 'ELO / Lesmateriaal', icon: '🔗', url: o.theorieLink || o.lesmateriaalLink });
+    theorieTaken.push({ label: 'ELO / Lesmateriaal', icon: '🔗', url: o.theorieLink || o.lesmateriaalLink, isHeader: true, isSubItem: false });
   if (theorieTaken.length) secties.push({ titel: 'Theorie', icon: '📖', taken: theorieTaken });
 
   const praktijkTaken = [];
   (ctx?.praktijk || []).forEach(p => {
-    praktijkTaken.push({ label: p.naam || 'Praktijkopdracht', icon: '🔧', url: p.url || null });
+    praktijkTaken.push({ label: p.naam || 'Praktijkopdracht', icon: '🔧', url: p.url || null, isHeader: false, isSubItem: false });
   });
-  if (o?.presentatieLink) praktijkTaken.push({ label: 'Presentatie', icon: '🖥️', url: o.presentatieLink });
+  if (o?.presentatieLink) praktijkTaken.push({ label: 'Presentatie', icon: '🖥️', url: o.presentatieLink, isHeader: false, isSubItem: false });
   if (praktijkTaken.length) secties.push({ titel: 'Praktijk', icon: '🔧', taken: praktijkTaken });
 
-  const downloadTaken = [
-    ...(ctx?.werkboekjes || []).map(w => ({ label: w.naam || 'Werkboekje', icon: '📗', url: w.url || null })),
-    ...(ctx?.toetsen    || []).map(t => ({ label: t.naam || 'Toets',       icon: '📝', url: t.url || null })),
-  ];
-  if (downloadTaken.length) secties.push({ titel: 'Downloads', icon: '📎', taken: downloadTaken });
-
-  // Alle items platgeslagen voor indexering
-  const alleItems = secties.flatMap(s => s.taken);
+  // Alleen afvinkbare items tellen voor de voortgangsindicator
+  const alleItems = secties.flatMap(s => s.taken.filter(t => !t.isHeader));
   const totaal    = alleItems.length;
   const sid       = escHtml(String(id));
 
   let idx = 0;
   const sectiHtml = secties.map(s => {
     const rijen = s.taken.map(t => {
+      if (t.isHeader) {
+        return `<div class="db-taak-elo-header">
+          <span class="db-taak-icon">🔗</span>
+          <a href="${escHtml(t.url)}" target="_blank" rel="noopener" class="db-taak-elo-link">${escHtml(t.label)}</a>
+        </div>`;
+      }
       const i = idx++;
       const opgeslagen = _dbTaakLaad(id, i);
       const checked    = !!opgeslagen;
       const init       = opgeslagen?.initialen || '';
-      const link = t.url
-        ? `<a href="${escHtml(t.url)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${escHtml(t.label)}</a>`
-        : escHtml(t.label);
-      return `<label class="db-taak-item${checked ? ' db-taak-item--checked' : ''}" onclick="dbTaakWijzig(this,${i},'${sid}',${totaal})">
+      return `<label class="db-taak-item${t.isSubItem ? ' db-taak-item--sub' : ''}${checked ? ' db-taak-item--checked' : ''}" onclick="dbTaakWijzig(this,${i},'${sid}',${totaal})">
         <input type="checkbox" ${checked ? 'checked' : ''} style="display:none">
         <span class="db-taak-check"></span>
         <span class="db-taak-icon">${t.icon}</span>
-        <span class="db-taak-label">${link}</span>
+        <span class="db-taak-label">${escHtml(t.label)}</span>
         ${init ? `<span class="db-taak-init">${escHtml(init)}</span>` : `<span class="db-taak-init" style="display:none"></span>`}
       </label>`;
     }).join('');
