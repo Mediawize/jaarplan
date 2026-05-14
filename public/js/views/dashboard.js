@@ -289,8 +289,10 @@ function _dbTheorieVoorStap(stap) {
   const uit = [];
   if (stap.leerlingTaak) uit.push({ type: 'taak', naam: stap.leerlingTaak });
   (Array.isArray(stap.lessen) ? stap.lessen : []).forEach((les, i) => {
-    const naam = typeof les === 'string' ? les : (les?.naam || les?.titel || 'Theorie');
-    if (naam) uit.push({ type: 'theorie', naam, nummer: i + 1 });
+    const naam    = typeof les === 'string' ? les : (les?.naam || les?.titel || 'Theorie');
+    const url     = typeof les === 'object' ? (les?.url || null) : null;
+    const lesuren = typeof les === 'object' ? (les?.lesuren || null) : null;
+    if (naam) uit.push({ type: 'theorie', naam, url, lesuren, nummer: i + 1 });
   });
   if (stap.url) uit.push({ type: 'link', naam: 'Leslink', url: stap.url });
   return uit;
