@@ -389,6 +389,17 @@ function tijdNaarMinuten(tijd) {
   return (u || 0) * 60 + (m || 0);
 }
 
+function _dbLesStatus(les, afgevinkt) {
+  if (afgevinkt) return { label: 'Afgerond', cls: 'td-status--afgerond' };
+  const nu = new Date();
+  const hm = nu.getHours() * 60 + nu.getMinutes();
+  const start = tijdNaarMinuten(les.start);
+  const eind  = tijdNaarMinuten(les.eind);
+  if (hm >= start && hm <= eind) return { label: 'Nu bezig', cls: 'td-status--nu' };
+  if (hm > eind)  return { label: 'Niet afgerond', cls: 'td-status--niet-afgerond' };
+  return null;
+}
+
 function renderLesCard(les) {
   const o = les.opdracht;
   const klas = les.klas;
@@ -396,25 +407,30 @@ function renderLesCard(les) {
   const afk = klas ? (klas.naam.match(/\d+\s*[A-Z]+/)?.[0] || klas.naam.slice(0, 3)).replace(/\s/g, '').toUpperCase() : '?';
   const type = (o.type || 'Les');
   const lokaal = o.lokaal || o.leslokaal || (type.toLowerCase() === 'praktijk' ? 'Werkplaats' : 'Lokaal');
-  const status = o.afgevinkt ? 'Afgerond' : 'In uitvoering';
+  const statusInfo = _dbLesStatus(les, o.afgevinkt);
+  const focus = o.focus || o.beschrijving || '';
 
   return `<article class="td-lesson ${o.afgevinkt ? 'is-done' : ''}" id="lescard-${o.id}">
     <div class="td-lesson-toprow">
       <div class="td-class" style="background:${kleur}">${escHtml(afk)}</div>
       <div class="td-time"><strong>${escHtml(les.start)}</strong><span>→ ${escHtml(les.eind)}</span><em>${_dbFormatMinutenKort(les.minuten)}</em></div>
-      <span class="td-status">${escHtml(status)}</span>
+      ${statusInfo ? `<span class="td-status ${statusInfo.cls}">${statusInfo.label}</span>` : ''}
     </div>
     <h3 class="td-lesson-titel">${escHtml(o.naam)}</h3>
     <div class="td-colorbar" style="background:${kleur}"></div>
     <div class="td-lesson-body">
-      <div class="td-meta">▣ ${escHtml(type)} <span>•</span> ${klas ? escHtml(klas.naam) : 'Geen klas'} <span>•</span> ${escHtml(lokaal)} ${les.lesuren?.length ? `<span>•</span> Lesuur ${les.lesuren.join(', ')}` : ''}</div>
-      <p><strong>Focus:</strong> ${escHtml(o.focus || o.beschrijving || 'Les voorbereiden en uitvoeren volgens de planning.')}</p>
+      <div class="td-meta">▣ ${escHtml(type)} <span>•</span> ${escHtml(lokaal)}${les.lesuren?.length ? ` <span>•</span> Lesuur ${les.lesuren.join(', ')}` : ''}</div>
+      ${focus ? `<p><strong>Focus:</strong> ${escHtml(focus)}</p>` : ''}
       <div class="td-lesson-actions">
-        ${_dbMateriaalButtons(o, les.moduleContext)}
-        ${Auth.canEdit() ? `<button class="td-finish${o.afgevinkt ? ' td-finish--done' : ''}" onclick="dashboardAfvinken('${o.id}')">✓ ${o.afgevinkt ? 'Heropenen' : 'Les afronden'}</button>` : ''}
-        ${_dbUrenKnop(o.id, les)}
-        ${_dbLesbriefButton(o)}
-        ${Auth.canEdit() ? `<button class="${o.opmerking ? 'td-opmerking--heeft' : ''}" onclick="dbOpenOpmerkingModal('${o.id}')">▣ Opmerking</button>` : ''}
+        <div class="td-actions-materialen">
+          ${_dbMateriaalButtons(o, les.moduleContext)}
+          ${_dbLesbriefButton(o)}
+        </div>
+        <div class="td-actions-admin">
+          ${Auth.canEdit() ? `<button class="${o.opmerking ? 'td-opmerking--heeft' : ''}" onclick="dbOpenOpmerkingModal('${o.id}')">▣ Opmerking</button>` : ''}
+          ${_dbUrenKnop(o.id, les)}
+          ${Auth.canEdit() ? `<button class="td-finish ${o.afgevinkt ? 'td-finish--heropenen' : 'td-finish--todo'}" onclick="dashboardAfvinken('${o.id}')">${o.afgevinkt ? '↩ Heropenen' : '✓ Les afronden'}</button>` : ''}
+        </div>
       </div>
       ${_dbModulePraktijkHtml(les.moduleContext)}
       ${o.opmerking ? `<div class="td-note">${escHtml(o.opmerking)}</div>` : ''}
@@ -427,8 +443,6 @@ function renderCombinedLesCard(lessen) {
   const eersteEind  = lessen[0].eind;
   const totaalMin   = Math.max(...lessen.map(l => l.minuten));
   const alleAfgerond = lessen.every(l => l.opdracht.afgevinkt);
-  const geenAfgerond = lessen.every(l => !l.opdracht.afgevinkt);
-  const status = alleAfgerond ? 'Afgerond' : geenAfgerond ? 'In uitvoering' : 'Deels afgerond';
 
   // Gedeelde titel als ze identiek zijn, anders beide tonen
   const namen = [...new Set(lessen.map(l => l.opdracht.naam))];
@@ -450,7 +464,9 @@ function renderCombinedLesCard(lessen) {
   // Gedeeld type/lokaal
   const type   = lessen[0].opdracht.type || 'Les';
   const lokaal = lessen[0].opdracht.lokaal || lessen[0].opdracht.leslokaal || (type.toLowerCase() === 'praktijk' ? 'Werkplaats' : 'Lokaal');
-  const klasNamen = lessen.map(l => l.klas?.naam || '?').join(' + ');
+
+  // Dynamische statuspill op basis van tijd
+  const statusInfo = _dbLesStatus(lessen[0], alleAfgerond);
 
   // Per-klas actierijen
   const klasActies = lessen.map(l => {
@@ -460,29 +476,34 @@ function renderCombinedLesCard(lessen) {
     return `<div class="td-combined-klas-row">
       <div class="td-class td-class--sm" style="background:${kleur}">${escHtml(afk)}</div>
       <div class="td-lesson-actions">
-        ${Auth.canEdit() ? `<button class="td-finish${o.afgevinkt ? ' td-finish--done' : ''}" onclick="dashboardAfvinken('${o.id}')">✓ ${o.afgevinkt ? 'Heropenen' : 'Les afronden'}</button>` : ''}
-        ${_dbUrenKnop(o.id, l)}
-        <button id="db-lesbrief-btn-${escHtml(String(o.id))}" data-lesbrief-opdracht="${escHtml(String(o.id))}" onclick="openLesbrief('${escHtml(String(o.id))}')">▤ Lesbrief</button>
-        ${Auth.canEdit() ? `<button class="${o.opmerking ? 'td-opmerking--heeft' : ''}" onclick="dbOpenOpmerkingModal('${o.id}')">▣ Opmerking</button>` : ''}
+        <div class="td-actions-materialen">
+          ${_dbMateriaalButtons(o, l.moduleContext)}
+          ${_dbLesbriefButton(o)}
+        </div>
+        <div class="td-actions-admin">
+          ${Auth.canEdit() ? `<button class="${o.opmerking ? 'td-opmerking--heeft' : ''}" onclick="dbOpenOpmerkingModal('${o.id}')">▣ Opmerking</button>` : ''}
+          ${_dbUrenKnop(o.id, l)}
+          ${Auth.canEdit() ? `<button class="td-finish ${o.afgevinkt ? 'td-finish--heropenen' : 'td-finish--todo'}" onclick="dashboardAfvinken('${o.id}')">${o.afgevinkt ? '↩ Heropenen' : '✓ Les afronden'}</button>` : ''}
+        </div>
       </div>
     </div>`;
   }).join('');
 
-  // Gedeelde focus (eerste les, of beide als verschillend)
+  // Gedeelde focus (alleen als er een echte waarde is)
   const foci = [...new Set(lessen.map(l => l.opdracht.focus || l.opdracht.beschrijving).filter(Boolean))];
-  const focusTekst = foci.length ? foci.join(' / ') : 'Les voorbereiden en uitvoeren volgens de planning.';
+  const focusTekst = foci.length ? foci.join(' / ') : '';
 
   return `<article class="td-lesson td-lesson--combined ${alleAfgerond ? 'is-done' : ''}">
     <div class="td-lesson-toprow">
       ${badges}
       <div class="td-time"><strong>${escHtml(eersteStart)}</strong><span>→ ${escHtml(eersteEind)}</span><em>${_dbFormatMinutenKort(totaalMin)}</em></div>
-      <span class="td-status">${escHtml(status)}</span>
+      ${statusInfo ? `<span class="td-status ${statusInfo.cls}">${statusInfo.label}</span>` : ''}
     </div>
     <h3 class="td-lesson-titel">${escHtml(titel)}</h3>
     <div class="td-combined-colorbar">${kleurBalk}</div>
     <div class="td-lesson-body">
-      <div class="td-meta">▣ ${escHtml(type)} <span>•</span> ${escHtml(klasNamen)} <span>•</span> ${escHtml(lokaal)}</div>
-      <p><strong>Focus:</strong> ${escHtml(focusTekst)}</p>
+      <div class="td-meta">▣ ${escHtml(type)} <span>•</span> ${escHtml(lokaal)}</div>
+      ${focusTekst ? `<p><strong>Focus:</strong> ${escHtml(focusTekst)}</p>` : ''}
       ${klasActies}
       ${lessen.map(l => _dbModulePraktijkHtml(l.moduleContext)).filter(Boolean).join('')}
     </div>
@@ -492,16 +513,13 @@ function renderCombinedLesCard(lessen) {
 function _dbModulePraktijkHtml(ctx) {
   if (!ctx || (!ctx.theorie?.length && !ctx.praktijk?.length && !ctx.werkboekjes?.length && !ctx.toetsen?.length)) return '';
 
-  return `<div class="td-module-praktijk" style="margin-top:12px;border-top:1px solid var(--border);padding-top:10px">
-    ${ctx.stap?.naam ? `<div style="font-size:12px;color:var(--ink-muted);margin-bottom:6px">Module stap: <strong>${escHtml(ctx.stap.naam)}</strong></div>` : ''}
-
-    ${ctx.theorie?.length ? `<div style="font-size:12.5px;color:var(--ink-2);line-height:1.6;margin-bottom:4px">📖 Theorie: ${ctx.theorie.map(t => t.url ? `<a href="${escHtml(t.url)}" target="_blank" rel="noopener" style="color:var(--blue-text);font-weight:600;text-decoration:none">${escHtml(t.naam)}</a>` : escHtml(t.naam)).join(' · ')}</div>` : ''}
-
-    ${ctx.praktijk?.length ? `<div style="font-size:12.5px;color:var(--ink-2);line-height:1.6">🔧 Praktijk: ${ctx.praktijk.map(o => escHtml(o.naam || 'Praktijkopdracht')).join(' · ')}</div>` : ''}
-
-    ${(ctx.werkboekjes?.length || ctx.toetsen?.length) ? `<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px">
-      ${(ctx.werkboekjes || []).map(w => `<a href="${escHtml(w.url)}" target="_blank" rel="noopener" style="font-size:12px;font-weight:600;color:#15803d;background:#ecfdf5;border:1px solid #bbf7d0;border-radius:8px;padding:6px 10px;text-decoration:none">📗 Download ${escHtml(w.naam || 'werkboekje')}</a>`).join('')}
-      ${(ctx.toetsen || []).map(t => `<a href="${escHtml(t.url)}" target="_blank" rel="noopener" style="font-size:12px;font-weight:600;color:#b91c1c;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:6px 10px;text-decoration:none">📝 Download ${escHtml(t.naam || 'toets')}</a>`).join('')}
+  return `<div class="td-module-praktijk">
+    ${ctx.stap?.naam ? `<div class="td-module-stap-naam">Module stap: <strong>${escHtml(ctx.stap.naam)}</strong></div>` : ''}
+    ${ctx.theorie?.length ? `<div class="td-module-rij">📖 Theorie: ${ctx.theorie.map(t => t.url ? `<a href="${escHtml(t.url)}" target="_blank" rel="noopener" class="td-module-link">${escHtml(t.naam)}</a>` : escHtml(t.naam)).join(' · ')}</div>` : ''}
+    ${ctx.praktijk?.length ? `<div class="td-module-rij">🔧 Praktijk: ${ctx.praktijk.map(o => escHtml(o.naam || 'Praktijkopdracht')).join(' · ')}</div>` : ''}
+    ${(ctx.werkboekjes?.length || ctx.toetsen?.length) ? `<div class="td-module-downloads">
+      ${(ctx.werkboekjes || []).map(w => `<a href="${escHtml(w.url)}" target="_blank" rel="noopener" class="td-module-dl td-module-dl--wb">📗 Download ${escHtml(w.naam || 'werkboekje')}</a>`).join('')}
+      ${(ctx.toetsen || []).map(t => `<a href="${escHtml(t.url)}" target="_blank" rel="noopener" class="td-module-dl td-module-dl--toets">📝 Download ${escHtml(t.naam || 'toets')}</a>`).join('')}
     </div>` : ''}
   </div>`;
 }
