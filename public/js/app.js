@@ -9,6 +9,7 @@ const Auth = {
   isDocent() { return this.currentUser?.rol === 'docent'; },
   isManagement() { return this.currentUser?.rol === 'management'; },
   canEdit() { return this.isAdmin() || this.isDocent(); },
+  isTeamleider() { return !!this.currentUser?.isTeamleider; },
 };
 
 function escHtml(v) {
@@ -174,6 +175,10 @@ function renderAppShell() {
 <a class="nav-item" data-view="lesmaterialen" onclick="showView('lesmaterialen');closeSidebar()"><svg viewBox="0 0 20 20" fill="none"><path d="M4 10l4 4 8-8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><rect x="2" y="2" width="16" height="16" rx="2" stroke="currentColor" stroke-width="1.5"/></svg>Lesmaterialen</a>
         <a class="nav-item" data-view="lesmodules" onclick="showView('lesmodules');closeSidebar()"><svg viewBox="0 0 20 20" fill="none"><path d="M4 4h12v2H4zM4 9h8v2H4zM4 14h10v2H4z" fill="currentColor"/></svg>Les Modules</a>
       </div>
+      <div class="nav-group" id="nav-teamleider" style="display:none">
+        <div class="nav-label">Teamleider</div>
+        <a class="nav-item" data-view="teamleider" onclick="showView('teamleider');closeSidebar()"><svg viewBox="0 0 20 20" fill="none"><circle cx="10" cy="7" r="3" stroke="currentColor" stroke-width="1.5"/><path d="M4 17c0-3 2.7-5 6-5s6 2 6 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M14 4l1.5 1.5L17 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>Teamoverzicht</a>
+      </div>
       <div class="nav-group" id="nav-admin" style="display:none">
         <div class="nav-label">Beheer</div>
         <a class="nav-item" data-view="schooljaren" onclick="showView('schooljaren');closeSidebar()"><svg viewBox="0 0 20 20" fill="none"><rect x="2" y="3" width="16" height="15" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M6 2v2M14 2v2M2 8h16" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>Schooljaren</a>
@@ -199,6 +204,7 @@ function renderAppShell() {
       <div id="view-gebruikers" class="view" style="display:none"></div>
       <div id="view-vakken" class="view" style="display:none"></div>
       <div id="view-lesmodules" class="view" style="display:none"></div>
+      <div id="view-teamleider" class="view" style="display:none"></div>
     </main>
     <!-- Bottom nav: op mobiel alleen dashboard knop -->
     <nav class="bottom-nav" id="bottom-nav">
@@ -230,6 +236,8 @@ function updateSidebar() {
   if (info && u) info.innerHTML = `<strong>${escHtml(u.naam)}</strong>${escHtml(u.email)}<br><span style="opacity:.6">${getRolLabel(u.rol)}</span>`;
   const navAdmin = document.getElementById('nav-admin');
   if (navAdmin) navAdmin.style.display = Auth.isAdmin() ? 'block' : 'none';
+  const navTeamleider = document.getElementById('nav-teamleider');
+  if (navTeamleider) navTeamleider.style.display = Auth.isTeamleider() ? 'block' : 'none';
 }
 
 // MOBIEL: alleen dashboard beschikbaar
@@ -245,7 +253,7 @@ function showView(view) {
     view = 'dashboard';
   }
 
-  const views = ['dashboard','klassen','rooster','jaarplanning','lesprofielen','taken','opdrachten','lesmaterialen','schooljaren','gebruikers','vakken','lesmodules'];
+  const views = ['dashboard','klassen','rooster','jaarplanning','lesprofielen','taken','opdrachten','lesmaterialen','schooljaren','gebruikers','vakken','lesmodules','teamleider'];
   views.forEach(v => {
     const el = document.getElementById('view-' + v);
     if (el) el.style.display = v === view ? 'block' : 'none';
@@ -266,7 +274,8 @@ function showView(view) {
     schooljaren: renderSchooljaren,
     gebruikers: renderGebruikers,
     vakken: renderVakken,
-    lesmodules: renderLesModules
+    lesmodules: renderLesModules,
+    teamleider: renderTeamleider
   };
   if (renderers[view]) renderers[view]();
 }

@@ -102,6 +102,28 @@ async function openGebruikerModal(userId = null) {
           </label>`).join('')}
         </div>
       </div>
+
+      <div class="form-field form-full">
+        <div class="tl-toggle-rij">
+          <label class="tl-toggle-label">
+            <input type="checkbox" id="g-is-teamleider" ${u?.isTeamleider?'checked':''} onchange="toggleTeamleiderVakken()">
+            <span>Teamleider</span>
+          </label>
+          <span class="form-hint">Een teamleider kan een overzicht zien van alle lessen en taken voor zijn/haar vak(ken)</span>
+        </div>
+      </div>
+      <div class="form-field form-full" id="g-teamleider-vakken-wrap" style="${u?.isTeamleider?'':'display:none'}">
+        <label>Vakken waarvoor teamleider</label>
+        <div class="vak-select-grid" id="g-tl-vakken-grid">
+          ${vakken.map(v=>`<label class="vak-option ${(u?.teamleiderVakken||[]).includes(v.id)?'is-selected':''}">
+            <input type="checkbox" class="g-tl-vak" value="${v.id}" ${(u?.teamleiderVakken||[]).includes(v.id)?'checked':''} onchange="this.closest('label').classList.toggle('is-selected',this.checked)">
+            <div class="vak-option-text">
+              <strong>${escHtml(v.naam)}</strong>
+              <span>${escHtml(v.volledig||'')}</span>
+            </div>
+          </label>`).join('')}
+        </div>
+      </div>
     </div>
     <div class="modal-actions">
       <button class="btn" onclick="closeModalDirect()">Annuleren</button>
@@ -116,6 +138,12 @@ function toggleVakSelect() {
   const wrap = document.getElementById('g-vakken-wrap');
   if (wrap) wrap.style.display = rol==='docent'?'block':'none';
   if (rol==='docent') updateVakSelectionUI();
+}
+
+function toggleTeamleiderVakken() {
+  const isTeamleider = document.getElementById('g-is-teamleider')?.checked;
+  const wrap = document.getElementById('g-teamleider-vakken-wrap');
+  if (wrap) wrap.style.display = isTeamleider ? '' : 'none';
 }
 
 function updateVakSelectionUI() {
@@ -149,7 +177,9 @@ async function saveGebruiker(userId) {
   const vakken = Array.from(document.querySelectorAll('.g-vak:checked')).map(cb=>cb.value);
   if (!naam||!achternaam||!email||(!userId&&!ww)) { alert('Vul alle verplichte velden in.'); return; }
 
-  const data = { naam, achternaam, email, rol, initialen, vakken: rol==='docent'?vakken:[] };
+  const isTeamleider = !!document.getElementById('g-is-teamleider')?.checked;
+  const teamleiderVakken = Array.from(document.querySelectorAll('.g-tl-vak:checked')).map(cb=>cb.value);
+  const data = { naam, achternaam, email, rol, initialen, vakken: rol==='docent'?vakken:[], isTeamleider, teamleiderVakken };
   if (ww) data.wachtwoord = ww;
 
   try {
