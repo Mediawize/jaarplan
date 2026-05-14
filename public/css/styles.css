@@ -2913,3 +2913,26 @@ html, body {
     max-width: 100%;
   }
 }
+
+/* ── Uren verantwoorden modal ── */
+.db-uren-opties{display:flex;flex-direction:column;gap:4px;margin:16px 0 4px;}
+.db-uren-optie{display:flex;align-items:flex-start;gap:0;cursor:pointer;border-radius:10px;border:1.5px solid #e5e7eb;background:#fff;transition:border-color .15s;}
+.db-uren-optie:has(input:checked){border-color:#6366f1;background:#f5f3ff;}
+.db-uren-optie input[type=radio]{position:absolute;opacity:0;pointer-events:none;width:0;height:0;}
+.db-uren-optie-body{display:flex;align-items:center;gap:12px;padding:12px 14px;width:100%;}
+.db-uren-optie-icon{width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:900;flex-shrink:0;}
+.db-uren-icon--groen{background:#dcfce7;color:#047857;}
+.db-uren-icon--oranje{background:#fff7ed;color:#c2410c;}
+.db-uren-icon--rood{background:#fef2f2;color:#b91c1c;}
+.db-uren-optie-body > span:last-child{display:flex;flex-direction:column;gap:2px;}
+.db-uren-optie-body strong{font-size:14px;font-weight:700;color:#111827;}
+.db-uren-optie-body em{font-style:normal;font-size:12px;color:#6b7280;}
+.db-uren-deels-invoer{background:#f5f3ff;border-radius:8px;padding:10px 14px;margin:0 0 4px;}
+.db-uren-deels-invoer label{display:block;font-size:12px;font-weight:600;color:#374151;margin-bottom:6px;}
+.db-uren-deels-rij{display:flex;align-items:center;gap:10px;}
+.db-uren-deels-rij input{border:1.5px solid #c4b5fd;border-radius:7px;padding:6px 8px;font-family:inherit;font-size:14px;font-weight:700;background:#fff;color:#111827;}
+.db-uren-deels-rij span{font-size:13px;color:#374151;}
+.db-uren-reden{margin:12px 0 16px;}
+.db-uren-reden label{display:block;font-size:12px;font-weight:600;color:#374151;margin-bottom:6px;}
+.db-uren-reden input{width:100%;border:1.5px solid #e5e7eb;border-radius:8px;padding:9px 12px;font-family:inherit;font-size:13px;color:#111827;background:#fff;}
+.db-uren-reden input:focus{outline:none;border-color:#6366f1;}

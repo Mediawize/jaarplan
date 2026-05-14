@@ -412,6 +412,7 @@ function renderLesCard(les) {
       <div class="td-lesson-actions">
         ${_dbMateriaalButtons(o, les.moduleContext)}
         ${Auth.canEdit() ? `<button class="td-finish${o.afgevinkt ? ' td-finish--done' : ''}" onclick="dashboardAfvinken('${o.id}')">✓ ${o.afgevinkt ? 'Heropenen' : 'Les afronden'}</button>` : ''}
+        ${_dbUrenKnop(o.id, les)}
         ${_dbLesbriefButton(o)}
         ${Auth.canEdit() ? `<button class="${o.opmerking ? 'td-opmerking--heeft' : ''}" onclick="dbOpenOpmerkingModal('${o.id}')">▣ Opmerking</button>` : ''}
       </div>
@@ -460,6 +461,7 @@ function renderCombinedLesCard(lessen) {
       <div class="td-class td-class--sm" style="background:${kleur}">${escHtml(afk)}</div>
       <div class="td-lesson-actions">
         ${Auth.canEdit() ? `<button class="td-finish${o.afgevinkt ? ' td-finish--done' : ''}" onclick="dashboardAfvinken('${o.id}')">✓ ${o.afgevinkt ? 'Heropenen' : 'Les afronden'}</button>` : ''}
+        ${_dbUrenKnop(o.id, l)}
         <button id="db-lesbrief-btn-${escHtml(String(o.id))}" data-lesbrief-opdracht="${escHtml(String(o.id))}" onclick="openLesbrief('${escHtml(String(o.id))}')">▤ Lesbrief</button>
         ${Auth.canEdit() ? `<button class="${o.opmerking ? 'td-opmerking--heeft' : ''}" onclick="dbOpenOpmerkingModal('${o.id}')">▣ Opmerking</button>` : ''}
       </div>
@@ -807,6 +809,132 @@ async function dashboardAfvinkenBevestig(id) {
   try { await API.afvinken(id); renderDashboard(); }
   catch(e) { showError(e.message); }
 }
+// ============================================================
+// UREN VERANTWOORDEN
+// ============================================================
+
+function _dbUrenSleutel(id) { return `jp_uren_${id}`; }
+
+function _dbUrenLaad(id) {
+  try { return JSON.parse(localStorage.getItem(_dbUrenSleutel(id)) || 'null'); }
+  catch { return null; }
+}
+
+function _dbUrenSla(id, data) {
+  if (data) localStorage.setItem(_dbUrenSleutel(id), JSON.stringify(data));
+  else localStorage.removeItem(_dbUrenSleutel(id));
+}
+
+function _dbUrenKnop(opdrachtId, les) {
+  const data = _dbUrenLaad(opdrachtId);
+  let cls = '', label = '⏱ Uren';
+  if (data) {
+    if (data.status === 'behandeld')  { cls = 'td-uren--behandeld'; label = '⏱ Behandeld'; }
+    else if (data.status === 'vervallen') { cls = 'td-uren--vervallen'; label = '⏱ Vervallen'; }
+    else if (data.status === 'deels') { cls = 'td-uren--deels'; label = `⏱ ${data.vervallen}u vervallen`; }
+  }
+  return `<button class="${cls}" onclick="dbOpenUrenModal('${escHtml(String(opdrachtId))}')">` + label + `</button>`;
+}
+
+function dbOpenUrenModal(id) {
+  const les = (window._dbDagLessen || []).find(l => l.opdracht?.id == id);
+  const o   = les?.opdracht;
+  const klasNaam = les?.klas?.naam || '';
+  const tijdLabel = les ? `${les.start} → ${les.eind} (${_dbFormatMinutenKort(les.minuten)})` : '';
+  const geplandUren = les ? +(les.minuten / 60).toFixed(1) : 1;
+  const data = _dbUrenLaad(id) || {};
+  const huidigStatus = data.status || 'behandeld';
+  const huidigVervallen = data.vervallen ?? 0.5;
+  const huidigReden = data.reden || '';
+
+  openModal(`
+    <h2>⏱ Uren verantwoorden${klasNaam ? ` — ${escHtml(klasNaam)}` : ''}</h2>
+    <p class="modal-sub">${escHtml(tijdLabel)} · Gepland: ${geplandUren} uur</p>
+    <div class="db-uren-opties">
+      <label class="db-uren-optie">
+        <input type="radio" name="db-uren-status" value="behandeld" ${huidigStatus === 'behandeld' ? 'checked' : ''}
+          onchange="dbUrenStatusWijzig(this)">
+        <span class="db-uren-optie-body">
+          <span class="db-uren-optie-icon db-uren-icon--groen">✓</span>
+          <span>
+            <strong>Behandeld</strong>
+            <em>Alle ${geplandUren} uur zijn gegeven</em>
+          </span>
+        </span>
+      </label>
+      <label class="db-uren-optie">
+        <input type="radio" name="db-uren-status" value="deels" ${huidigStatus === 'deels' ? 'checked' : ''}
+          onchange="dbUrenStatusWijzig(this)">
+        <span class="db-uren-optie-body">
+          <span class="db-uren-optie-icon db-uren-icon--oranje">~</span>
+          <span>
+            <strong>Gedeeltelijk vervallen</strong>
+            <em>Een deel van het uur is uitgevallen</em>
+          </span>
+        </span>
+      </label>
+      <div class="db-uren-deels-invoer" id="db-uren-deels" style="${huidigStatus === 'deels' ? '' : 'display:none'}">
+        <label>Hoeveel uur vervallen?</label>
+        <div class="db-uren-deels-rij">
+          <input type="number" id="db-uren-vervallen" min="0.5" max="${geplandUren}" step="0.5"
+            value="${huidigVervallen}" style="width:80px;text-align:center">
+          <span>van ${geplandUren} uur</span>
+        </div>
+      </div>
+      <label class="db-uren-optie">
+        <input type="radio" name="db-uren-status" value="vervallen" ${huidigStatus === 'vervallen' ? 'checked' : ''}
+          onchange="dbUrenStatusWijzig(this)">
+        <span class="db-uren-optie-body">
+          <span class="db-uren-optie-icon db-uren-icon--rood">✗</span>
+          <span>
+            <strong>Volledig vervallen</strong>
+            <em>Het lesuur is niet doorgegaan</em>
+          </span>
+        </span>
+      </label>
+    </div>
+    <div class="db-uren-reden">
+      <label>Reden (optioneel)</label>
+      <input type="text" id="db-uren-reden" value="${escHtml(huidigReden)}"
+        placeholder="bijv. schoolactiviteit, ziekte, uitval...">
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="dbUrenVerwijder('${escHtml(String(id))}')">Wis registratie</button>
+      <button class="btn" onclick="closeModalDirect()">Annuleren</button>
+      <button class="btn btn-primary" onclick="dbUrenOpslaan('${escHtml(String(id))}')">Opslaan</button>
+    </div>
+  `);
+}
+
+function dbUrenStatusWijzig(radio) {
+  const deels = document.getElementById('db-uren-deels');
+  if (deels) deels.style.display = radio.value === 'deels' ? '' : 'none';
+}
+
+function dbUrenOpslaan(id) {
+  const status   = document.querySelector('input[name="db-uren-status"]:checked')?.value || 'behandeld';
+  const vervallen = status === 'deels' ? (parseFloat(document.getElementById('db-uren-vervallen')?.value) || 0.5) : 0;
+  const reden    = document.getElementById('db-uren-reden')?.value.trim() || '';
+  _dbUrenSla(id, { status, vervallen: vervallen || undefined, reden: reden || undefined });
+  closeModalDirect();
+  // Knop live bijwerken zonder volledige herlaad
+  document.querySelectorAll(`[onclick*="dbOpenUrenModal('${id}')"]`).forEach(btn => {
+    const data = _dbUrenLaad(id);
+    if (!data) { btn.className = ''; btn.textContent = '⏱ Uren'; return; }
+    if (data.status === 'behandeld')  { btn.className = 'td-uren--behandeld'; btn.textContent = '⏱ Behandeld'; }
+    else if (data.status === 'vervallen') { btn.className = 'td-uren--vervallen'; btn.textContent = '⏱ Vervallen'; }
+    else { btn.className = 'td-uren--deels'; btn.textContent = `⏱ ${data.vervallen}u vervallen`; }
+  });
+}
+
+function dbUrenVerwijder(id) {
+  _dbUrenSla(id, null);
+  closeModalDirect();
+  document.querySelectorAll(`[onclick*="dbOpenUrenModal('${id}')"]`).forEach(btn => {
+    btn.className = ''; btn.textContent = '⏱ Uren';
+  });
+}
+
 async function dashboardTaakAfvinken(id) {
   try { await API.taakAfvinken(id); renderDashboard(); }
   catch(e) { showError(e.message); }
