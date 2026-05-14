@@ -103,6 +103,7 @@ const uploadFileFilter = (req, file, cb) => {
   else cb(new Error(`Bestandstype '${ext}' is niet toegestaan`), false);
 };
 const upload = multer({ storage, limits: { fileSize: 25 * 1024 * 1024 }, fileFilter: uploadFileFilter });
+const uploadSingle = upload;
 const uploadMemory = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 
 app.use(helmet({ contentSecurityPolicy: false }));
