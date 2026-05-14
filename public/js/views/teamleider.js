@@ -83,14 +83,30 @@ function tlKlasHtml(klas) {
     ? `<tr><td colspan="6" class="tl-empty-rij">Geen lessen gevonden voor deze klas</td></tr>`
     : opdrachten.map(o => {
         const datum = o.afgevinktOp ? new Date(o.afgevinktOp).toLocaleDateString('nl-NL', { day: 'numeric', month: 'short' }) : '';
+        const counts = o.leerlingAfrond || [];
+        const aantalLeerlingen = klas.aantalLeerlingen || 0;
+        const nietsAf = counts.filter(c => aantalLeerlingen > 0 && c.afgerond_count < aantalLeerlingen);
+        const leerlingHtml = counts.length && aantalLeerlingen > 0
+          ? `<div class="tl-leerling-counts">
+              ${counts.map(c => {
+                const niet = aantalLeerlingen - c.afgerond_count;
+                const cls  = niet > 0 ? 'tl-leerling-item--aandacht' : 'tl-leerling-item--ok';
+                return `<span class="tl-leerling-item ${cls}" title="${escHtml(c.item_naam)}">
+                  ${escHtml(c.item_naam.length > 22 ? c.item_naam.slice(0,22)+'…' : c.item_naam)}:
+                  <strong>${c.afgerond_count}/${aantalLeerlingen}</strong>
+                  ${niet > 0 ? `<em>${niet} niet</em>` : ''}
+                </span>`;
+              }).join('')}
+            </div>` : '';
         return `<tr class="${o.afgevinkt ? 'tl-rij--afgerond' : ''}">
           <td class="tl-col-week">${o.weeknummer ? `Wk ${o.weeknummer}` : '—'}</td>
-          <td class="tl-col-naam">${escHtml(o.naam)}</td>
+          <td class="tl-col-naam">${escHtml(o.naam)}${leerlingHtml}</td>
           <td class="tl-col-type"><span class="tl-type-badge">${escHtml(o.type || 'Les')}</span></td>
           <td class="tl-col-status">
             ${o.afgevinkt
               ? `<span class="tl-status tl-status--ok">✓ Afgerond</span>`
               : `<span class="tl-status tl-status--open">○ Open</span>`}
+            ${nietsAf.length > 0 ? `<span class="tl-status tl-status--waarschuwing" title="Niet alle leerlingen hebben onderdelen afgerond">⚠ ${nietsAf.length} item${nietsAf.length > 1 ? 's' : ''}</span>` : ''}
           </td>
           <td class="tl-col-door">${o.afgevinkt ? escHtml(o.afgevinktDoor || '—') : ''}</td>
           <td class="tl-col-datum">${escHtml(datum)}</td>

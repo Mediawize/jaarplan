@@ -108,6 +108,8 @@ const API = {
   async deleteOpdracht(id) { return this._fetch(`/api/opdrachten/${id}`, { method: 'DELETE' }); },
   async afvinken(id) { return this._fetch(`/api/opdrachten/${id}/afvinken`, { method: 'POST' }); },
   async setOpmerking(id, opmerking) { return this._fetch(`/api/opdrachten/${id}/opmerking`, { method: 'POST', body: { opmerking } }); },
+  async getLeerlingAfrond(id) { return this._fetch(`/api/opdrachten/${id}/leerling-afrond`); },
+  async saveLeerlingAfrond(id, items) { return this._fetch(`/api/opdrachten/${id}/leerling-afrond`, { method: 'POST', body: { items } }); },
 
   // LES MODULES
   async getLesModules() { return this._fetch('/api/les-modules'); },

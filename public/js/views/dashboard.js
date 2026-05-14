@@ -722,6 +722,12 @@ async function dashboardAfvinken(id) {
     catch(e) { showError(e.message); }
     return;
   }
+  // Laad eerder opgeslagen leerling-counts
+  let _bestaandeCounts = {};
+  try {
+    const opgeslagen = await API.getLeerlingAfrond(id);
+    opgeslagen.forEach(r => { _bestaandeCounts[r.item_naam] = r.afgerond_count; });
+  } catch(e) {}
 
   // Takenlijst per categorie
   const ctx = les?.moduleContext;
@@ -764,6 +770,7 @@ async function dashboardAfvinken(id) {
   const alleItems = secties.flatMap(s => s.taken.filter(t => !t.isHeader));
   const totaal    = alleItems.length;
   const sid       = escHtml(String(id));
+  const aantalLeerlingen = les?.klas?.aantalLeerlingen || 0;
 
   let idx = 0;
   const sectiHtml = secties.map(s => {
@@ -784,13 +791,25 @@ async function dashboardAfvinken(id) {
       const labelHtml  = t.url
         ? `<a href="${escHtml(t.url)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${escHtml(t.label)}</a>`
         : escHtml(t.label);
-      return `<label class="db-taak-item${t.isSubItem ? ' db-taak-item--sub' : ''}${checked ? ' db-taak-item--checked' : ''}" onclick="dbTaakWijzig(this,${i},'${sid}',${totaal})">
-        <input type="checkbox" ${checked ? 'checked' : ''} style="display:none">
-        <span class="db-taak-check"></span>
-        <span class="db-taak-icon">${t.icon}</span>
-        <span class="db-taak-label">${labelHtml}</span>
-        ${init ? `<span class="db-taak-init">${escHtml(init)}</span>` : `<span class="db-taak-init" style="display:none"></span>`}
-      </label>`;
+      const vorigeCount = _bestaandeCounts[t.label] ?? '';
+      const leerlingInput = aantalLeerlingen > 0
+        ? `<div class="db-taak-leerling">
+            <input type="number" class="db-leerling-input" data-item="${escHtml(t.label)}"
+              min="0" max="${aantalLeerlingen}" value="${vorigeCount}"
+              placeholder="0" onclick="event.stopPropagation()" oninput="event.stopPropagation()">
+            <span class="db-leerling-max">/ ${aantalLeerlingen}</span>
+          </div>`
+        : '';
+      return `<div class="db-taak-rij${t.isSubItem ? ' db-taak-item--sub' : ''}">
+        <label class="db-taak-item${checked ? ' db-taak-item--checked' : ''}" onclick="dbTaakWijzig(this,${i},'${sid}',${totaal})">
+          <input type="checkbox" ${checked ? 'checked' : ''} style="display:none">
+          <span class="db-taak-check"></span>
+          <span class="db-taak-icon">${t.icon}</span>
+          <span class="db-taak-label">${labelHtml}</span>
+          ${init ? `<span class="db-taak-init">${escHtml(init)}</span>` : `<span class="db-taak-init" style="display:none"></span>`}
+        </label>
+        ${leerlingInput}
+      </div>`;
     }).join('');
     return `<div class="db-taak-sectie">
       <div class="db-taak-sectie-titel">${s.icon} ${escHtml(s.titel)}</div>
@@ -801,7 +820,7 @@ async function dashboardAfvinken(id) {
   const klasNaam = les?.klas?.naam || '';
   openModal(`
     <h2>Les afronden${klasNaam ? ` — ${escHtml(klasNaam)}` : ''}</h2>
-    <p class="modal-sub">Vink af wat je hebt behandeld en klik daarna op bevestigen.</p>
+    <p class="modal-sub">Vink af wat je hebt behandeld${aantalLeerlingen > 0 ? ' en vul in hoeveel leerlingen het hebben afgerond' : ''}</p>
     <div class="db-taak-lijst">
       ${secties.length ? sectiHtml : '<p class="db-taak-leeg">Geen gekoppelde taken gevonden. Je kunt de les direct afronden.</p>'}
     </div>
@@ -810,7 +829,6 @@ async function dashboardAfvinken(id) {
       <button class="btn db-bevestig-btn" id="db-bevestig-btn" onclick="dashboardAfvinkenBevestig('${sid}')">✓ Bevestig afronden</button>
     </div>
   `);
-  // Knopkleur direct na openen instellen
   _dbTaakKnopBijwerken(totaal);
 }
 
@@ -874,9 +892,16 @@ function _dbTaakSla(opdrachtId, idx, checked, initialen) {
 }
 
 async function dashboardAfvinkenBevestig(id) {
+  // Leerling-counts verzamelen voor opslaan
+  const items = [...document.querySelectorAll('.db-leerling-input')]
+    .map(inp => ({ naam: inp.dataset.item, count: parseInt(inp.value) || 0 }))
+    .filter(x => x.naam);
   closeModalDirect();
-  try { await API.afvinken(id); renderDashboard(); }
-  catch(e) { showError(e.message); }
+  try {
+    if (items.length) await API.saveLeerlingAfrond(id, items);
+    await API.afvinken(id);
+    renderDashboard();
+  } catch(e) { showError(e.message); }
 }
 // ============================================================
 // UREN VERANTWOORDEN
