@@ -126,7 +126,11 @@ async function renderDashboard() {
     window._dbToetsen = toetsen;
     if (!window._dbWeergave) window._dbWeergave = 'tijdlijn';
     setTimeout(_dbVerversLesbriefKnoppen, 0);
-  } catch(e) { showError('Fout bij laden dashboard: ' + e.message); }
+  } catch(e) {
+    console.error('Dashboard fout:', e);
+    const el = document.getElementById('view-dashboard');
+    if (el) el.innerHTML = `<div class="empty-state" style="padding:48px 24px"><h3>Fout bij laden</h3><p>${escHtml(e.message)}</p><button class="btn" onclick="renderDashboard()">↻ Opnieuw proberen</button></div>`;
+  }
 }
 
 function _dbStatCard(icon, label, waarde, kleur) {
