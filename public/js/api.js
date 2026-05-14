@@ -75,6 +75,7 @@ const API = {
   async updateGebruiker(id, data) { return this._fetch(`/api/gebruikers/${id}`, { method: 'PUT', body: data }); },
   async deleteGebruiker(id) { return this._fetch(`/api/gebruikers/${id}`, { method: 'DELETE' }); },
   async setHoofdklassen(id, hoofdklassen) { return this._fetch(`/api/gebruikers/${id}/hoofdklassen`, { method: 'PUT', body: { hoofdklassen } }); },
+  async getTeamleiderOverzicht() { return this._fetch('/api/teamleider/overzicht'); },
 
   // VAKKEN
   async getVakken() { return this._fetch('/api/vakken'); },

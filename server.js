@@ -203,6 +203,8 @@ app.post('/api/login', loginLimiter, (req, res) => {
     initialen: user.initialen,
     hoofdklassen: user.hoofdklassen || [],
     mustChangePassword: !!user.mustChangePassword,
+    isTeamleider: !!user.isTeamleider,
+    teamleiderVakken: user.teamleiderVakken || [],
   };
   res.json({ success: true, user: req.session.user });
 });
@@ -295,6 +297,24 @@ app.put('/api/gebruikers/:id/hoofdklassen', requireAuth, (req, res) => {
   db.updateGebruiker(req.params.id, { ...gebruiker, hoofdklassen: req.body.hoofdklassen || [] });
   if (u.id === req.params.id) req.session.user.hoofdklassen = req.body.hoofdklassen || [];
   res.json({ success: true });
+});
+
+// ============================================================
+// TEAMLEIDER OVERZICHT
+// ============================================================
+app.get('/api/teamleider/overzicht', requireAuth, (req, res) => {
+  const u = req.session.user;
+  if (!u.isTeamleider) return res.status(403).json({ error: 'Geen teamleider toegang' });
+  const vakIds = Array.isArray(u.teamleiderVakken) ? u.teamleiderVakken : [];
+  const alleKlassen = db.getKlassen().filter(k => vakIds.includes(k.vakId));
+  const alleVakken  = db.getVakken();
+  const alleTaken   = db.getTaken();
+  const klassen = alleKlassen.map(k => ({
+    ...k,
+    opdrachten: db.getOpdrachten(k.id),
+    vak: alleVakken.find(v => v.id === k.vakId) || null,
+  }));
+  res.json({ klassen, taken: alleTaken, vakken: alleVakken.filter(v => vakIds.includes(v.id)) });
 });
 
 // ============================================================

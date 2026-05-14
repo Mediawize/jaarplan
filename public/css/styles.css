@@ -2936,3 +2936,74 @@ html, body {
 .db-uren-reden label{display:block;font-size:12px;font-weight:600;color:#374151;margin-bottom:6px;}
 .db-uren-reden input{width:100%;border:1.5px solid #e5e7eb;border-radius:8px;padding:9px 12px;font-family:inherit;font-size:13px;color:#111827;background:#fff;}
 .db-uren-reden input:focus{outline:none;border-color:#6366f1;}
+
+/* ── Teamleider view ── */
+.tl-wrapper{padding:24px;max-width:1100px;}
+.page-sub{color:var(--ink-3,#6b7280);font-size:14px;margin:4px 0 0;}
+.tl-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px;}
+.tl-stat{background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:16px;text-align:center;}
+.tl-stat--kleur{border-color:#c7d2fe;background:#eef2ff;}
+.tl-stat--waarschuwing{border-color:#fecaca;background:#fef2f2;}
+.tl-stat-waarde{font-size:30px;font-weight:800;color:#111827;line-height:1;}
+.tl-stat-label{font-size:12px;color:#6b7280;margin-top:4px;}
+.tl-voortgang-balk{height:4px;background:#e0e7ff;border-radius:999px;margin-top:8px;overflow:hidden;}
+.tl-voortgang-gevuld{height:100%;background:#6366f1;border-radius:999px;transition:width .3s;}
+
+.tl-tabs{display:flex;gap:4px;border-bottom:2px solid #e5e7eb;margin-bottom:16px;}
+.tl-tab{background:none;border:none;padding:10px 18px;font-size:14px;font-weight:600;color:#6b7280;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;font-family:inherit;}
+.tl-tab.active{color:#111827;border-bottom-color:#111827;}
+.tl-tab:hover{color:#374151;}
+
+.tl-klas-card{background:#fff;border:1px solid #e5e7eb;border-radius:12px;margin-bottom:10px;overflow:hidden;}
+.tl-klas-header{width:100%;display:flex;align-items:center;gap:12px;padding:14px 16px;background:none;border:none;cursor:pointer;font-family:inherit;text-align:left;}
+.tl-klas-header:hover{background:#f9fafb;}
+.tl-klas-naam{font-size:15px;font-weight:800;color:#111827;flex:1;}
+.tl-klas-meta{display:flex;align-items:center;gap:10px;flex-shrink:0;}
+.tl-klas-meta span{font-size:12px;color:#6b7280;}
+.tl-mini-balk{width:80px;height:6px;background:#f3f4f6;border-radius:999px;overflow:hidden;}
+.tl-mini-gevuld{height:100%;background:#6366f1;border-radius:999px;}
+.tl-klas-pct{font-size:12px;font-weight:700;color:#374151;min-width:70px;text-align:right;}
+.tl-pct--groen{color:#047857;}
+.tl-pct--oranje{color:#c2410c;}
+.tl-chevron{width:16px;height:16px;color:#9ca3af;flex-shrink:0;transition:transform .2s;}
+.tl-klas-body{border-top:1px solid #e5e7eb;overflow-x:auto;}
+
+.tl-les-tabel{width:100%;border-collapse:collapse;font-size:13px;}
+.tl-les-tabel th{padding:8px 12px;text-align:left;font-size:11px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.04em;border-bottom:1px solid #e5e7eb;background:#f9fafb;white-space:nowrap;}
+.tl-les-tabel td{padding:9px 12px;border-bottom:1px solid #f3f4f6;color:#111827;vertical-align:middle;}
+.tl-les-tabel tr:last-child td{border-bottom:none;}
+.tl-les-tabel tr:hover td{background:#f9fafb;}
+.tl-rij--afgerond td{color:#6b7280;}
+.tl-rij--verstreken td{background:#fff5f5;}
+.tl-col-week{width:60px;color:#6b7280;font-size:12px;white-space:nowrap;}
+.tl-col-naam{font-weight:600;}
+.tl-col-type{width:90px;}
+.tl-col-status{width:110px;white-space:nowrap;}
+.tl-col-door{width:60px;font-size:12px;color:#6b7280;}
+.tl-col-datum{width:80px;font-size:12px;color:#6b7280;white-space:nowrap;}
+
+.tl-type-badge{display:inline-block;font-size:11px;font-weight:600;border-radius:999px;background:#f3f4f6;color:#374151;padding:2px 8px;}
+.tl-status{display:inline-flex;align-items:center;font-size:11px;font-weight:700;border-radius:999px;padding:3px 9px;white-space:nowrap;}
+.tl-status--ok{background:#f0fdf4;color:#047857;}
+.tl-status--open{background:#f9fafb;color:#6b7280;}
+.tl-deadline--verstreken{color:#b91c1c;font-weight:700;}
+.tl-empty-rij{text-align:center;color:#9ca3af;padding:20px;font-style:italic;}
+.tl-init{display:inline-block;background:#e0e7ff;color:#4338ca;border-radius:999px;font-size:11px;font-weight:700;padding:2px 7px;margin:1px;}
+.tl-sectie-titel{font-size:15px;font-weight:800;color:#111827;margin:0 0 12px;}
+.tl-taken-tabel{background:#fff;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;}
+
+/* Teamleider toggle in gebruikers modal */
+.tl-toggle-rij{display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
+.tl-toggle-label{display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:700;font-size:14px;color:#111827;white-space:nowrap;}
+.tl-toggle-label input[type=checkbox]{width:16px;height:16px;cursor:pointer;}
+.form-hint{font-size:12px;color:#6b7280;}
+
+@media(max-width:760px){
+  .tl-wrapper{padding:16px;}
+  .tl-stats{grid-template-columns:repeat(2,1fr);}
+  .tl-klas-meta{display:none;}
+}
+@media(max-width:480px){
+  .tl-stats{grid-template-columns:1fr 1fr;}
+  .tl-stat-waarde{font-size:22px;}
+}

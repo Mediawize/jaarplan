@@ -255,6 +255,14 @@ function migreer() {
     db.exec("ALTER TABLE gebruikers ADD COLUMN resetTokenExpiry TEXT");
     console.log('Migratie: resetTokenExpiry kolom toegevoegd aan gebruikers');
   }
+  if (!userCols.includes('isTeamleider')) {
+    db.exec("ALTER TABLE gebruikers ADD COLUMN isTeamleider INTEGER DEFAULT 0");
+    console.log('Migratie: isTeamleider kolom toegevoegd aan gebruikers');
+  }
+  if (!userCols.includes('teamleiderVakken')) {
+    db.exec("ALTER TABLE gebruikers ADD COLUMN teamleiderVakken TEXT DEFAULT '[]'");
+    console.log('Migratie: teamleiderVakken kolom toegevoegd aan gebruikers');
+  }
 
   const instellingenTabel = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='school_instellingen'").get();
   if (!instellingenTabel) {
@@ -408,9 +416,9 @@ const Q = {
   getGebruiker: db.prepare('SELECT * FROM gebruikers WHERE id = ?'),
   getGebruikerByEmail: db.prepare('SELECT * FROM gebruikers WHERE LOWER(email) = LOWER(?)'),
   getGebruikerByResetToken: db.prepare('SELECT * FROM gebruikers WHERE resetToken = ?'),
-  insGebruiker: db.prepare('INSERT INTO gebruikers (id,naam,achternaam,email,wachtwoord,rol,initialen,vakken,hoofdklassen,mustChangePassword) VALUES (?,?,?,?,?,?,?,?,?,?)'),
-  updGebruiker: db.prepare('UPDATE gebruikers SET naam=?,achternaam=?,email=?,rol=?,initialen=?,vakken=?,hoofdklassen=? WHERE id=?'),
-  updGebruikerMetWW: db.prepare('UPDATE gebruikers SET naam=?,achternaam=?,email=?,wachtwoord=?,rol=?,initialen=?,vakken=?,hoofdklassen=?,mustChangePassword=? WHERE id=?'),
+  insGebruiker: db.prepare('INSERT INTO gebruikers (id,naam,achternaam,email,wachtwoord,rol,initialen,vakken,hoofdklassen,mustChangePassword,isTeamleider,teamleiderVakken) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)'),
+  updGebruiker: db.prepare('UPDATE gebruikers SET naam=?,achternaam=?,email=?,rol=?,initialen=?,vakken=?,hoofdklassen=?,isTeamleider=?,teamleiderVakken=? WHERE id=?'),
+  updGebruikerMetWW: db.prepare('UPDATE gebruikers SET naam=?,achternaam=?,email=?,wachtwoord=?,rol=?,initialen=?,vakken=?,hoofdklassen=?,mustChangePassword=?,isTeamleider=?,teamleiderVakken=? WHERE id=?'),
   updWachtwoord: db.prepare('UPDATE gebruikers SET wachtwoord=?,mustChangePassword=0,resetToken=NULL,resetTokenExpiry=NULL WHERE id=?'),
   updResetToken: db.prepare('UPDATE gebruikers SET resetToken=?,resetTokenExpiry=? WHERE id=?'),
   delGebruiker: db.prepare('DELETE FROM gebruikers WHERE id=?'),
@@ -505,41 +513,38 @@ module.exports = {
   genToken,
   seedIfEmpty,
 
-  getGebruikers() {
-    return Q.getGebruikers.all().map(u => ({
+  _parseGebruiker(u) {
+    if (!u) return null;
+    return {
       ...u,
       vakken: parseJSON(u.vakken),
       hoofdklassen: parseJSON(u.hoofdklassen),
+      teamleiderVakken: parseJSON(u.teamleiderVakken),
       mustChangePassword: !!u.mustChangePassword,
-    }));
+      isTeamleider: !!u.isTeamleider,
+    };
   },
-  getGebruiker(id) {
-    const u = Q.getGebruiker.get(id);
-    return u ? { ...u, vakken: parseJSON(u.vakken), hoofdklassen: parseJSON(u.hoofdklassen), mustChangePassword: !!u.mustChangePassword } : null;
-  },
-  getGebruikerByEmail(email) {
-    const u = Q.getGebruikerByEmail.get(email);
-    return u ? { ...u, vakken: parseJSON(u.vakken), hoofdklassen: parseJSON(u.hoofdklassen), mustChangePassword: !!u.mustChangePassword } : null;
-  },
-  getGebruikerByResetToken(token) {
-    const u = Q.getGebruikerByResetToken.get(token);
-    return u ? { ...u, vakken: parseJSON(u.vakken), hoofdklassen: parseJSON(u.hoofdklassen) } : null;
-  },
-  addGebruiker({ naam, achternaam, email, wachtwoord, rol, initialen, vakken = [], hoofdklassen = [], mustChangePassword = true }) {
+  getGebruikers() { return Q.getGebruikers.all().map(u => this._parseGebruiker(u)); },
+  getGebruiker(id) { return this._parseGebruiker(Q.getGebruiker.get(id)); },
+  getGebruikerByEmail(email) { return this._parseGebruiker(Q.getGebruikerByEmail.get(email)); },
+  getGebruikerByResetToken(token) { return this._parseGebruiker(Q.getGebruikerByResetToken.get(token)); },
+  addGebruiker({ naam, achternaam, email, wachtwoord, rol, initialen, vakken = [], hoofdklassen = [], mustChangePassword = true, isTeamleider = false, teamleiderVakken = [] }) {
     if (Q.getGebruikerByEmail.get(email)) return { error: 'E-mail bestaat al' };
     const id = genId();
     const hash = bcrypt.hashSync(wachtwoord, 10);
-    Q.insGebruiker.run(id, naam, achternaam, email, hash, rol, initialen || null, JSON.stringify(vakken), JSON.stringify(hoofdklassen), mustChangePassword ? 1 : 0);
+    Q.insGebruiker.run(id, naam, achternaam, email, hash, rol, initialen || null, JSON.stringify(vakken), JSON.stringify(hoofdklassen), mustChangePassword ? 1 : 0, isTeamleider ? 1 : 0, JSON.stringify(teamleiderVakken));
     return this.getGebruiker(id);
   },
   updateGebruiker(id, d) {
     const u = this.getGebruiker(id);
     if (!u) return;
+    const isTeamleider = d.isTeamleider !== undefined ? (d.isTeamleider ? 1 : 0) : (u.isTeamleider ? 1 : 0);
+    const teamleiderVakken = JSON.stringify(d.teamleiderVakken ?? u.teamleiderVakken ?? []);
     if (d.wachtwoord) {
       const hash = bcrypt.hashSync(d.wachtwoord, 10);
-      Q.updGebruikerMetWW.run(d.naam ?? u.naam, d.achternaam ?? u.achternaam, d.email ?? u.email, hash, d.rol ?? u.rol, d.initialen ?? u.initialen, JSON.stringify(d.vakken ?? u.vakken), JSON.stringify(d.hoofdklassen ?? u.hoofdklassen), d.mustChangePassword !== undefined ? (d.mustChangePassword ? 1 : 0) : (u.mustChangePassword ? 1 : 0), id);
+      Q.updGebruikerMetWW.run(d.naam ?? u.naam, d.achternaam ?? u.achternaam, d.email ?? u.email, hash, d.rol ?? u.rol, d.initialen ?? u.initialen, JSON.stringify(d.vakken ?? u.vakken), JSON.stringify(d.hoofdklassen ?? u.hoofdklassen), d.mustChangePassword !== undefined ? (d.mustChangePassword ? 1 : 0) : (u.mustChangePassword ? 1 : 0), isTeamleider, teamleiderVakken, id);
     } else {
-      Q.updGebruiker.run(d.naam ?? u.naam, d.achternaam ?? u.achternaam, d.email ?? u.email, d.rol ?? u.rol, d.initialen ?? u.initialen, JSON.stringify(d.vakken ?? u.vakken), JSON.stringify(d.hoofdklassen ?? u.hoofdklassen), id);
+      Q.updGebruiker.run(d.naam ?? u.naam, d.achternaam ?? u.achternaam, d.email ?? u.email, d.rol ?? u.rol, d.initialen ?? u.initialen, JSON.stringify(d.vakken ?? u.vakken), JSON.stringify(d.hoofdklassen ?? u.hoofdklassen), isTeamleider, teamleiderVakken, id);
     }
   },
   updateWachtwoord(id, wachtwoord) { Q.updWachtwoord.run(bcrypt.hashSync(wachtwoord, 10), id); },
