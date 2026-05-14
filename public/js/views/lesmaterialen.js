@@ -257,15 +257,6 @@ async function cleanupProfielen() {
 
 // Maak de lesmaterialen functies expliciet beschikbaar voor app.js en inline knoppen.
 window.renderLesmaterialen = renderLesmaterialen;
-window.matVerwijder = matVerwijder;
-window.matKoppelAanActiviteit = matKoppelAanActiviteit;
-window.matFilterNiveau = matFilterNiveau;
-window.matLaadWeken = matLaadWeken;
-window.matSlaKoppelingOp = matSlaKoppelingOp;
-
-
-// Maak de lesmaterialen functies expliciet beschikbaar voor app.js en inline knoppen.
-window.renderLesmaterialen = renderLesmaterialen;
 window.openMateriaalUploadModal = openMateriaalUploadModal;
 window.matUploadBestand = matUploadBestand;
 window.matVerwijder = matVerwijder;
