@@ -312,7 +312,10 @@ app.get('/api/teamleider/overzicht', requireAuth, (req, res) => {
   const alleTaken   = db.getTaken();
   const klassen = alleKlassen.map(k => ({
     ...k,
-    opdrachten: db.getOpdrachten(k.id),
+    opdrachten: db.getOpdrachten(k.id).map(o => ({
+      ...o,
+      leerlingAfrond: db.getLeerlingAfrond(o.id),
+    })),
     vak: alleVakken.find(v => v.id === k.vakId) || null,
   }));
   res.json({ klassen, taken: alleTaken, vakken: alleVakken.filter(v => vakIds.includes(v.id)) });
@@ -414,6 +417,15 @@ app.post('/api/opdrachten/:id/afvinken', requireCanEdit, (req, res) => {
     });
   }
   res.json(db.getOpdracht(o.id));
+});
+app.get('/api/opdrachten/:id/leerling-afrond', requireAuth, (req, res) => {
+  res.json(db.getLeerlingAfrond(req.params.id));
+});
+app.post('/api/opdrachten/:id/leerling-afrond', requireCanEdit, (req, res) => {
+  const items = req.body.items;
+  if (!Array.isArray(items)) return res.status(400).json({ error: 'items verplicht' });
+  db.saveLeerlingAfrond(req.params.id, items);
+  res.json({ success: true });
 });
 app.post('/api/opdrachten/:id/opmerking', requireCanEdit, (req, res) => {
   db.updateOpdracht(req.params.id, { opmerking: req.body.opmerking || null });

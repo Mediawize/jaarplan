@@ -375,6 +375,20 @@ function migreer() {
   // Schoon verwijzingen op naar verwijderde lesprofielen
   db.exec(`UPDATE opdrachten SET profielId=NULL WHERE profielId IS NOT NULL AND profielId NOT IN (SELECT id FROM lesprofielen)`);
   db.exec(`DELETE FROM lesbrieven WHERE profielId IS NOT NULL AND profielId NOT IN (SELECT id FROM lesprofielen)`);
+
+  // Leerling-afrond counts per opdracht-item
+  const laTabel = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='les_leerling_afrond'").get();
+  if (!laTabel) {
+    db.exec(`CREATE TABLE les_leerling_afrond (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      opdracht_id TEXT NOT NULL,
+      item_naam TEXT NOT NULL,
+      afgerond_count INTEGER DEFAULT 0,
+      bijgewerkt TEXT DEFAULT (datetime('now')),
+      UNIQUE(opdracht_id, item_naam)
+    )`);
+    console.log('Migratie: les_leerling_afrond tabel aangemaakt');
+  }
 }
 
 migreer();
@@ -842,5 +856,20 @@ module.exports = {
   },
   deleteBibliotheekWerkboekje(id) {
     db.prepare('DELETE FROM werkboekje_bibliotheek WHERE id=?').run(id);
+  },
+
+  getLeerlingAfrond(opdrachtId) {
+    return db.prepare('SELECT item_naam, afgerond_count FROM les_leerling_afrond WHERE opdracht_id=?').all(opdrachtId);
+  },
+  saveLeerlingAfrond(opdrachtId, items) {
+    const upsert = db.prepare(`INSERT INTO les_leerling_afrond (opdracht_id, item_naam, afgerond_count, bijgewerkt)
+      VALUES (?,?,?,datetime('now'))
+      ON CONFLICT(opdracht_id, item_naam) DO UPDATE SET afgerond_count=excluded.afgerond_count, bijgewerkt=excluded.bijgewerkt`);
+    const run = db.transaction(() => {
+      for (const { naam, count } of items) {
+        upsert.run(opdrachtId, naam, Number(count) || 0);
+      }
+    });
+    run();
   },
 };
