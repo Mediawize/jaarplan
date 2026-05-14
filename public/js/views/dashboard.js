@@ -712,21 +712,28 @@ async function dashboardAfvinken(id) {
   const secties = [];
 
   const theorieTaken = [];
-  let _eloHeaderActief = false;
-  (ctx?.theorie || []).forEach(t => {
+  // Theorie-items zonder URL: eerste item = niet-afvinkbare ELO-kop, rest = sub-items
+  const _theorieLijst = (ctx?.theorie || []).filter(t => t.type !== 'theorie_module');
+  const _heeftKop     = _theorieLijst.length > 1 && !_theorieLijst[0]?.url;
+  (ctx?.theorie || []).forEach((t, _rawIdx) => {
     if (t.type === 'theorie_module') {
       const urenLabel = t.urenType === 'split' ? `${t.uren}u gesplitst` : `${t.uren}u ${t.urenType}`;
       theorieTaken.push({ label: `📚 ${t.naam} (${urenLabel})`, icon: '📚', url: null, isHeader: false, isSubItem: false });
-      _eloHeaderActief = false;
-    } else if (t.url) {
-      theorieTaken.push({ label: t.naam || 'ELO / Lesmateriaal', icon: '🔗', url: t.url, isHeader: true, isSubItem: false });
-      _eloHeaderActief = true;
     } else {
-      theorieTaken.push({ label: t.naam || 'Theorieles', icon: '📖', url: null, isHeader: false, isSubItem: _eloHeaderActief });
+      const _lijstIdx = _theorieLijst.indexOf(t);
+      const isKop     = _heeftKop && _lijstIdx === 0;
+      theorieTaken.push({
+        label: t.naam || 'Theorieles',
+        icon: t.url ? '🔗' : '📖',
+        url: t.url || null,
+        isHeader: isKop,
+        isSubItem: _heeftKop && _lijstIdx > 0
+      });
     }
   });
+  // Leslink/theorieLink: altijd afvinkbaar (niet als ELO-kop)
   if (o?.theorieLink || o?.lesmateriaalLink)
-    theorieTaken.push({ label: 'ELO / Lesmateriaal', icon: '🔗', url: o.theorieLink || o.lesmateriaalLink, isHeader: true, isSubItem: false });
+    theorieTaken.push({ label: 'Leslink', icon: '🔗', url: o.theorieLink || o.lesmateriaalLink, isHeader: false, isSubItem: false });
   if (theorieTaken.length) secties.push({ titel: 'Theorie', icon: '📖', taken: theorieTaken });
 
   const praktijkTaken = [];
@@ -745,20 +752,26 @@ async function dashboardAfvinken(id) {
   const sectiHtml = secties.map(s => {
     const rijen = s.taken.map(t => {
       if (t.isHeader) {
+        const kopInhoud = t.url
+          ? `<a href="${escHtml(t.url)}" target="_blank" rel="noopener" class="db-taak-elo-link">${escHtml(t.label)}</a>`
+          : `<span class="db-taak-elo-naam">${escHtml(t.label)}</span>`;
         return `<div class="db-taak-elo-header">
-          <span class="db-taak-icon">🔗</span>
-          <a href="${escHtml(t.url)}" target="_blank" rel="noopener" class="db-taak-elo-link">${escHtml(t.label)}</a>
+          <span class="db-taak-icon">📚</span>
+          ${kopInhoud}
         </div>`;
       }
       const i = idx++;
       const opgeslagen = _dbTaakLaad(id, i);
       const checked    = !!opgeslagen;
       const init       = opgeslagen?.initialen || '';
+      const labelHtml  = t.url
+        ? `<a href="${escHtml(t.url)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${escHtml(t.label)}</a>`
+        : escHtml(t.label);
       return `<label class="db-taak-item${t.isSubItem ? ' db-taak-item--sub' : ''}${checked ? ' db-taak-item--checked' : ''}" onclick="dbTaakWijzig(this,${i},'${sid}',${totaal})">
         <input type="checkbox" ${checked ? 'checked' : ''} style="display:none">
         <span class="db-taak-check"></span>
         <span class="db-taak-icon">${t.icon}</span>
-        <span class="db-taak-label">${escHtml(t.label)}</span>
+        <span class="db-taak-label">${labelHtml}</span>
         ${init ? `<span class="db-taak-init">${escHtml(init)}</span>` : `<span class="db-taak-init" style="display:none"></span>`}
       </label>`;
     }).join('');
