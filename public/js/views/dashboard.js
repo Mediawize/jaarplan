@@ -423,8 +423,9 @@ function renderLesCard(les) {
   const lokaal = o.lokaal || o.leslokaal || (type.toLowerCase() === 'praktijk' ? 'Werkplaats' : 'Lokaal');
   const statusInfo = _dbLesStatus(les, o.afgevinkt);
   const focus = o.focus || o.beschrijving || '';
+  const cardId = `lescard-${o.id}`;
 
-  return `<article class="td-lesson ${o.afgevinkt ? 'is-done' : ''}" id="lescard-${o.id}">
+  return `<article class="td-lesson ${o.afgevinkt ? 'is-done' : ''}" id="${cardId}">
     <div class="td-lesson-toprow">
       <div class="td-class" style="background:${kleur}">${escHtml(afk)}</div>
       <div class="td-time"><strong>${escHtml(les.start)}</strong><span>→ ${escHtml(les.eind)}</span><em>${_dbFormatMinutenKort(les.minuten)}</em></div>
@@ -432,23 +433,33 @@ function renderLesCard(les) {
     </div>
     <h3 class="td-lesson-titel">${escHtml(o.naam)}</h3>
     <div class="td-colorbar" style="background:${kleur}"></div>
-    <div class="td-lesson-body">
-      <div class="td-meta">▣ ${escHtml(type)} <span>•</span> ${escHtml(lokaal)}${les.lesuren?.length ? ` <span>•</span> Lesuur ${les.lesuren.join(', ')}` : ''}</div>
-      ${focus ? `<p><strong>Focus:</strong> ${escHtml(focus)}</p>` : ''}
-      <div class="td-lesson-actions">
-        <div class="td-actions-secondary">
-          ${_dbMateriaalButtons(o, les.moduleContext)}
+
+    <!-- Primaire acties: altijd zichtbaar -->
+    <div class="td-acties-hoofd">
+      ${_dbLesbriefButton(o)}
+      ${Auth.canEdit() ? `<button class="td-finish ${o.afgevinkt ? 'td-finish--heropenen' : 'td-finish--todo'}" onclick="dashboardAfvinken('${o.id}')">${o.afgevinkt ? '↩ Heropenen' : '✓ Les afronden'}</button>` : ''}
+    </div>
+
+    <!-- Detail: op mobiel ingeklapt, op desktop altijd zichtbaar -->
+    <div class="td-lesson-detail">
+      <div class="td-lesson-body">
+        <div class="td-meta">▣ ${escHtml(type)} <span>•</span> ${escHtml(lokaal)}${les.lesuren?.length ? ` <span>•</span> Lesuur ${les.lesuren.join(', ')}` : ''}</div>
+        ${focus ? `<p><strong>Focus:</strong> ${escHtml(focus)}</p>` : ''}
+        ${_dbMateriaalButtons(o, les.moduleContext) ? `<div class="td-acties-extra">${_dbMateriaalButtons(o, les.moduleContext)}</div>` : ''}
+        <div class="td-acties-extra">
           ${Auth.canEdit() ? `<button class="${o.opmerking ? 'td-opmerking--heeft' : ''}" onclick="dbOpenOpmerkingModal('${o.id}')">▣ Opmerking</button>` : ''}
           ${_dbUrenKnop(o.id, les)}
         </div>
-        <div class="td-actions-primary">
-          ${_dbLesbriefButton(o)}
-          ${Auth.canEdit() ? `<button class="td-finish ${o.afgevinkt ? 'td-finish--heropenen' : 'td-finish--todo'}" onclick="dashboardAfvinken('${o.id}')">${o.afgevinkt ? '↩ Heropenen' : '✓ Les afronden'}</button>` : ''}
-        </div>
+        ${_dbModulePraktijkHtml(les.moduleContext)}
+        ${o.opmerking ? `<div class="td-note">${escHtml(o.opmerking)}</div>` : ''}
       </div>
-      ${_dbModulePraktijkHtml(les.moduleContext)}
-      ${o.opmerking ? `<div class="td-note">${escHtml(o.opmerking)}</div>` : ''}
     </div>
+
+    <!-- Detailknop: alleen zichtbaar op mobiel -->
+    <button class="td-detail-toggle" onclick="dbToggleKaart('${cardId}')">
+      <span class="td-detail-toggle-label">Details</span>
+      <svg class="td-detail-chevron" width="14" height="14" viewBox="0 0 20 20" fill="none"><path d="M5 8l5 5 5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
   </article>`;
 }
 
@@ -458,56 +469,47 @@ function renderCombinedLesCard(lessen) {
   const totaalMin   = Math.max(...lessen.map(l => l.minuten));
   const alleAfgerond = lessen.every(l => l.opdracht.afgevinkt);
 
-  // Gedeelde titel als ze identiek zijn, anders beide tonen
   const namen = [...new Set(lessen.map(l => l.opdracht.naam))];
   const titel = namen.length === 1 ? namen[0] : namen.join(' / ');
 
-  // Split kleurlijn per klas
   const kleurBalk = lessen.map(l => {
     const kleur = l.klas ? _klasKleur(l.klas.id) : '#94A3B8';
     return `<span style="flex:1;background:${kleur};height:3px;border-radius:999px"></span>`;
   }).join('');
 
-  // Badges
   const badges = lessen.map(l => {
     const kleur = l.klas ? _klasKleur(l.klas.id) : '#94A3B8';
     const afk = l.klas ? (l.klas.naam.match(/\d+\s*[A-Z]+/)?.[0] || l.klas.naam.slice(0, 3)).replace(/\s/g, '').toUpperCase() : '?';
     return `<div class="td-class" style="background:${kleur}">${escHtml(afk)}</div>`;
   }).join('');
 
-  // Gedeeld type/lokaal
   const type   = lessen[0].opdracht.type || 'Les';
   const lokaal = lessen[0].opdracht.lokaal || lessen[0].opdracht.leslokaal || (type.toLowerCase() === 'praktijk' ? 'Werkplaats' : 'Lokaal');
-
-  // Dynamische statuspill op basis van tijd
   const statusInfo = _dbLesStatus(lessen[0], alleAfgerond);
 
-  // Per-klas actierijen
   const klasActies = lessen.map(l => {
     const o = l.opdracht;
     const kleur = l.klas ? _klasKleur(l.klas.id) : '#94A3B8';
     const afk = l.klas ? (l.klas.naam.match(/\d+\s*[A-Z]+/)?.[0] || l.klas.naam.slice(0, 3)).replace(/\s/g, '').toUpperCase() : '?';
     return `<div class="td-combined-klas-row">
       <div class="td-class td-class--sm" style="background:${kleur}">${escHtml(afk)}</div>
-      <div class="td-lesson-actions">
-        <div class="td-actions-secondary">
-          ${_dbMateriaalButtons(o, l.moduleContext)}
-          ${Auth.canEdit() ? `<button class="${o.opmerking ? 'td-opmerking--heeft' : ''}" onclick="dbOpenOpmerkingModal('${o.id}')">▣ Opmerking</button>` : ''}
-          ${_dbUrenKnop(o.id, l)}
-        </div>
-        <div class="td-actions-primary">
-          ${_dbLesbriefButton(o)}
-          ${Auth.canEdit() ? `<button class="td-finish ${o.afgevinkt ? 'td-finish--heropenen' : 'td-finish--todo'}" onclick="dashboardAfvinken('${o.id}')">${o.afgevinkt ? '↩ Heropenen' : '✓ Les afronden'}</button>` : ''}
-        </div>
+      <div class="td-acties-hoofd td-acties-hoofd--inline">
+        ${_dbLesbriefButton(o)}
+        ${Auth.canEdit() ? `<button class="td-finish ${o.afgevinkt ? 'td-finish--heropenen' : 'td-finish--todo'}" onclick="dashboardAfvinken('${o.id}')">${o.afgevinkt ? '↩ Heropenen' : '✓ Les afronden'}</button>` : ''}
+      </div>
+      <div class="td-combined-detail">
+        ${Auth.canEdit() ? `<button class="${o.opmerking ? 'td-opmerking--heeft' : ''}" onclick="dbOpenOpmerkingModal('${o.id}')">▣ Opmerking</button>` : ''}
+        ${_dbUrenKnop(o.id, l)}
+        ${o.opmerking ? `<div class="td-note">${escHtml(o.opmerking)}</div>` : ''}
       </div>
     </div>`;
   }).join('');
 
-  // Gedeelde focus (alleen als er een echte waarde is)
   const foci = [...new Set(lessen.map(l => l.opdracht.focus || l.opdracht.beschrijving).filter(Boolean))];
   const focusTekst = foci.length ? foci.join(' / ') : '';
+  const cardId = `lescard-comb-${lessen.map(l=>l.opdracht.id).join('-')}`;
 
-  return `<article class="td-lesson td-lesson--combined ${alleAfgerond ? 'is-done' : ''}">
+  return `<article class="td-lesson td-lesson--combined ${alleAfgerond ? 'is-done' : ''}" id="${cardId}">
     <div class="td-lesson-toprow">
       ${badges}
       <div class="td-time"><strong>${escHtml(eersteStart)}</strong><span>→ ${escHtml(eersteEind)}</span><em>${_dbFormatMinutenKort(totaalMin)}</em></div>
@@ -515,13 +517,28 @@ function renderCombinedLesCard(lessen) {
     </div>
     <h3 class="td-lesson-titel">${escHtml(titel)}</h3>
     <div class="td-combined-colorbar">${kleurBalk}</div>
-    <div class="td-lesson-body">
-      <div class="td-meta">▣ ${escHtml(type)} <span>•</span> ${escHtml(lokaal)}</div>
-      ${focusTekst ? `<p><strong>Focus:</strong> ${escHtml(focusTekst)}</p>` : ''}
-      ${klasActies}
-      ${lessen.map(l => _dbModulePraktijkHtml(l.moduleContext)).filter(Boolean).join('')}
+
+    <!-- Per-klas primaire acties: altijd zichtbaar -->
+    ${klasActies}
+
+    <!-- Detail: op mobiel ingeklapt -->
+    <div class="td-lesson-detail">
+      <div class="td-lesson-body">
+        <div class="td-meta">▣ ${escHtml(type)} <span>•</span> ${escHtml(lokaal)}</div>
+        ${focusTekst ? `<p><strong>Focus:</strong> ${escHtml(focusTekst)}</p>` : ''}
+        ${lessen.map(l => _dbModulePraktijkHtml(l.moduleContext)).filter(Boolean).join('')}
+      </div>
     </div>
+
+    <button class="td-detail-toggle" onclick="dbToggleKaart('${cardId}')">
+      <span class="td-detail-toggle-label">Details</span>
+      <svg class="td-detail-chevron" width="14" height="14" viewBox="0 0 20 20" fill="none"><path d="M5 8l5 5 5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
   </article>`;
+}
+
+function dbToggleKaart(cardId) {
+  document.getElementById(cardId)?.classList.toggle('is-expanded');
 }
 
 function _dbModulePraktijkHtml(ctx) {
