@@ -637,18 +637,25 @@
 .td-lesson h3{margin:0 0 6px;font-size:16px;line-height:1.25;font-weight:800;color:#111827;}
 .td-meta{font-size:12px;color:#6b7280;margin-bottom:8px;display:flex;gap:7px;flex-wrap:wrap;align-items:center;}
 .td-lesson p{margin:0 0 12px;color:#374151;font-size:13px;line-height:1.45;}
-.td-lesson-actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;}
-.td-actions-materialen,.td-actions-admin,.td-actions-secondary,.td-actions-primary{display:flex;flex-wrap:wrap;gap:8px;align-items:center;}
-.td-lesson-actions button,.td-lesson-actions a{height:38px;border:1px solid #e5e7eb;background:#fff;border-radius:8px;color:#111827;text-decoration:none;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;padding:0 14px;box-shadow:0 1px 2px rgba(15,23,42,.04);}
-.td-lesson-actions button:hover,.td-lesson-actions a:hover{background:#f9fafb;border-color:#cbd5e1;}
-.td-lesson-actions .td-finish--todo{background:#111827;color:#fff;border-color:#111827;}
-.td-lesson-actions .td-finish--todo:hover{background:#1f2937;border-color:#1f2937;}
-.td-lesson-actions .td-finish--heropenen{border-color:#d1d5db;color:#6b7280;background:#f9fafb;}
-.td-lesson-actions .td-lesbrief-ready{border-color:#bfdbfe;color:#1d4ed8;background:#eff6ff;}
-.td-lesson-actions .td-opmerking--heeft{border-color:#fde68a;color:#92400e;background:#fffbeb;}
-.td-lesson-actions .td-uren--behandeld{border-color:#86efac;color:#047857;background:#f0fdf4;}
-.td-lesson-actions .td-uren--deels{border-color:#fcd34d;color:#92400e;background:#fffbeb;}
-.td-lesson-actions .td-uren--vervallen{border-color:#fca5a5;color:#b91c1c;background:#fef2f2;}
+/* Basis knopstijl — gedeeld door alle actie-containers */
+.td-lesson button,.td-lesson a[onclick],.td-acties-hoofd button,.td-acties-hoofd a,.td-acties-extra button,.td-acties-extra a{height:38px;border:1px solid #e5e7eb;background:#fff;border-radius:8px;color:#111827;text-decoration:none;display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;padding:0 14px;box-shadow:0 1px 2px rgba(15,23,42,.04);}
+.td-lesson button:hover,.td-lesson a[onclick]:hover{background:#f9fafb;border-color:#cbd5e1;}
+.td-finish--todo{background:#111827!important;color:#fff!important;border-color:#111827!important;}
+.td-finish--todo:hover{background:#1f2937!important;border-color:#1f2937!important;}
+.td-finish--heropenen{border-color:#d1d5db!important;color:#6b7280!important;background:#f9fafb!important;}
+.td-lesbrief-ready{border-color:#bfdbfe!important;color:#1d4ed8!important;background:#eff6ff!important;}
+.td-opmerking--heeft{border-color:#fde68a!important;color:#92400e!important;background:#fffbeb!important;}
+.td-uren--behandeld{border-color:#86efac!important;color:#047857!important;background:#f0fdf4!important;}
+.td-uren--deels{border-color:#fcd34d!important;color:#92400e!important;background:#fffbeb!important;}
+.td-uren--vervallen{border-color:#fca5a5!important;color:#b91c1c!important;background:#fef2f2!important;}
+/* Primaire acties (Lesbrief + Les afronden): altijd zichtbaar */
+.td-acties-hoofd{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:0;}
+.td-acties-hoofd button,.td-acties-hoofd a{flex:1;}
+/* Extra acties (Opmerking, Uren etc.) in detail */
+.td-acties-extra{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;}
+.td-acties-extra button,.td-acties-extra a{flex:1;}
+/* Detail-toggle knop: alleen mobiel */
+.td-detail-toggle{display:none;}
 .td-note{margin-top:10px;border-radius:8px;background:#f8fafc;border:1px solid #e5e7eb;padding:10px;font-size:13px;color:#374151;}
 
 /* Module praktijk sectie */
@@ -666,13 +673,11 @@
 .td-lesson--combined{border-color:#e0e7ff;}
 .td-combined-colorbar{display:flex;gap:4px;margin-bottom:12px;}
 .td-class--sm{width:26px;height:26px;font-size:9px;flex-shrink:0;}
-.td-combined-klas-row{display:flex;align-items:flex-start;gap:8px;padding:8px 0;border-top:1px solid #f3f4f6;}
+.td-combined-klas-row{display:flex;flex-direction:column;gap:6px;padding:8px 0;border-top:1px solid #f3f4f6;}
 .td-combined-klas-row:first-child{border-top:none;padding-top:4px;}
-.td-combined-klas-row .td-lesson-actions{flex:1;min-width:0;display:flex;flex-direction:column;gap:6px;}
-.td-combined-klas-row .td-actions-secondary{display:flex;flex-direction:row;flex-wrap:wrap;gap:5px;width:100%;}
-.td-combined-klas-row .td-actions-secondary button,.td-combined-klas-row .td-actions-secondary a{flex:1;min-width:0;height:34px;font-size:11px;padding:0 8px;}
-.td-combined-klas-row .td-actions-primary{display:flex;flex-direction:row;gap:5px;width:100%;}
-.td-combined-klas-row .td-actions-primary button,.td-combined-klas-row .td-actions-primary a{flex:1;height:40px;font-size:12px;font-weight:700;padding:0 8px;}
+.td-acties-hoofd--inline{display:flex;gap:6px;flex-wrap:wrap;}
+.td-acties-hoofd--inline button,.td-acties-hoofd--inline a{flex:1;font-size:12px;}
+.td-combined-detail{display:none;}  /* altijd verborgen op desktop in combined-kaart; mobiel via is-expanded */
 
 .td-pause{display:flex;align-items:center;gap:12px;padding:0 4px;}
 .td-pause-card{height:56px;border:1px solid #e5e7eb;background:#fff;border-radius:10px;padding:0 16px;display:flex;align-items:center;gap:8px;color:#374151;box-shadow:0 1px 3px rgba(15,23,42,.04);}
@@ -739,12 +744,21 @@
   .td-class{width:30px;height:30px;font-size:10px;}
   .td-time{font-size:12px;}
   .td-time strong{font-size:13px;}
-  /* Acties: twee rijen — secundair (Opmerking/Uren) klein, primair (Lesbrief/Les afronden) groot */
-  .td-lesson-actions{flex-direction:column;gap:7px;align-items:stretch;}
-  .td-actions-secondary{display:flex;flex-direction:row;flex-wrap:wrap;gap:6px;width:100%;}
-  .td-actions-secondary button,.td-actions-secondary a{flex:1;min-width:0;height:36px;font-size:12px;padding:0 10px;}
-  .td-actions-primary{display:flex;flex-direction:row;gap:7px;width:100%;}
-  .td-actions-primary button,.td-actions-primary a{flex:1;height:46px;font-size:13px;font-weight:700;padding:0 10px;}
+
+  /* Primaire acties: altijd zichtbaar, groot genoeg om op te tikken */
+  .td-acties-hoofd{margin-top:10px;gap:7px;}
+  .td-acties-hoofd button,.td-acties-hoofd a{height:46px;font-size:13px;}
+
+  /* Detail: standaard verborgen */
+  .td-lesson-detail{display:none;margin-top:10px;padding-top:10px;border-top:1px solid #f3f4f6;}
+  .td-lesson.is-expanded .td-lesson-detail{display:block;}
+  .td-lesson.is-expanded .td-combined-detail{display:flex;flex-wrap:wrap;gap:6px;}
+
+  /* Detail-toggle knop */
+  .td-detail-toggle{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;margin-top:8px;padding:8px;border:1px dashed #e5e7eb;border-radius:8px;background:transparent;color:#6b7280;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;}
+  .td-detail-toggle:hover{background:#f9fafb;color:#374151;}
+  .td-lesson.is-expanded .td-detail-chevron{transform:rotate(180deg);}
+  .td-detail-chevron{transition:transform 0.2s;}
 }
 
 @media (max-width:420px){
