@@ -911,6 +911,10 @@ input, select, textarea { font-family: var(--font); }
   font-weight: 600;
 }
 .db-taak-elo-link:hover { text-decoration: underline; }
+.db-taak-elo-naam {
+  font-weight: 600;
+  color: var(--ink-2);
+}
 .db-taak-item--sub {
   margin-left: 18px;
   border-left: 2px solid var(--border-2);
