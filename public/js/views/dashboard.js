@@ -284,8 +284,18 @@ function _dbPraktijkVoorOpdracht(opdracht, module, stap) {
 }
 
 
-function _dbTheorieVoorStap(stap) {
+function _dbTheorieVoorStap(stap, nummer) {
   if (!stap) return [];
+  if (stap?.type === 'theorie_module') {
+    return [{
+      type: 'theorie_module',
+      naam: stap.theorieModuleNaam || 'Theorie module',
+      theorieModuleId: stap.theorieModuleId,
+      uren: stap.uren || 1,
+      urenType: stap.urenType || 'theorie',
+      nummer
+    }];
+  }
   const uit = [];
   if (stap.leerlingTaak) uit.push({ type: 'taak', naam: stap.leerlingTaak });
   (Array.isArray(stap.lessen) ? stap.lessen : []).forEach((les, i) => {
@@ -699,7 +709,12 @@ async function dashboardAfvinken(id) {
 
   const theorieTaken = [];
   (ctx?.theorie || []).forEach(t => {
-    theorieTaken.push({ label: t.naam || 'Theorieles', icon: t.url ? '🔗' : '📖', url: t.url || null });
+    if (t.type === 'theorie_module') {
+      const urenLabel = t.urenType === 'split' ? `${t.uren}u gesplitst` : `${t.uren}u ${t.urenType}`;
+      theorieTaken.push({ label: `📚 ${t.naam} (${urenLabel})`, icon: '📚', url: null });
+    } else {
+      theorieTaken.push({ label: t.naam || 'Theorieles', icon: t.url ? '🔗' : '📖', url: t.url || null });
+    }
   });
   if (o?.theorieLink || o?.lesmateriaalLink)
     theorieTaken.push({ label: 'ELO / Lesmateriaal', icon: '🔗', url: o.theorieLink || o.lesmateriaalLink });

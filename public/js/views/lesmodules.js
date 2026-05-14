@@ -28,10 +28,16 @@ async function renderLesModules() {
     const typeInfo = {
       profieldeel: { label: 'Profieldelen', typeLabel: 'Profieldeel', kleur: 'var(--blue-text)' },
       keuzedeel: { label: 'Keuzedelen', typeLabel: 'Keuzedeel', kleur: '#059669' },
+      theorie_module: { label: 'Theorie modules', typeLabel: 'Theorie module', kleur: '#7c3aed' },
       overig: { label: 'Overig', typeLabel: 'Overig', kleur: '#78716C' }
     };
 
-    const moduleType = (m) => m.type === 'profieldeel' ? 'profieldeel' : m.type === 'keuzedeel' ? 'keuzedeel' : 'overig';
+    const moduleType = (m) => {
+      if (m.isTheorieModule || m.type === 'theorie_module') return 'theorie_module';
+      if (m.type === 'profieldeel') return 'profieldeel';
+      if (m.type === 'keuzedeel') return 'keuzedeel';
+      return 'overig';
+    };
     const normaliseerNaam = (naam) => String(naam || 'Naamloze module').trim().toLowerCase();
     const niveauLabel = (m) => String(m.niveau || '').trim() || 'Alle niveaus';
     const vakNaam = (m) => vakken.find(v => v.id === m.vakId)?.naam || '';
@@ -45,7 +51,7 @@ async function renderLesModules() {
       return stappen.filter(s => s && (s.toetsId || s.toetsUrl)).length;
     };
 
-    const perType = { profieldeel: new Map(), keuzedeel: new Map(), overig: new Map() };
+    const perType = { profieldeel: new Map(), keuzedeel: new Map(), theorie_module: new Map(), overig: new Map() };
 
     zichtbaar.forEach(m => {
       const type = moduleType(m);
@@ -108,7 +114,7 @@ async function renderLesModules() {
             <h3>Geen les modules</h3>
             ${isAdmin ? `<p>Upload een syllabus PDF of Word-bestand. AI haalt de theoriestappen automatisch eruit.</p><button class="btn btn-primary" onclick="openLesModuleModal()">Eerste module aanmaken</button>` : '<p>Er zijn nog geen les modules beschikbaar voor jouw vakken.</p>'}
            </div></div>`
-        : ['profieldeel', 'keuzedeel', 'overig'].map(type => {
+        : ['profieldeel', 'keuzedeel', 'theorie_module', 'overig'].map(type => {
             const groepen = [...perType[type].values()]
               .sort((a, b) => a.naam.localeCompare(b.naam, 'nl'));
             if (!groepen.length) return '';
@@ -776,6 +782,89 @@ function lmVerwijderPraktijkOpdracht(btn) {
   lmHernummerPraktijk(stap);
 }
 
+function lmVerwijderTheorieModuleStap(btn) {
+  btn.closest('.lm-tm-stap').remove();
+  lmUpdateStapCount();
+}
+
+function lmTmUrenTypeWijzig(select) {
+  const rij = select.closest('.lm-tm-stap');
+  const isSplit = select.value === 'split';
+  rij.querySelector('.lm-tm-uren-theorie').style.display = isSplit ? '' : 'none';
+  rij.querySelector('.lm-tm-uren-praktijk').style.display = isSplit ? '' : 'none';
+}
+
+async function lmVoegTheorieModuleIn() {
+  const modules = await API.getLesModules();
+  const theorieModules = modules.filter(m => m.isTheorieModule || m.type === 'theorie_module');
+  if (!theorieModules.length) {
+    alert('Er zijn nog geen theorie modules aangemaakt. Maak eerst een theorie module aan.');
+    return;
+  }
+  openModal(`
+    <h2>📚 Theorie module invoegen</h2>
+    <p class="modal-sub">Selecteer een theorie module om als stap in te voegen in de huidige module.</p>
+    <div class="form-grid">
+      <div class="form-field form-full">
+        <label>Theorie module *</label>
+        <select id="lm-tm-keuze">
+          <option value="">— Kies een theorie module —</option>
+          ${theorieModules.map(m => `<option value="${escHtml(m.id)}" data-naam="${escHtml(m.naam)}">${escHtml(m.naam)}${m.niveau ? ` (${escHtml(m.niveau)})` : ''}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-field">
+        <label>Aantal uren</label>
+        <input id="lm-tm-uren" type="number" min="0.5" max="20" step="0.5" value="1" style="text-align:center">
+      </div>
+      <div class="form-field">
+        <label>Ten koste van</label>
+        <select id="lm-tm-uren-type" onchange="lmTmPickerWijzig()">
+          <option value="theorie">Theorie uren</option>
+          <option value="praktijk">Praktijk uren</option>
+          <option value="split">Gesplitst (kies per type)</option>
+        </select>
+      </div>
+      <div class="form-field" id="lm-tm-split-wrap" style="display:none;grid-column:1/-1">
+        <label>Verdeling</label>
+        <div style="display:flex;gap:10px;align-items:center">
+          <input id="lm-tm-uren-t" type="number" min="0" max="20" step="0.5" value="0.5" placeholder="Theorie" style="width:80px;text-align:center"> u theorie
+          <input id="lm-tm-uren-p" type="number" min="0" max="20" step="0.5" value="0.5" placeholder="Praktijk" style="width:80px;text-align:center"> u praktijk
+        </div>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModalDirect()">Annuleren</button>
+      <button class="btn btn-primary" onclick="lmBevestigTheorieModuleIn()">Invoegen</button>
+    </div>
+  `);
+}
+
+function lmTmPickerWijzig() {
+  const isSplit = document.getElementById('lm-tm-uren-type')?.value === 'split';
+  const wrap = document.getElementById('lm-tm-split-wrap');
+  if (wrap) wrap.style.display = isSplit ? '' : 'none';
+}
+
+function lmBevestigTheorieModuleIn() {
+  const select = document.getElementById('lm-tm-keuze');
+  const id = select?.value;
+  const naam = select?.selectedOptions?.[0]?.dataset.naam || select?.selectedOptions?.[0]?.text || '';
+  if (!id) { alert('Kies een theorie module.'); return; }
+  const uren = parseFloat(document.getElementById('lm-tm-uren')?.value) || 1;
+  const urenType = document.getElementById('lm-tm-uren-type')?.value || 'theorie';
+  const urenTheorie = urenType === 'split' ? (parseFloat(document.getElementById('lm-tm-uren-t')?.value) || 0) : 0;
+  const urenPraktijk = urenType === 'split' ? (parseFloat(document.getElementById('lm-tm-uren-p')?.value) || 0) : 0;
+
+  const stap = { type: 'theorie_module', theorieModuleId: id, theorieModuleNaam: naam, uren, urenType, urenTheorie, urenPraktijk };
+  const lijst = document.getElementById('lm-stappen-lijst');
+  if (!lijst) { closeModalDirect(); return; }
+  const div = document.createElement('div');
+  div.innerHTML = lmTheorieModuleStapHtml(0, stap);
+  lijst.appendChild(div.firstElementChild);
+  lmUpdateStapCount();
+  closeModalDirect();
+}
+
 function lmUpdatePraktijkCount(stapEl) {
   if (!stapEl) return;
   const count = stapEl.querySelectorAll('.lm-praktijk-rij').length;
@@ -1124,34 +1213,52 @@ function lmUpdateStapCount() {
 // ============================================================
 
 function lmLeesStappen() {
-  return Array.from(document.querySelectorAll('.lm-hoofdstap')).map(stap => {
-    const naam = stap.querySelector('.lm-hoofdstap-input')?.value.trim() || '';
-    const url = stap.querySelector('.lm-url-input')?.value.trim() || '';
-    const leerlingTaak = stap.querySelector('.lm-taak-input')?.value.trim() || '';
-    const lessen = Array.from(stap.querySelectorAll('.lm-les-rij')).map(rij => {
-      const naam   = rij.querySelector('.lm-les-input')?.value.trim() || '';
-      const url    = rij.querySelector('.lm-les-url')?.value.trim() || '';
-      const uren   = parseFloat(rij.querySelector('.lm-les-uren')?.value) || 0;
-      if (!naam) return null;
-      return { naam, url, lesuren: uren || undefined };
-    }).filter(Boolean);
-    const praktijkOpdrachten = Array.from(stap.querySelectorAll('.lm-praktijk-rij')).map(rij => {
-      const codesRaw = rij.querySelector('.lm-po-codes')?.value.trim() || '';
-      return {
-        naam: rij.querySelector('.lm-po-naam')?.value.trim() || '',
-        omschrijving: rij.querySelector('.lm-po-omschrijving')?.value.trim() || '',
-        werkboekjeId: rij.querySelector('.lm-po-wbid')?.value || rij.dataset.werkboekjeId || '',
-        werkboekjeLink: rij.querySelector('.lm-po-link')?.value.trim() || '',
-        theorieSectie: rij.querySelector('.lm-po-theorie')?.value.trim() || '',
-        syllabusCodes: codesRaw ? codesRaw.split(',').map(s => s.trim()).filter(Boolean) : [],
-        werkboekjeBestand: rij.dataset.werkboekjeBestand || rij.querySelector('.lm-po-bestandsnaam')?.textContent.trim() || '',
-        lesuren: parseFloat(rij.querySelector('.lm-po-uren')?.value) || undefined,
-      };
-    }).filter(o => o.naam);
-    const toetsId = stap.querySelector('.lm-toets-id')?.value || '';
-    const toetsUrl = stap.querySelector('.lm-toets-url')?.value.trim() || '';
-    return { naam, url, leerlingTaak, lessen, praktijkOpdrachten, toetsId, toetsUrl };
-  }).filter(s => s.naam);
+  const lijst = document.getElementById('lm-stappen-lijst');
+  if (!lijst) return [];
+  const result = [];
+  lijst.querySelectorAll('.lm-hoofdstap, .lm-tm-stap').forEach(el => {
+    if (el.classList.contains('lm-tm-stap')) {
+      const urenType = el.querySelector('.lm-tm-uren-type')?.value || 'theorie';
+      result.push({
+        type: 'theorie_module',
+        theorieModuleId: el.dataset.moduleId || '',
+        theorieModuleNaam: el.dataset.moduleNaam || '',
+        uren: parseFloat(el.querySelector('.lm-tm-uren')?.value) || 1,
+        urenType,
+        urenTheorie: urenType === 'split' ? (parseFloat(el.querySelector('.lm-tm-uren-theorie')?.value) || 0) : 0,
+        urenPraktijk: urenType === 'split' ? (parseFloat(el.querySelector('.lm-tm-uren-praktijk')?.value) || 0) : 0,
+      });
+    } else {
+      const naam = el.querySelector('.lm-hoofdstap-input')?.value.trim() || '';
+      if (!naam) return;
+      const url = el.querySelector('.lm-url-input')?.value.trim() || '';
+      const leerlingTaak = el.querySelector('.lm-taak-input')?.value.trim() || '';
+      const lessen = Array.from(el.querySelectorAll('.lm-les-rij')).map(rij => {
+        const naam   = rij.querySelector('.lm-les-input')?.value.trim() || '';
+        const url    = rij.querySelector('.lm-les-url')?.value.trim() || '';
+        const uren   = parseFloat(rij.querySelector('.lm-les-uren')?.value) || 0;
+        if (!naam) return null;
+        return { naam, url, lesuren: uren || undefined };
+      }).filter(Boolean);
+      const praktijkOpdrachten = Array.from(el.querySelectorAll('.lm-praktijk-rij')).map(rij => {
+        const codesRaw = rij.querySelector('.lm-po-codes')?.value.trim() || '';
+        return {
+          naam: rij.querySelector('.lm-po-naam')?.value.trim() || '',
+          omschrijving: rij.querySelector('.lm-po-omschrijving')?.value.trim() || '',
+          werkboekjeId: rij.querySelector('.lm-po-wbid')?.value || rij.dataset.werkboekjeId || '',
+          werkboekjeLink: rij.querySelector('.lm-po-link')?.value.trim() || '',
+          theorieSectie: rij.querySelector('.lm-po-theorie')?.value.trim() || '',
+          syllabusCodes: codesRaw ? codesRaw.split(',').map(s => s.trim()).filter(Boolean) : [],
+          werkboekjeBestand: rij.dataset.werkboekjeBestand || rij.querySelector('.lm-po-bestandsnaam')?.textContent.trim() || '',
+          lesuren: parseFloat(rij.querySelector('.lm-po-uren')?.value) || undefined,
+        };
+      }).filter(o => o.naam);
+      const toetsId = el.querySelector('.lm-toets-id')?.value || '';
+      const toetsUrl = el.querySelector('.lm-toets-url')?.value.trim() || '';
+      result.push({ naam, url, leerlingTaak, lessen, praktijkOpdrachten, toetsId, toetsUrl });
+    }
+  });
+  return result;
 }
 
 function lmLeesGedeeldeOpdrachten() {
@@ -1213,6 +1320,7 @@ async function slaLesModuleOp(moduleId) {
     return;
   }
 
+  const isTheorieModule = document.getElementById('lm-type')?.value === 'theorie_module';
   const payload = {
     naam,
     type: document.getElementById('lm-type')?.value || 'profieldeel',
@@ -1222,7 +1330,8 @@ async function slaLesModuleOp(moduleId) {
     beschrijving: document.getElementById('lm-beschrijving')?.value.trim() || '',
     stappen: lmLeesStappen(),
     gedeeldeOpdrachten: lmLeesGedeeldeOpdrachten(),
-    bronBestand: document.getElementById('lm-bron-bestand')?.value || ''
+    bronBestand: document.getElementById('lm-bron-bestand')?.value || '',
+    isTheorieModule
   };
 
   try {
