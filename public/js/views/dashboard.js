@@ -17,10 +17,13 @@ async function renderDashboard() {
     ]);
 
     const cw = getCurrentWeek();
-    const nu = new Date();
+    const offset = window._dbDagOffset || 0;
+    const nu = new Date(Date.now() + offset * 86400000);
+    const isVandaag = offset === 0;
     const vandaagNaam = ['zondag','maandag','dinsdag','woensdag','donderdag','vrijdag','zaterdag'][nu.getDay()];
     const datumLang = nu.toLocaleDateString('nl-NL', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
-    const uur = nu.getHours();
+    const echteNu = new Date();
+    const uur = echteNu.getHours();
     const begroeting = uur < 12 ? 'Goedemorgen' : uur < 18 ? 'Goedemiddag' : 'Goedenavond';
     const voornaam = Auth.currentUser?.naam?.split(' ')[0] || '';
 
@@ -67,7 +70,12 @@ async function renderDashboard() {
             </section>
 
             <div class="td-section-head">
-              <h2>${escHtml(_dbKapitaal(vandaagNaam))} ${escHtml(nu.toLocaleDateString('nl-NL', { day: 'numeric', month: 'long' }))}</h2>
+              <div class="td-dag-nav">
+                <button class="td-dag-nav-btn" onclick="dbNaarDag(-1)">&#8592;</button>
+                <h2>${escHtml(_dbKapitaal(vandaagNaam))} ${escHtml(nu.toLocaleDateString('nl-NL', { day: 'numeric', month: 'long' }))}</h2>
+                <button class="td-dag-nav-btn" onclick="dbNaarDag(1)">&#8594;</button>
+                ${!isVandaag ? `<button class="td-dag-nav-vandaag" onclick="dbNaarDag(0,true)">Vandaag</button>` : ''}
+              </div>
               <label class="td-view-select">Weergave:
                 <select onchange="window._dbWeergave=this.value;_herlaadDashboardLijst()">
                   <option value="tijdlijn">Tijdlijn</option>
@@ -1047,4 +1055,9 @@ async function dashboardTaakAfvinken(id) {
 async function dashboardTaakOppakken(id) {
   try { await API.taakOppakken(id); renderDashboard(); }
   catch(e) { showError(e.message); }
+}
+
+function dbNaarDag(delta, reset = false) {
+  window._dbDagOffset = reset ? 0 : (window._dbDagOffset || 0) + delta;
+  renderDashboard();
 }
