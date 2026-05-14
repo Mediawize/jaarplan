@@ -496,11 +496,14 @@ function renderCombinedLesCard(lessen) {
                    : alleAfgerond  ? 'td-finish--heropenen'
                                    : 'td-finish--deels';
     const knopTxt  = o.afgevinkt && alleAfgerond ? '↩ Heropenen' : '✓ Les afronden';
+    const knopFn   = o.afgevinkt && alleAfgerond
+      ? `dashboardAfvinken('${o.id}', true)`
+      : `dashboardAfvinken('${o.id}', false)`;
     return `<div class="td-combined-klas-row">
       <div class="td-class td-class--sm" style="background:${kleur}">${escHtml(afk)}</div>
       <div class="td-acties-hoofd td-acties-hoofd--inline">
         ${Auth.canEdit() ? _dbUrenKnop(o.id, l) : ''}
-        ${Auth.canEdit() ? `<button class="td-finish ${knopKls}" onclick="dashboardAfvinken('${o.id}')">${knopTxt}</button>` : ''}
+        ${Auth.canEdit() ? `<button class="td-finish ${knopKls}" onclick="${knopFn}">${knopTxt}</button>` : ''}
       </div>
       <div class="td-combined-detail">
         ${_dbLesbriefButton(o)}
@@ -719,10 +722,13 @@ function openDashboardNotitiePlaceholder() {
   openModal(`<h2>AI lesassistent</h2><p class="modal-sub">Deze knop kan straks openen naar de centrale AI-wizard.</p><div class="modal-actions"><button class="btn btn-primary" onclick="closeModalDirect()">Sluiten</button></div>`);
 }
 
-async function dashboardAfvinken(id) {
+async function dashboardAfvinken(id, heropenen = null) {
   const les = (window._dbDagLessen || []).find(l => l.opdracht?.id == id);
-  // Als al afgerond: direct heropenen zonder modal
-  if (les?.opdracht?.afgevinkt) {
+  // heropenen=true → direct togglen (alle klassen afgerond, knop was grijs)
+  // heropenen=false → modal openen ook al is les afgevinkt (oranje knop)
+  // heropenen=null → gedrag bepalen op basis van huidige staat
+  const isAfgevinkt = les?.opdracht?.afgevinkt;
+  if (isAfgevinkt && heropenen !== false) {
     try { await API.afvinken(id); renderDashboard(); }
     catch(e) { showError(e.message); }
     return;
