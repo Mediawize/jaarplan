@@ -1957,7 +1957,7 @@ input, select, textarea { font-family: var(--font); }
 .vak-select-grid {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 3px;
   max-height: 260px;
   overflow-y: auto;
   border: 1px solid var(--border);
@@ -1969,19 +1969,19 @@ input, select, textarea { font-family: var(--font); }
 .vak-option {
   display: flex;
   align-items: center;
-  gap: 0;
-  padding: 0;
+  gap: 10px;
+  padding: 8px 12px;
   border-radius: 8px;
-  border: 1.5px solid transparent;
+  border: 1.5px solid var(--border-1);
   background: var(--surface);
   cursor: pointer;
   transition: border-color 0.12s, background 0.12s, box-shadow 0.12s;
   font-size: 13px;
-  overflow: hidden;
 }
 .vak-option:hover {
   border-color: var(--accent);
-  box-shadow: 0 1px 4px rgba(22,163,74,.1);
+  background: var(--surface-2);
+  box-shadow: 0 1px 4px rgba(22,163,74,.08);
 }
 .vak-option.is-selected {
   border-color: var(--accent);
@@ -1992,21 +1992,23 @@ input, select, textarea { font-family: var(--font); }
 }
 .vak-option::before {
   content: '';
-  width: 40px;
-  height: 40px;
+  width: 18px;
+  height: 18px;
   flex-shrink: 0;
-  background: var(--surface-3) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3E%3Cpath d='M5 10l3 3 7-7' stroke='%23d6d3d1' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat center;
-  transition: background 0.12s;
+  border-radius: 5px;
+  border: 2px solid var(--border-2);
+  background: var(--surface) no-repeat center / 11px;
+  transition: background 0.12s, border-color 0.12s;
 }
 .vak-option.is-selected::before {
-  background: var(--accent) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3E%3Cpath d='M5 10l3 3 7-7' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat center;
+  border-color: var(--accent);
+  background: var(--accent) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3E%3Cpath d='M4 10l4 4 8-8' stroke='white' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat center / 11px;
 }
 .vak-option-text {
   display: flex;
   flex-direction: column;
   gap: 1px;
   min-width: 0;
-  padding: 8px 12px;
   flex: 1;
 }
 .vak-option-text strong {
@@ -2025,7 +2027,7 @@ input, select, textarea { font-family: var(--font); }
   text-overflow: ellipsis;
 }
 .vak-option.is-selected .vak-option-text strong { color: var(--accent-text); }
-.vak-option.is-selected .vak-option-text span { color: var(--accent-text); opacity: 0.75; }
+.vak-option.is-selected .vak-option-text span { color: var(--accent-text); opacity: 0.8; }
 
 /* ============================================================
    Lesbrief (lb-*)
