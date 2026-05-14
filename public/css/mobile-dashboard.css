@@ -643,6 +643,7 @@
 .td-finish--todo{background:#111827!important;color:#fff!important;border-color:#111827!important;}
 .td-finish--todo:hover{background:#1f2937!important;border-color:#1f2937!important;}
 .td-finish--heropenen{border-color:#d1d5db!important;color:#6b7280!important;background:#f9fafb!important;}
+.td-finish--deels{background:#d97706!important;color:#fff!important;border-color:#d97706!important;}
 .td-lesbrief-ready{border-color:#bfdbfe!important;color:#1d4ed8!important;background:#eff6ff!important;}
 .td-opmerking--heeft{border-color:#fde68a!important;color:#92400e!important;background:#fffbeb!important;}
 .td-uren--behandeld{border-color:#86efac!important;color:#047857!important;background:#f0fdf4!important;}
