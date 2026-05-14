@@ -436,7 +436,7 @@ function renderLesCard(les) {
 
     <!-- Primaire acties: altijd zichtbaar -->
     <div class="td-acties-hoofd">
-      ${_dbLesbriefButton(o)}
+      ${Auth.canEdit() ? _dbUrenKnop(o.id, les) : ''}
       ${Auth.canEdit() ? `<button class="td-finish ${o.afgevinkt ? 'td-finish--heropenen' : 'td-finish--todo'}" onclick="dashboardAfvinken('${o.id}')">${o.afgevinkt ? '↩ Heropenen' : '✓ Les afronden'}</button>` : ''}
     </div>
 
@@ -447,8 +447,8 @@ function renderLesCard(les) {
         ${focus ? `<p><strong>Focus:</strong> ${escHtml(focus)}</p>` : ''}
         ${_dbMateriaalButtons(o, les.moduleContext) ? `<div class="td-acties-extra">${_dbMateriaalButtons(o, les.moduleContext)}</div>` : ''}
         <div class="td-acties-extra">
+          ${_dbLesbriefButton(o)}
           ${Auth.canEdit() ? `<button class="${o.opmerking ? 'td-opmerking--heeft' : ''}" onclick="dbOpenOpmerkingModal('${o.id}')">▣ Opmerking</button>` : ''}
-          ${_dbUrenKnop(o.id, les)}
         </div>
         ${_dbModulePraktijkHtml(les.moduleContext)}
         ${o.opmerking ? `<div class="td-note">${escHtml(o.opmerking)}</div>` : ''}
@@ -494,12 +494,12 @@ function renderCombinedLesCard(lessen) {
     return `<div class="td-combined-klas-row">
       <div class="td-class td-class--sm" style="background:${kleur}">${escHtml(afk)}</div>
       <div class="td-acties-hoofd td-acties-hoofd--inline">
-        ${_dbLesbriefButton(o)}
+        ${Auth.canEdit() ? _dbUrenKnop(o.id, l) : ''}
         ${Auth.canEdit() ? `<button class="td-finish ${o.afgevinkt ? 'td-finish--heropenen' : 'td-finish--todo'}" onclick="dashboardAfvinken('${o.id}')">${o.afgevinkt ? '↩ Heropenen' : '✓ Les afronden'}</button>` : ''}
       </div>
       <div class="td-combined-detail">
+        ${_dbLesbriefButton(o)}
         ${Auth.canEdit() ? `<button class="${o.opmerking ? 'td-opmerking--heeft' : ''}" onclick="dbOpenOpmerkingModal('${o.id}')">▣ Opmerking</button>` : ''}
-        ${_dbUrenKnop(o.id, l)}
         ${o.opmerking ? `<div class="td-note">${escHtml(o.opmerking)}</div>` : ''}
       </div>
     </div>`;
