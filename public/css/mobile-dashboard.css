@@ -641,6 +641,9 @@
 .td-lesson-actions .td-finish.td-finish--done{border-color:#86efac;color:#047857;background:#f0fdf4;}
 .td-lesson-actions .td-lesbrief-ready{border-color:#bfdbfe;color:#1d4ed8;background:#eff6ff;}
 .td-lesson-actions .td-opmerking--heeft{border-color:#fde68a;color:#92400e;background:#fffbeb;}
+.td-lesson-actions .td-uren--behandeld{border-color:#86efac;color:#047857;background:#f0fdf4;}
+.td-lesson-actions .td-uren--deels{border-color:#fcd34d;color:#92400e;background:#fffbeb;}
+.td-lesson-actions .td-uren--vervallen{border-color:#fca5a5;color:#b91c1c;background:#fef2f2;}
 .td-note{margin-top:10px;border-radius:8px;background:#f8fafc;border:1px solid #e5e7eb;padding:10px;font-size:13px;color:#374151;}
 
 /* Gecombineerde kaart (meerdere klassen, zelfde tijdslot) */
