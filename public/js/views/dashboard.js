@@ -675,18 +675,14 @@ async function dashboardAfvinken(id) {
   const o   = les?.opdracht;
   const secties = [];
 
-  // Theorie
   const theorieTaken = [];
   (ctx?.theorie || []).forEach(t => {
-    // De les zelf (URL aanwezig = klikbare taak)
-    if (t.url) theorieTaken.push({ label: t.naam || 'Theorieles', icon: '🔗', url: t.url });
-    else       theorieTaken.push({ label: t.naam || 'Theorieles', icon: '📖' });
+    theorieTaken.push({ label: t.naam || 'Theorieles', icon: t.url ? '🔗' : '📖', url: t.url || null });
   });
   if (o?.theorieLink || o?.lesmateriaalLink)
     theorieTaken.push({ label: 'ELO / Lesmateriaal', icon: '🔗', url: o.theorieLink || o.lesmateriaalLink });
   if (theorieTaken.length) secties.push({ titel: 'Theorie', icon: '📖', taken: theorieTaken });
 
-  // Praktijk
   const praktijkTaken = [];
   (ctx?.praktijk || []).forEach(p => {
     praktijkTaken.push({ label: p.naam || 'Praktijkopdracht', icon: '🔧', url: p.url || null });
@@ -694,25 +690,33 @@ async function dashboardAfvinken(id) {
   if (o?.presentatieLink) praktijkTaken.push({ label: 'Presentatie', icon: '🖥️', url: o.presentatieLink });
   if (praktijkTaken.length) secties.push({ titel: 'Praktijk', icon: '🔧', taken: praktijkTaken });
 
-  // Werkboekjes & toetsen
   const downloadTaken = [
     ...(ctx?.werkboekjes || []).map(w => ({ label: w.naam || 'Werkboekje', icon: '📗', url: w.url || null })),
     ...(ctx?.toetsen    || []).map(t => ({ label: t.naam || 'Toets',       icon: '📝', url: t.url || null })),
   ];
   if (downloadTaken.length) secties.push({ titel: 'Downloads', icon: '📎', taken: downloadTaken });
 
+  // Alle items platgeslagen voor indexering
+  const alleItems = secties.flatMap(s => s.taken);
+  const totaal    = alleItems.length;
+  const sid       = escHtml(String(id));
+
   let idx = 0;
   const sectiHtml = secties.map(s => {
     const rijen = s.taken.map(t => {
       const i = idx++;
+      const opgeslagen = _dbTaakLaad(id, i);
+      const checked    = !!opgeslagen;
+      const init       = opgeslagen?.initialen || '';
       const link = t.url
         ? `<a href="${escHtml(t.url)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${escHtml(t.label)}</a>`
         : escHtml(t.label);
-      return `<label class="db-taak-item">
-        <input type="checkbox" id="dbtaak-${i}">
+      return `<label class="db-taak-item${checked ? ' db-taak-item--checked' : ''}" onclick="dbTaakWijzig(this,${i},'${sid}',${totaal})">
+        <input type="checkbox" ${checked ? 'checked' : ''} style="display:none">
         <span class="db-taak-check"></span>
         <span class="db-taak-icon">${t.icon}</span>
         <span class="db-taak-label">${link}</span>
+        ${init ? `<span class="db-taak-init">${escHtml(init)}</span>` : `<span class="db-taak-init" style="display:none"></span>`}
       </label>`;
     }).join('');
     return `<div class="db-taak-sectie">
@@ -724,15 +728,76 @@ async function dashboardAfvinken(id) {
   const klasNaam = les?.klas?.naam || '';
   openModal(`
     <h2>Les afronden${klasNaam ? ` — ${escHtml(klasNaam)}` : ''}</h2>
-    <p class="modal-sub">Vink af wat je hebt behandeld en klik daarna op <strong>Bevestig afronden</strong>.</p>
+    <p class="modal-sub">Vink af wat je hebt behandeld en klik daarna op bevestigen.</p>
     <div class="db-taak-lijst">
       ${secties.length ? sectiHtml : '<p class="db-taak-leeg">Geen gekoppelde taken gevonden. Je kunt de les direct afronden.</p>'}
     </div>
     <div class="modal-actions">
       <button class="btn" onclick="closeModalDirect()">Annuleren</button>
-      <button class="btn btn-primary" onclick="dashboardAfvinkenBevestig('${escHtml(String(id))}')">✓ Bevestig afronden</button>
+      <button class="btn db-bevestig-btn" id="db-bevestig-btn" onclick="dashboardAfvinkenBevestig('${sid}')">✓ Bevestig afronden</button>
     </div>
   `);
+  // Knopkleur direct na openen instellen
+  _dbTaakKnopBijwerken(totaal);
+}
+
+function dbTaakWijzig(label, idx, opdrachtId, totaal) {
+  const input = label.querySelector('input');
+  const nu    = !input.checked;
+  input.checked = nu;
+  const init  = _dbTaakInitialen();
+  const initSpan = label.querySelector('.db-taak-init');
+  if (nu) {
+    label.classList.add('db-taak-item--checked');
+    _dbTaakSla(opdrachtId, idx, true, init);
+    if (initSpan) { initSpan.textContent = init; initSpan.style.display = ''; }
+  } else {
+    label.classList.remove('db-taak-item--checked');
+    _dbTaakSla(opdrachtId, idx, false, null);
+    if (initSpan) { initSpan.textContent = ''; initSpan.style.display = 'none'; }
+  }
+  _dbTaakKnopBijwerken(totaal);
+}
+
+function _dbTaakKnopBijwerken(totaal) {
+  const btn  = document.getElementById('db-bevestig-btn');
+  if (!btn) return;
+  const aangevinkt = document.querySelectorAll('.db-taak-item--checked').length;
+  btn.classList.remove('db-bevestig--oranje', 'db-bevestig--groen');
+  if (totaal === 0 || aangevinkt === 0) {
+    btn.textContent = '✓ Bevestig afronden';
+  } else if (aangevinkt < totaal) {
+    btn.classList.add('db-bevestig--oranje');
+    btn.textContent = `✓ Afronden (${aangevinkt}/${totaal} gedaan)`;
+  } else {
+    btn.classList.add('db-bevestig--groen');
+    btn.textContent = '✓ Alles afgerond — bevestigen';
+  }
+}
+
+function _dbTaakInitialen() {
+  const u = Auth.currentUser;
+  if (!u) return '?';
+  if (u.initialen) return u.initialen;
+  const naam = ((u.naam || '') + ' ' + (u.achternaam || '')).trim();
+  return naam ? naam.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 3) : '?';
+}
+
+function _dbTaakSleutel(opdrachtId, idx) {
+  return `jp_taak_${opdrachtId}_${idx}`;
+}
+
+function _dbTaakLaad(opdrachtId, idx) {
+  try { return JSON.parse(localStorage.getItem(_dbTaakSleutel(opdrachtId, idx)) || 'null'); }
+  catch { return null; }
+}
+
+function _dbTaakSla(opdrachtId, idx, checked, initialen) {
+  if (checked) {
+    localStorage.setItem(_dbTaakSleutel(opdrachtId, idx), JSON.stringify({ checked: true, initialen }));
+  } else {
+    localStorage.removeItem(_dbTaakSleutel(opdrachtId, idx));
+  }
 }
 
 async function dashboardAfvinkenBevestig(id) {
