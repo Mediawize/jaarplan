@@ -1889,83 +1889,116 @@ input, select, textarea { font-family: var(--font); }
 }
 .vak-select-count {
   font-size: 12px;
-  color: var(--ink-muted);
-  background: var(--surface-2);
+  font-weight: 600;
+  color: var(--accent-text);
+  background: var(--accent-dim);
   padding: 2px 10px;
   border-radius: 20px;
-  border: 1px solid var(--border);
+  min-width: 24px;
+  text-align: center;
 }
 .vak-select-search {
   margin-bottom: 8px;
+  position: relative;
+}
+.vak-select-search::before {
+  content: '';
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 14px;
+  height: 14px;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3E%3Ccircle cx='8.5' cy='8.5' r='5.5' stroke='%23a8a29e' stroke-width='1.5'/%3E%3Cpath d='M15 15l-3-3' stroke='%23a8a29e' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E") no-repeat center;
 }
 .vak-select-search input {
   width: 100%;
-  padding: 8px 12px;
-  border: 1.5px solid var(--border-2);
+  padding: 8px 12px 8px 32px;
+  border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   font-size: 13px;
-  background: var(--surface);
+  background: var(--surface-2);
   color: var(--ink);
   outline: none;
+  font-family: inherit;
+  box-sizing: border-box;
 }
 .vak-select-search input:focus {
   border-color: var(--accent);
+  background: var(--surface);
 }
 .vak-select-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-  gap: 6px;
-  max-height: 240px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 260px;
   overflow-y: auto;
-  border: 1.5px solid var(--border-2);
+  border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-  padding: 8px;
-  background: var(--surface);
+  padding: 6px;
+  background: var(--surface-2);
+  scrollbar-width: thin;
 }
 .vak-option {
   display: flex;
-  align-items: flex-start;
-  gap: 8px;
-  padding: 8px 10px;
+  align-items: center;
+  gap: 0;
+  padding: 0;
   border-radius: 8px;
-  border: 1.5px solid var(--border);
-  background: var(--cream);
+  border: 1.5px solid transparent;
+  background: var(--surface);
   cursor: pointer;
-  transition: border-color 0.15s, background 0.15s;
+  transition: border-color 0.12s, background 0.12s, box-shadow 0.12s;
   font-size: 13px;
+  overflow: hidden;
 }
 .vak-option:hover {
   border-color: var(--accent);
-  background: #f0fdf4;
+  box-shadow: 0 1px 4px rgba(22,163,74,.1);
 }
 .vak-option.is-selected {
   border-color: var(--accent);
-  background: #dcfce7;
+  background: var(--accent-dim);
 }
 .vak-option input[type="checkbox"] {
-  margin-top: 2px;
+  display: none;
+}
+.vak-option::before {
+  content: '';
+  width: 40px;
+  height: 40px;
   flex-shrink: 0;
+  background: var(--surface-3) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3E%3Cpath d='M5 10l3 3 7-7' stroke='%23d6d3d1' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat center;
+  transition: background 0.12s;
+}
+.vak-option.is-selected::before {
+  background: var(--accent) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3E%3Cpath d='M5 10l3 3 7-7' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat center;
 }
 .vak-option-text {
   display: flex;
   flex-direction: column;
   gap: 1px;
   min-width: 0;
+  padding: 8px 12px;
+  flex: 1;
 }
 .vak-option-text strong {
   font-size: 13px;
   font-weight: 600;
+  color: var(--ink);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 .vak-option-text span {
   font-size: 11px;
-  color: var(--ink-muted);
+  color: var(--ink-3);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
+.vak-option.is-selected .vak-option-text strong { color: var(--accent-text); }
+.vak-option.is-selected .vak-option-text span { color: var(--accent-text); opacity: 0.75; }
 
 /* ============================================================
    Lesbrief (lb-*)
