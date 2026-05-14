@@ -407,6 +407,7 @@ async function openLesModuleModal(moduleId = null, preset = {}) {
         <select id="lm-type" onchange="lmOnTypeChange()">
           <option value="profieldeel" ${((m?.type || basisType) === 'profieldeel') ? 'selected' : ''}>Profieldeel (max 8 stappen)</option>
           <option value="keuzedeel" ${((m?.type || basisType) === 'keuzedeel') ? 'selected' : ''}>Keuzedeel (max 5 stappen)</option>
+          <option value="theorie_module" ${((m?.type || basisType) === 'theorie_module') ? 'selected' : ''}>Theorie module (herbruikbaar)</option>
         </select>
       </div>
       <div class="form-field">
@@ -446,17 +447,20 @@ async function openLesModuleModal(moduleId = null, preset = {}) {
     ${m ? `<button class="btn btn-sm" style="margin-bottom:16px" onclick="document.getElementById('lm-upload-sectie').style.display='block';this.remove()">↻ Nieuw bestand analyseren</button>` : ''}
 
     <div style="margin-top:8px">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;gap:8px;flex-wrap:wrap">
         <label style="font-weight:600;font-size:14px">Stappen <span id="lm-stapcount" style="font-size:12px;color:var(--ink-muted);font-weight:400"></span></label>
-        <button class="btn btn-sm" id="lm-voeg-stap-btn" onclick="lmVoegHoofdstapToe()">+ Stap toevoegen</button>
+        <div style="display:flex;gap:6px">
+          <button class="btn btn-sm lm-voeg-tm-btn" onclick="lmVoegTheorieModuleIn()" style="background:#ede9fe;border-color:#c4b5fd;color:#6d28d9${(m?.isTheorieModule || m?.type === 'theorie_module') ? ';display:none' : ''}">📚 Theorie module invoegen</button>
+          <button class="btn btn-sm" id="lm-voeg-stap-btn" onclick="lmVoegHoofdstapToe()">+ Stap toevoegen</button>
+        </div>
       </div>
       <div id="lm-stappen-lijst" style="border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface);max-height:560px;overflow-y:auto">
         ${lmStappenHtml(m?.stappen || [], werkboekjes)}
       </div>
     </div>
 
-    <hr style="border:none;border-top:1px solid var(--border);margin:20px 0 16px">
-    <div>
+    <hr style="border:none;border-top:1px solid var(--border);margin:20px 0 16px" class="lm-gedeelde-wrap"${(m?.isTheorieModule || (m?.type === 'theorie_module')) ? ' style="display:none"' : ''}>
+    <div class="lm-gedeelde-wrap"${(m?.isTheorieModule || (m?.type === 'theorie_module')) ? ' style="display:none"' : ''}>
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
         <label style="font-weight:600;font-size:14px">Gedeelde praktijk opdrachten
           <span style="font-size:11px;font-weight:400;color:var(--ink-muted);margin-left:6px">— voor meerdere stappen tegelijk</span>
@@ -469,6 +473,7 @@ async function openLesModuleModal(moduleId = null, preset = {}) {
     </div>
 
     <input id="lm-bron-bestand" type="hidden" value="${escHtml(m?.bronBestand || '')}">
+    <input id="lm-is-theorie-module" type="hidden" value="${m?.isTheorieModule ? '1' : '0'}">
 
     <div class="modal-actions">
       <button class="btn" onclick="closeModalDirect()">Annuleren</button>
@@ -487,6 +492,16 @@ function lmGetMax() {
 }
 
 function lmOnTypeChange() {
+  const type = document.getElementById('lm-type')?.value;
+  const isTM = type === 'theorie_module';
+  document.getElementById('lm-is-theorie-module').value = isTM ? '1' : '0';
+  // Hide/show gedeelde opdrachten and praktijk sections
+  const gedeeldeWraps = document.querySelectorAll('.lm-gedeelde-wrap');
+  gedeeldeWraps.forEach(el => { el.style.display = isTM ? 'none' : ''; });
+  const tmBtn = document.querySelector('.lm-voeg-tm-btn');
+  if (tmBtn) tmBtn.style.display = isTM ? 'none' : '';
+  // Hide praktijk in all stappen
+  document.querySelectorAll('.lm-praktijk-sectie').forEach(el => { el.style.display = isTM ? 'none' : ''; });
   lmUpdateStapCount();
 }
 
@@ -499,7 +514,31 @@ function lmStappenHtml(stappen, bibliotheek) {
   if (isLegacy) {
     return stappen.map((s, i) => lmHoofdstapHtml(i, { naam: s, lessen: [], url: '', leerlingTaak: '', praktijkOpdrachten: [] }, bib)).join('');
   }
-  return stappen.map((stap, i) => lmHoofdstapHtml(i, stap, bib)).join('');
+  return stappen.map((stap, i) => {
+    if (stap?.type === 'theorie_module') return lmTheorieModuleStapHtml(i, stap);
+    return lmHoofdstapHtml(i, stap, bib);
+  }).join('');
+}
+
+function lmTheorieModuleStapHtml(i, stap) {
+  const urenType = stap.urenType || 'theorie';
+  return `<div class="lm-tm-stap" data-module-id="${escHtml(stap.theorieModuleId||'')}" data-module-naam="${escHtml(stap.theorieModuleNaam||'')}" style="border-bottom:1px solid var(--border);padding:10px 14px;display:flex;align-items:center;gap:10px;background:#faf5ff">
+    <span style="font-size:18px;flex-shrink:0">📚</span>
+    <span style="flex:1;font-weight:700;font-size:13px;color:#6d28d9">${escHtml(stap.theorieModuleNaam||'Theorie module')}</span>
+    <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
+      <label style="font-size:11px;color:var(--ink-muted)">Uren:</label>
+      <input class="lm-tm-uren" type="number" min="0.5" max="20" step="0.5" value="${stap.uren||1}" style="width:60px;border:1px solid #c4b5fd;border-radius:6px;padding:3px 6px;font-size:12px;text-align:center">
+      <label style="font-size:11px;color:var(--ink-muted)">Ten koste van:</label>
+      <select class="lm-tm-uren-type" onchange="lmTmUrenTypeWijzig(this)" style="border:1px solid #c4b5fd;border-radius:6px;padding:3px 6px;font-size:12px;font-family:inherit">
+        <option value="theorie" ${urenType==='theorie'?'selected':''}>Theorie</option>
+        <option value="praktijk" ${urenType==='praktijk'?'selected':''}>Praktijk</option>
+        <option value="split" ${urenType==='split'?'selected':''}>Gesplitst</option>
+      </select>
+      <input class="lm-tm-uren-theorie" type="number" min="0" max="20" step="0.5" value="${stap.urenTheorie||0}" placeholder="T" title="Theorie uren" style="width:50px;border:1px solid #c4b5fd;border-radius:6px;padding:3px 6px;font-size:12px;text-align:center;${urenType==='split'?'':'display:none'}">
+      <input class="lm-tm-uren-praktijk" type="number" min="0" max="20" step="0.5" value="${stap.urenPraktijk||0}" placeholder="P" title="Praktijk uren" style="width:50px;border:1px solid #c4b5fd;border-radius:6px;padding:3px 6px;font-size:12px;text-align:center;${urenType==='split'?'':'display:none'}">
+    </div>
+    <button onclick="lmVerwijderTheorieModuleStap(this)" style="background:none;border:none;cursor:pointer;color:var(--ink-muted);font-size:18px;line-height:1;padding:2px 4px;flex-shrink:0">×</button>
+  </div>`;
 }
 
 function lmHoofdstapHtml(i, stap, bib) {
@@ -575,7 +614,7 @@ function lmHoofdstapHtml(i, stap, bib) {
         ${lessen.length >= 3 ? 'disabled' : ''}>+ Sub-les</button>
     </div>
 
-    <div style="padding-left:30px">
+    <div class="lm-praktijk-sectie" style="padding-left:30px">
       <div style="font-size:11px;color:var(--ink-muted);margin-bottom:6px;display:flex;align-items:center;gap:8px">
         <span>Praktijk opdrachten</span>
         <span class="lm-praktijk-count" style="font-size:10px;background:var(--amber-dim);color:var(--amber-text);padding:1px 7px;border-radius:99px">${opdrachten.length}</span>

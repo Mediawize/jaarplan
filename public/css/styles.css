@@ -3007,3 +3007,9 @@ html, body {
   .tl-stats{grid-template-columns:1fr 1fr;}
   .tl-stat-waarde{font-size:22px;}
 }
+
+/* ── Theorie module (embedded stap) ── */
+.lm-tm-stap{display:flex;align-items:center;gap:10px;background:#faf5ff;border-bottom:1px solid #e9d5ff;padding:10px 14px;}
+.lm-tm-stap:hover{background:#f5f0ff;}
+.db-taak-item--tm{background:#faf5ff;border-color:#e9d5ff;}
+.db-taak-item--tm .db-taak-icon{background:#ede9fe;color:#7c3aed;}

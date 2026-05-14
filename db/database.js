@@ -264,6 +264,11 @@ function migreer() {
     console.log('Migratie: teamleiderVakken kolom toegevoegd aan gebruikers');
   }
 
+  if (!db.prepare("PRAGMA table_info(les_modules)").all().map(c => c.name).includes('isTheorieModule')) {
+    db.exec("ALTER TABLE les_modules ADD COLUMN isTheorieModule INTEGER DEFAULT 0");
+    console.log('Migratie: isTheorieModule kolom toegevoegd aan les_modules');
+  }
+
   const instellingenTabel = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='school_instellingen'").get();
   if (!instellingenTabel) {
     db.exec(`CREATE TABLE school_instellingen (sleutel TEXT PRIMARY KEY, waarde TEXT)`);
@@ -792,21 +797,21 @@ module.exports = {
   // ============================================================
   getLesModules() {
     return db.prepare('SELECT * FROM les_modules ORDER BY naam').all()
-      .map(m => ({ ...m, stappen: parseJSON(m.stappen, []), gedeeldeOpdrachten: parseJSON(m.gedeeldeOpdrachten, []) }));
+      .map(m => ({ ...m, stappen: parseJSON(m.stappen, []), gedeeldeOpdrachten: parseJSON(m.gedeeldeOpdrachten, []), isTheorieModule: !!m.isTheorieModule }));
   },
   getLesModule(id) {
     const m = db.prepare('SELECT * FROM les_modules WHERE id=?').get(id);
-    return m ? { ...m, stappen: parseJSON(m.stappen, []), gedeeldeOpdrachten: parseJSON(m.gedeeldeOpdrachten, []) } : null;
+    return m ? { ...m, stappen: parseJSON(m.stappen, []), gedeeldeOpdrachten: parseJSON(m.gedeeldeOpdrachten, []), isTheorieModule: !!m.isTheorieModule } : null;
   },
   addLesModule(d) {
     const id = require('crypto').randomUUID();
-    db.prepare('INSERT INTO les_modules (id,naam,type,categorie,vakId,niveau,stappen,gedeeldeOpdrachten,beschrijving,bronBestand,aangemaaktDoor) VALUES (?,?,?,?,?,?,?,?,?,?,?)')
-      .run(id, d.naam||'', d.type||'profieldeel', d.categorie||'theorie', d.vakId||null, d.niveau||'', JSON.stringify(d.stappen||[]), JSON.stringify(d.gedeeldeOpdrachten||[]), d.beschrijving||'', d.bronBestand||'', d.aangemaaktDoor||null);
+    db.prepare('INSERT INTO les_modules (id,naam,type,categorie,vakId,niveau,stappen,gedeeldeOpdrachten,beschrijving,bronBestand,aangemaaktDoor,isTheorieModule) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)')
+      .run(id, d.naam||'', d.type||'profieldeel', d.categorie||'theorie', d.vakId||null, d.niveau||'', JSON.stringify(d.stappen||[]), JSON.stringify(d.gedeeldeOpdrachten||[]), d.beschrijving||'', d.bronBestand||'', d.aangemaaktDoor||null, d.isTheorieModule ? 1 : 0);
     return this.getLesModule(id);
   },
   updateLesModule(id, d) {
-    db.prepare('UPDATE les_modules SET naam=?,type=?,categorie=?,vakId=?,niveau=?,stappen=?,gedeeldeOpdrachten=?,beschrijving=?,bronBestand=? WHERE id=?')
-      .run(d.naam||'', d.type||'profieldeel', d.categorie||'theorie', d.vakId||null, d.niveau||'', JSON.stringify(d.stappen||[]), JSON.stringify(d.gedeeldeOpdrachten||[]), d.beschrijving||'', d.bronBestand||'', id);
+    db.prepare('UPDATE les_modules SET naam=?,type=?,categorie=?,vakId=?,niveau=?,stappen=?,gedeeldeOpdrachten=?,beschrijving=?,bronBestand=?,isTheorieModule=? WHERE id=?')
+      .run(d.naam||'', d.type||'profieldeel', d.categorie||'theorie', d.vakId||null, d.niveau||'', JSON.stringify(d.stappen||[]), JSON.stringify(d.gedeeldeOpdrachten||[]), d.beschrijving||'', d.bronBestand||'', d.isTheorieModule ? 1 : 0, id);
   },
   deleteLesModule(id) {
     db.prepare('DELETE FROM les_modules WHERE id=?').run(id);
