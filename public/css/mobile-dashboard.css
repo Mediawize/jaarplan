@@ -612,7 +612,7 @@
 
 /* Leskaart — flex kolom: header / kleurlijn / body */
 .td-lesson{display:flex;flex-direction:column;background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:14px 16px;box-shadow:0 1px 3px rgba(15,23,42,.05);overflow:hidden;}
-.td-lesson.is-done{opacity:.65;}
+.td-lesson.is-done{opacity:.7;border-left:3px solid #86efac;}
 
 /* Rij 1: klas-badge | tijd | status rechts */
 .td-lesson-toprow{display:flex;align-items:center;gap:10px;margin-bottom:8px;}
@@ -621,7 +621,10 @@
 .td-time strong{font-weight:800;font-size:15px;}
 .td-time span{color:#6b7280;font-size:12px;}
 .td-time em{font-style:normal;font-weight:700;font-size:11px;color:#374151;background:#f3f4f6;border-radius:999px;padding:2px 7px;margin-left:2px;}
-.td-status{flex-shrink:0;display:inline-flex;align-items:center;white-space:nowrap;border-radius:999px;background:#fff7ed;color:#c2410c;font-weight:700;font-size:11px;padding:4px 10px;}
+.td-status{flex-shrink:0;display:inline-flex;align-items:center;white-space:nowrap;border-radius:999px;font-weight:700;font-size:11px;padding:4px 10px;background:#f3f4f6;color:#374151;}
+.td-status--nu{background:#dcfce7;color:#047857;}
+.td-status--niet-afgerond{background:#fef2f2;color:#b91c1c;}
+.td-status--afgerond{background:#f0fdf4;color:#047857;}
 
 /* Rij 2: lestitel */
 .td-lesson-titel{margin:0 0 10px;font-size:17px;font-weight:800;color:#111827;line-height:1.2;}
@@ -634,11 +637,13 @@
 .td-lesson h3{margin:0 0 6px;font-size:16px;line-height:1.25;font-weight:800;color:#111827;}
 .td-meta{font-size:12px;color:#6b7280;margin-bottom:8px;display:flex;gap:7px;flex-wrap:wrap;align-items:center;}
 .td-lesson p{margin:0 0 12px;color:#374151;font-size:13px;line-height:1.45;}
-.td-lesson-actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center;}
+.td-lesson-actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;}
+.td-actions-materialen,.td-actions-admin{display:flex;flex-wrap:wrap;gap:8px;align-items:center;}
 .td-lesson-actions button,.td-lesson-actions a{height:38px;border:1px solid #e5e7eb;background:#fff;border-radius:8px;color:#111827;text-decoration:none;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;padding:0 14px;box-shadow:0 1px 2px rgba(15,23,42,.04);}
 .td-lesson-actions button:hover,.td-lesson-actions a:hover{background:#f9fafb;border-color:#cbd5e1;}
-.td-lesson-actions .td-finish{border-color:#d1d5db;color:#374151;background:#f9fafb;}
-.td-lesson-actions .td-finish.td-finish--done{border-color:#86efac;color:#047857;background:#f0fdf4;}
+.td-lesson-actions .td-finish--todo{background:#111827;color:#fff;border-color:#111827;}
+.td-lesson-actions .td-finish--todo:hover{background:#1f2937;border-color:#1f2937;}
+.td-lesson-actions .td-finish--heropenen{border-color:#d1d5db;color:#6b7280;background:#f9fafb;}
 .td-lesson-actions .td-lesbrief-ready{border-color:#bfdbfe;color:#1d4ed8;background:#eff6ff;}
 .td-lesson-actions .td-opmerking--heeft{border-color:#fde68a;color:#92400e;background:#fffbeb;}
 .td-lesson-actions .td-uren--behandeld{border-color:#86efac;color:#047857;background:#f0fdf4;}
@@ -646,13 +651,24 @@
 .td-lesson-actions .td-uren--vervallen{border-color:#fca5a5;color:#b91c1c;background:#fef2f2;}
 .td-note{margin-top:10px;border-radius:8px;background:#f8fafc;border:1px solid #e5e7eb;padding:10px;font-size:13px;color:#374151;}
 
+/* Module praktijk sectie */
+.td-module-praktijk{margin-top:12px;border-top:1px solid #e5e7eb;padding-top:10px;}
+.td-module-stap-naam{font-size:12px;color:#6b7280;margin-bottom:6px;}
+.td-module-rij{font-size:12.5px;color:#374151;line-height:1.6;margin-bottom:4px;}
+.td-module-link{color:#1d4ed8;font-weight:600;text-decoration:none;}
+.td-module-link:hover{text-decoration:underline;}
+.td-module-downloads{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;}
+.td-module-dl{font-size:12px;font-weight:600;border-radius:8px;padding:6px 10px;text-decoration:none;}
+.td-module-dl--wb{color:#15803d;background:#ecfdf5;border:1px solid #bbf7d0;}
+.td-module-dl--toets{color:#b91c1c;background:#fef2f2;border:1px solid #fecaca;}
+
 /* Gecombineerde kaart (meerdere klassen, zelfde tijdslot) */
 .td-lesson--combined{border-color:#e0e7ff;}
 .td-combined-colorbar{display:flex;gap:4px;margin-bottom:12px;}
 .td-class--sm{width:26px;height:26px;font-size:9px;flex-shrink:0;}
-.td-combined-klas-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-top:1px solid #f3f4f6;}
+.td-combined-klas-row{display:flex;align-items:flex-start;gap:10px;padding:8px 0;border-top:1px solid #f3f4f6;}
 .td-combined-klas-row:first-child{border-top:none;padding-top:4px;}
-.td-combined-klas-row .td-lesson-actions{flex-wrap:wrap;}
+.td-combined-klas-row .td-lesson-actions{flex:1;min-width:0;flex-wrap:wrap;}
 
 .td-pause{display:flex;align-items:center;gap:12px;padding:0 4px;}
 .td-pause-card{height:56px;border:1px solid #e5e7eb;background:#fff;border-radius:10px;padding:0 16px;display:flex;align-items:center;gap:8px;color:#374151;box-shadow:0 1px 3px rgba(15,23,42,.04);}
@@ -719,7 +735,8 @@
   .td-class{width:30px;height:30px;font-size:10px;}
   .td-time{font-size:12px;}
   .td-time strong{font-size:13px;}
-  .td-lesson-actions{flex-direction:column;}
+  .td-lesson-actions{flex-direction:column;align-items:stretch;}
+  .td-actions-materialen,.td-actions-admin{width:100%;}
   .td-lesson-actions button,.td-lesson-actions a{width:100%;}
 }
 
