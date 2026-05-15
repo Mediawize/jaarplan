@@ -631,6 +631,8 @@
 .td-status--nu{background:#dcfce7;color:#047857;}
 .td-status--niet-afgerond{background:#fef2f2;color:#b91c1c;}
 .td-status--afgerond{background:#f0fdf4;color:#047857;}
+.td-status--deels{background:#fffbeb;color:#92400e;}
+.td-status--vervallen{background:#fef2f2;color:#6b7280;}
 
 /* Rij 2: lestitel */
 .td-lesson-titel{margin:0 0 10px;font-size:17px;font-weight:800;color:#111827;line-height:1.2;}

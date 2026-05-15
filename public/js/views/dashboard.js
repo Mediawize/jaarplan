@@ -412,13 +412,16 @@ function tijdNaarMinuten(tijd) {
 }
 
 function _dbLesStatus(les, afgevinkt) {
-  if (afgevinkt) return { label: 'Afgerond', cls: 'td-status--afgerond' };
+  const urenData = _dbUrenLaad(les.opdracht?.id);
+  if (urenData?.status === 'behandeld')  return { label: '✓ Behandeld', cls: 'td-status--afgerond' };
+  if (urenData?.status === 'deels')      return { label: '~ Deels behandeld', cls: 'td-status--deels' };
+  if (urenData?.status === 'vervallen')  return { label: '✗ Vervallen', cls: 'td-status--vervallen' };
   const nu = new Date();
   const hm = nu.getHours() * 60 + nu.getMinutes();
   const start = tijdNaarMinuten(les.start);
   const eind  = tijdNaarMinuten(les.eind);
   if (hm >= start && hm <= eind) return { label: 'Nu bezig', cls: 'td-status--nu' };
-  if (hm > eind)  return { label: 'Niet afgerond', cls: 'td-status--niet-afgerond' };
+  if (hm > eind)  return { label: 'Niet behandeld', cls: 'td-status--niet-afgerond' };
   return null;
 }
 
