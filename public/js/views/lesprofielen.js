@@ -42,16 +42,13 @@ async function renderLesprofielen() {
     document.getElementById('view-lesprofielen').innerHTML = `
       <div class="page-header">
         <div class="page-header-left"><h1>Lesprofielen</h1></div>
-        <div style="display:flex;gap:8px">
-          <button class="btn btn-sm btn-primary" onclick="openNieuwProfielModal(null,null,false)">+ Profiel</button>
-          <button class="btn btn-sm" style="background:#ede9fe;border-color:#c4b5fd;color:#6d28d9" onclick="openNieuwProfielModal(null,null,true)">+ Theorie profiel</button>
-        </div>
+        <button class="btn btn-sm btn-primary" onclick="openNieuwProfielModal()">+ Profiel</button>
       </div>
       <div class="alert alert-info" style="margin-bottom:20px">
         Een lesprofiel koppelt een lesmodule aan een klas. Vul uren in, koppel aan de planning — AI maakt de weekverdeling.
       </div>
       ${profielen.length === 0
-        ? `<div class="card"><div class="empty-state"><h3>Nog geen lesprofielen</h3><button class="btn btn-primary" onclick="openNieuwProfielModal()">Eerste lesprofiel aanmaken</button></div></div>`
+        ? `<div class="card"><div class="empty-state"><h3>Nog geen lesprofielen</h3><button class="btn btn-primary" onclick="openNieuwProfielModal()">Eerste profiel aanmaken</button></div></div>`
         : vakken.map(vak => {
             const vp = perVak[vak.id] || [];
             if (!vp.length) return '';
@@ -63,10 +60,7 @@ async function renderLesprofielen() {
             return `<div class="card" style="margin-bottom:20px">
               <div class="card-header">
                 <div><h2>${escHtml(vak.naam)} — ${escHtml(vak.volledig || '')}</h2><div class="card-meta">${vp.length} profiel${vp.length !== 1 ? 'en' : ''}</div></div>
-                <div style="display:flex;gap:6px">
-                  <button class="btn btn-sm btn-primary" onclick="openNieuwProfielModal('${vak.id}',null,false)">+ Profiel</button>
-                  <button class="btn btn-sm" style="background:#ede9fe;border-color:#c4b5fd;color:#6d28d9;font-size:12px" onclick="openNieuwProfielModal('${vak.id}',null,true)">+ Theorie</button>
-                </div>
+                <button class="btn btn-sm btn-primary" onclick="openNieuwProfielModal('${vak.id}')">+ Profiel</button>
               </div>
               ${niveaus.map(niveau => {
                 const groep = perNiveau[niveau];
@@ -110,58 +104,50 @@ async function renderLesprofielen() {
 }
 
 // ============================================================
-// Nieuw / bewerk profiel — simpel formulier
+// Nieuw / bewerk profiel
 // ============================================================
-async function openNieuwProfielModal(vakId = null, profielId = null, isTheorie = null) {
+async function openNieuwProfielModal(vakId = null, profielId = null) {
   const [vakken, profielen, modules] = await Promise.all([API.getVakken(), API.getLesprofielen(), API.getLesModules()]);
   const p = profielId ? profielen.find(x => x.id === profielId) : null;
+  const bewerken = !!profielId;
 
-  // Bij bewerken: detecteer type uit gekoppelde module
-  if (isTheorie === null && p?.moduleId) {
-    const mod = modules.find(m => m.id === p.moduleId);
-    isTheorie = mod ? !!mod.isTheorieModule : false;
-  }
-  if (isTheorie === null) isTheorie = false;
-
-  const titels = isTheorie
-    ? (profielId ? 'Theorie-lesprofiel bewerken' : 'Nieuw theorie-lesprofiel')
-    : (profielId ? 'Lesprofiel bewerken' : 'Nieuw lesprofiel');
+  // Module-dropdown alleen bij bewerken
+  const moduleHtml = bewerken ? `
+    <div class="form-field form-full">
+      <label>Module koppelen</label>
+      <select id="lp-module" onchange="lpModuleGewijzigd()">
+        <option value="">— Geen module —</option>
+        ${modules.map(m => `<option value="${m.id}" data-vakid="${escHtml(m.vakId || '')}" data-istheorie="${m.isTheorieModule ? '1' : '0'}" data-niveau="${escHtml(m.niveau || '')}" ${p?.moduleId === m.id ? 'selected' : ''}>${escHtml(m.naam)}${m.isTheorieModule ? ' (theorie)' : ''}</option>`).join('')}
+      </select>
+    </div>` : '';
 
   openModal(`
-    <h2>${titels}</h2>
-    <input type="hidden" id="lp-istheorie" value="${isTheorie ? '1' : '0'}">
+    <h2>${bewerken ? 'Lesprofiel bewerken' : 'Nieuw lesprofiel'}</h2>
     <div class="form-grid">
       <div class="form-field form-full">
         <label>Naam *</label>
-        <input id="lp-naam" value="${escHtml(p?.naam || '')}" placeholder="bijv. Constructief Bouwkunde GL P1">
+        <input id="lp-naam" value="${escHtml(p?.naam || '')}" placeholder="bijv. Constructief Bouwkunde BB P1">
       </div>
       <div class="form-field">
         <label>Vak *</label>
-        <select id="lp-vak" onchange="lpFilterModules()">
+        <select id="lp-vak"${bewerken ? ' onchange="lpFilterModules()"' : ''}>
           ${vakken.map(v => `<option value="${v.id}" ${(vakId === v.id || p?.vakId === v.id) ? 'selected' : ''}>${escHtml(v.naam)} — ${escHtml(v.volledig || '')}</option>`).join('')}
-        </select>
-      </div>
-      <div class="form-field form-full">
-        <label>Niveau(s)</label>
-        <div id="lp-niveau-groep" class="lm-niveau-checkboxes">
-          ${['BB', 'KB', 'GL', 'TL', 'Havo', 'VWO'].map(n => `<label class="lm-niveau-checkbox">
-            <input type="checkbox" name="lp-niveau" value="${n}" ${(p?.niveau || '') === n ? 'checked' : ''}>
-            ${n}
-          </label>`).join('')}
-        </div>
-        <small id="lp-niveau-hint" style="color:var(--ink-muted);font-size:11px;margin-top:4px;display:block">Bij meerdere niveaus wordt per niveau een apart profiel aangemaakt.</small>
-      </div>
-      <div class="form-field form-full">
-        <label>${isTheorie ? 'Theorie module koppelen' : 'Lesmodule koppelen'}</label>
-        <select id="lp-module" onchange="lpModuleGewijzigd()">
-          <option value="">— Geen module —</option>
-          ${modules.map(m => `<option value="${m.id}" data-vakid="${escHtml(m.vakId || '')}" data-istheorie="${m.isTheorieModule ? '1' : '0'}" data-niveau="${escHtml(m.niveau || '')}" ${p?.moduleId === m.id ? 'selected' : ''}>${escHtml(m.naam)}</option>`).join('')}
         </select>
       </div>
       <div class="form-field">
         <label>Uren per week</label>
         <input id="lp-uren" type="number" min="0" max="40" step="0.5" value="${p?.urenPerWeek || ''}" placeholder="bijv. 4">
       </div>
+      <div class="form-field form-full">
+        <label>Niveau(s)${bewerken ? '' : ' — per niveau wordt een apart profiel aangemaakt'}</label>
+        <div id="lp-niveau-groep" class="lm-niveau-checkboxes">
+          ${['BB', 'KB', 'GL', 'TL', 'Havo', 'VWO'].map(n => `<label class="lm-niveau-checkbox">
+            <input type="checkbox" name="lp-niveau" value="${n}" ${(p?.niveau || '') === n ? 'checked' : ''}>
+            ${n}
+          </label>`).join('')}
+        </div>
+      </div>
+      ${moduleHtml}
       <div class="form-field">
         <label>Waarvan theorie (u)</label>
         <input id="lp-theorie" type="number" min="0" max="40" step="0.5" value="${p?.urenTheorie || ''}" placeholder="bijv. 1">
@@ -180,7 +166,7 @@ async function openNieuwProfielModal(vakId = null, profielId = null, isTheorie =
       <button class="btn btn-primary" onclick="slaProfielOp('${profielId || ''}')">Opslaan</button>
     </div>
   `);
-  setTimeout(lpModuleGewijzigd, 0);
+  if (bewerken) setTimeout(lpModuleGewijzigd, 0);
 }
 
 function lpModuleGewijzigd() {
