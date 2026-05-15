@@ -250,7 +250,7 @@ async function openKoppelModuleModal(vakId) {
         <div style="display:flex;flex-direction:column;gap:8px;margin-top:2px">
           <div class="lm-niveau-checkboxes">
             ${['BB','KB','GL','TL','Havo','VWO'].map(n => `<label class="lm-niveau-checkbox">
-              <input type="checkbox" name="km-niveau" value="${n}" onchange="lpNiveauCheckChanged()" data-container="lp-uren-per-niveau">
+              <input type="checkbox" name="lp-niveau" value="${n}" onchange="lpNiveauCheckChanged()">
               ${n}
             </label>`).join('')}
           </div>
@@ -275,7 +275,7 @@ function kmModuleGewijzigd() {
   const sel = document.getElementById('km-module');
   const opt = sel?.selectedOptions[0];
   const moduleNiveaus = (opt?.dataset.niveau || '').split(',').map(x => x.trim()).filter(Boolean);
-  document.querySelectorAll('input[name="km-niveau"]').forEach(cb => {
+  document.querySelectorAll('input[name="lp-niveau"]').forEach(cb => {
     const inModule = moduleNiveaus.length === 0 || moduleNiveaus.includes(cb.value);
     cb.closest('label').style.display = inModule ? '' : 'none';
     cb.checked = moduleNiveaus.includes(cb.value);
