@@ -65,7 +65,7 @@ async function renderJaarplanning() {
         <div class="page-header-left">
           <div class="breadcrumb">Jaarplanning · ${escHtml(schooljaar)}</div>
           <h1>${escHtml(geselecteerdeKlas.naam)}
-            ${geselecteerdeKlas.roulatie ? `<span style="font-size:13px;font-weight:600;padding:3px 10px;background:var(--amber-dim);color:var(--amber-text);border-radius:12px;margin-left:8px">⟳ wk ${geselecteerdeKlas.roulatieStart}–${geselecteerdeKlas.roulatieBlok}</span>` : ''}
+            ${geselecteerdeKlas.roulatie ? `<span style="font-size:13px;font-weight:600;padding:3px 10px;background:var(--amber-dim);color:var(--amber-text);border-radius:12px;margin-left:8px">⟳ ${getRoulatieLabel(geselecteerdeKlas)}</span>` : ''}
           </h1>
         </div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
@@ -80,7 +80,7 @@ async function renderJaarplanning() {
       <div style="background:var(--amber-dim);border:1px solid rgba(217,119,6,0.2);border-radius:var(--radius-sm);padding:12px 16px;margin-bottom:16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
         <span style="font-size:18px">⟳</span>
         <div>
-          <div style="font-size:13px;font-weight:600;color:var(--amber-text)">Roulatieklas — actief week ${geselecteerdeKlas.roulatieStart} t/m week ${geselecteerdeKlas.roulatieBlok}</div>
+          <div style="font-size:13px;font-weight:600;color:var(--amber-text)">Roulatieklas — ${getRoulatieLabel(geselecteerdeKlas)}</div>
           <div style="font-size:12px;color:var(--ink-3);margin-top:2px">${actieveWeken.length} actieve weken · ${inactieveWeken.length} inactieve weken worden grijs weergegeven</div>
         </div>
       </div>` : ''}

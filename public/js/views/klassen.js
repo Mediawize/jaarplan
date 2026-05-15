@@ -25,7 +25,7 @@ async function renderKlassen() {
                 <div style="flex:1;min-width:0">
                   <div class="klas-naam">
                     ${escHtml(k.naam)}
-                    ${k.roulatie?`<span style="font-size:10px;font-weight:600;padding:2px 6px;background:var(--amber-dim);color:var(--amber-text);border-radius:10px;margin-left:4px">wk ${k.roulatieStart}–${k.roulatieBlok}</span>`:''}
+                    ${k.roulatie?`<span style="font-size:10px;font-weight:600;padding:2px 6px;background:var(--amber-dim);color:var(--amber-text);border-radius:10px;margin-left:4px">⟳ ${getRoulatieLabel(k)}</span>`:''}
                   </div>
                   <div class="klas-meta-row">
                     Leerjaar ${k.leerjaar||'?'} · ${escHtml(k.niveau)} · ${escHtml(vak?.naam||'—')}
@@ -60,15 +60,24 @@ async function renderKlassen() {
   } catch(e) { showError('Fout: ' + e.message); }
 }
 
+let _roulatieBlokken = [];
+
 async function openKlasModal(id = null) {
   const [vakken, gebruikers, schooljaren] = await Promise.all([API.getVakken(), API.getGebruikers(), API.getSchooljaren()]);
   const k = id ? (await API.getKlassen()).find(x=>x.id===id) : null;
   const docenten = gebruikers.filter(u=>u.rol==='docent'||u.rol==='admin');
   const geselecteerdeDocenten = k?.docenten || (k?.docentId ? [k.docentId] : []);
 
-  const weekOpties = [];
-  for (let w = 35; w <= 52; w++) weekOpties.push(w);
-  for (let w = 1; w <= 28; w++) weekOpties.push(w);
+  if (k?.roulatie && k?.roulatieBlokken?.length > 0) {
+    _roulatieBlokken = k.roulatieBlokken.map(b => ({ ...b }));
+  } else if (k?.roulatie && k?.roulatieStart) {
+    const startIdx = _schoolWekenVolgorde.indexOf(k.roulatieStart);
+    const eindIdx  = _schoolWekenVolgorde.indexOf(k.roulatieBlok);
+    const aantalWeken = (startIdx !== -1 && eindIdx >= startIdx) ? eindIdx - startIdx + 1 : 5;
+    _roulatieBlokken = [{ startWeek: k.roulatieStart, aantalWeken }];
+  } else {
+    _roulatieBlokken = [];
+  }
 
   openModal(`
     <h2>${k ? 'Klas bewerken' : 'Nieuwe klas aanmaken'}</h2>
@@ -133,26 +142,24 @@ async function openKlasModal(id = null) {
         <input type="checkbox" id="klas-roulatie" ${k?.roulatie?'checked':''} onchange="toggleRoulatieOpties()" style="width:18px;height:18px;accent-color:var(--accent);cursor:pointer">
         <div>
           <div style="font-size:14px;font-weight:600;color:var(--ink)">Roulatieklas</div>
-          <div style="font-size:12px;color:var(--ink-3);margin-top:1px">Deze klas heeft maar een deel van het jaar les — geef de actieve periode op</div>
+          <div style="font-size:12px;color:var(--ink-3);margin-top:1px">Meerdere groepen roteren — geef per groep de startweek en duur op</div>
         </div>
       </label>
 
       <div id="roulatie-opties" style="display:${k?.roulatie?'block':'none'};margin-top:16px;padding-top:16px;border-top:1px solid var(--border)">
-        <div class="form-grid">
-          <div class="form-field">
-            <label>Eerste lesweek</label>
-            <select id="klas-roulatie-start" onchange="updateRoulatiePreview()">
-              ${weekOpties.map(w=>`<option value="${w}" ${(k?.roulatieStart||35)===w?'selected':''}>Week ${w}</option>`).join('')}
-            </select>
-          </div>
-          <div class="form-field">
-            <label>Laatste lesweek</label>
-            <select id="klas-roulatie-eind" onchange="updateRoulatiePreview()">
-              ${weekOpties.map(w=>`<option value="${w}" ${(k?.roulatieBlok||39)===w?'selected':''}>Week ${w}</option>`).join('')}
-            </select>
-          </div>
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+          <span style="font-size:13px;font-weight:600;color:var(--ink)">Roulatieschema</span>
+          <span style="font-size:12px;color:var(--ink-muted)">— één rij per groep</span>
         </div>
-        <div id="roulatie-preview" class="klas-roulatie-preview"></div>
+        <div style="display:grid;grid-template-columns:20px 1fr 1fr auto;gap:6px;align-items:center;padding:0 2px;margin-bottom:4px">
+          <span></span>
+          <span style="font-size:11px;color:var(--ink-muted);font-weight:600">Startweek</span>
+          <span style="font-size:11px;color:var(--ink-muted);font-weight:600">Aantal weken</span>
+          <span></span>
+        </div>
+        <div id="roulatie-blokken-lijst"></div>
+        <button class="btn btn-sm" style="margin-top:8px;width:100%" onclick="voegRoulatieBlokToe()">+ Groep toevoegen</button>
+        <div id="roulatie-preview" class="klas-roulatie-preview" style="margin-top:10px"></div>
       </div>
     </div>
 
@@ -162,7 +169,7 @@ async function openKlasModal(id = null) {
     </div>
   `);
 
-  if (k?.roulatie) updateRoulatiePreview();
+  if (k?.roulatie) renderRoulatieBlokken();
 }
 
 function updateDocentLabel(id, geselecteerd) {
@@ -178,26 +185,51 @@ function toggleRoulatieOpties() {
   const aan = document.getElementById('klas-roulatie')?.checked;
   const opties = document.getElementById('roulatie-opties');
   if (opties) opties.style.display = aan ? 'block' : 'none';
-  if (aan) updateRoulatiePreview();
+  if (aan && _roulatieBlokken.length === 0) {
+    _roulatieBlokken = [{ startWeek: 35, aantalWeken: 5 }];
+  }
+  if (aan) renderRoulatieBlokken();
+}
+
+function renderRoulatieBlokken() {
+  const container = document.getElementById('roulatie-blokken-lijst');
+  if (!container) return;
+  container.innerHTML = _roulatieBlokken.map((b, i) => {
+    const eindWeekIdx = _schoolWekenVolgorde.indexOf(b.startWeek) + b.aantalWeken - 1;
+    const eindWeek = _schoolWekenVolgorde[Math.min(eindWeekIdx, _schoolWekenVolgorde.length - 1)];
+    return `<div style="display:grid;grid-template-columns:20px 1fr 1fr auto;gap:6px;align-items:center;margin-bottom:4px">
+      <span style="font-size:11px;font-weight:600;color:var(--ink-3)">${i+1}</span>
+      <select onchange="_roulatieBlokken[${i}].startWeek=parseInt(this.value);renderRoulatieBlokken()" style="padding:6px 8px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:13px;background:var(--surface)">
+        ${_schoolWekenVolgorde.map(w=>`<option value="${w}" ${b.startWeek===w?'selected':''}>Week ${w}</option>`).join('')}
+      </select>
+      <select onchange="_roulatieBlokken[${i}].aantalWeken=parseInt(this.value);renderRoulatieBlokken()" style="padding:6px 8px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:13px;background:var(--surface)">
+        ${[1,2,3,4,5,6,7,8,9,10].map(n=>`<option value="${n}" ${b.aantalWeken===n?'selected':''}>${n} ${n===1?'week':'weken'}</option>`).join('')}
+      </select>
+      <span style="font-size:11px;color:var(--ink-muted);white-space:nowrap">t/m wk ${eindWeek}</span>
+      ${_roulatieBlokken.length > 1
+        ? `<button onclick="_roulatieBlokken.splice(${i},1);renderRoulatieBlokken()" style="grid-column:4;background:none;border:none;color:var(--red);cursor:pointer;font-size:16px;padding:0;line-height:1" title="Verwijderen">✕</button>`
+        : '<span></span>'}
+    </div>`;
+  }).join('');
+  updateRoulatiePreview();
+}
+
+function voegRoulatieBlokToe() {
+  const laatste = _roulatieBlokken[_roulatieBlokken.length - 1];
+  let volgendeStart = 35;
+  if (laatste) {
+    const idx = _schoolWekenVolgorde.indexOf(laatste.startWeek);
+    volgendeStart = _schoolWekenVolgorde[Math.min(idx + laatste.aantalWeken, _schoolWekenVolgorde.length - 1)] || 35;
+  }
+  _roulatieBlokken.push({ startWeek: volgendeStart, aantalWeken: 5 });
+  renderRoulatieBlokken();
 }
 
 function updateRoulatiePreview() {
-  const start = parseInt(document.getElementById('klas-roulatie-start')?.value || 35);
-  const eind = parseInt(document.getElementById('klas-roulatie-eind')?.value || 39);
   const preview = document.getElementById('roulatie-preview');
-  if (!preview) return;
-
-  const schoolWeken = [...Array.from({length:18},(_,i)=>i+35), ...Array.from({length:28},(_,i)=>i+1)];
-  const startIdx = schoolWeken.indexOf(start);
-  const eindIdx = schoolWeken.indexOf(eind);
-
-  if (startIdx === -1 || eindIdx === -1 || eindIdx < startIdx) {
-    preview.innerHTML = `<span style="color:var(--red)">⚠ Eindweek moet na startweek liggen</span>`;
-    return;
-  }
-
-  const aantalWeken = eindIdx - startIdx + 1;
-  preview.innerHTML = `<span style="color:var(--accent-text);font-weight:500">✓ Actief van week ${start} t/m week ${eind}</span> &nbsp;·&nbsp; ${aantalWeken} lesweken`;
+  if (!preview || !_roulatieBlokken.length) return;
+  const totaalWeken = _roulatieBlokken.reduce((s, b) => s + b.aantalWeken, 0);
+  preview.innerHTML = `<span style="color:var(--accent-text);font-weight:500">✓ ${_roulatieBlokken.length} groep${_roulatieBlokken.length !== 1 ? 'en' : ''} · ${totaalWeken} lesweken totaal</span>`;
 }
 
 async function saveKlas(id) {
@@ -220,8 +252,9 @@ async function saveKlas(id) {
     aantalLeerlingen: parseInt(document.getElementById('klas-aantal-leerlingen')?.value || 0),
     docenten,
     roulatie,
-    roulatieStart: roulatie ? parseInt(document.getElementById('klas-roulatie-start').value) : null,
-    roulatieBlok: roulatie ? parseInt(document.getElementById('klas-roulatie-eind').value) : null,
+    roulatieBlokken: roulatie ? _roulatieBlokken : null,
+    roulatieStart: roulatie && _roulatieBlokken[0] ? _roulatieBlokken[0].startWeek : null,
+    roulatieBlok: roulatie && _roulatieBlokken[0] ? (_schoolWekenVolgorde[_schoolWekenVolgorde.indexOf(_roulatieBlokken[0].startWeek) + _roulatieBlokken[0].aantalWeken - 1] || null) : null,
   };
 
   try {
