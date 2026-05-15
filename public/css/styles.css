@@ -3507,3 +3507,8 @@ html, body {
 .lm-tm-stap:hover{background:#f5f0ff;}
 .db-taak-item--tm{background:#faf5ff;border-color:#e9d5ff;}
 .db-taak-item--tm .db-taak-icon{background:#ede9fe;color:#7c3aed;}
+.lm-niveau-checkboxes{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px;}
+.lm-niveau-checkbox{display:inline-flex;align-items:center;gap:5px;padding:5px 10px;border:1.5px solid var(--border-2);border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;background:#fff;color:var(--ink-2);transition:border-color .15s,background .15s;}
+.lm-niveau-checkbox:has(input:checked){border-color:#7c3aed;background:#faf5ff;color:#6d28d9;}
+.lm-niveau-checkbox input{width:14px;height:14px;accent-color:#7c3aed;cursor:pointer;}
+.lm-niveau--al{opacity:.6;}

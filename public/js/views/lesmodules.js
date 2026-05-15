@@ -39,7 +39,10 @@ async function renderLesModules() {
       return 'overig';
     };
     const normaliseerNaam = (naam) => String(naam || 'Naamloze module').trim().toLowerCase();
-    const niveauLabel = (m) => String(m.niveau || '').trim() || 'Alle niveaus';
+    const niveauLabel = (m) => {
+      const n = String(m.niveau || '').trim();
+      return n ? n.split(',').map(x => x.trim()).filter(Boolean).join(', ') : 'Alle niveaus';
+    };
     const vakNaam = (m) => vakken.find(v => v.id === m.vakId)?.naam || '';
     const telPraktijk = (m) => {
       const stappen = Array.isArray(m.stappen) ? m.stappen : [];
@@ -417,14 +420,22 @@ async function openLesModuleModal(moduleId = null, preset = {}) {
         </select>
       </div>
       <div class="form-field">
-        <label>Niveau</label>
-        <select id="lm-niveau">
-          ${['BB', 'KB', 'GL', 'TL', 'Havo', 'VWO', ''].map(n => {
-            const gekozen = (m?.niveau || '') === n;
+        <label>Niveau(s)</label>
+        <div class="lm-niveau-checkboxes">
+          ${['BB', 'KB', 'GL', 'TL', 'Havo', 'VWO'].map(n => {
+            const geselect = (m?.niveau || '').split(',').map(x => x.trim()).includes(n);
             const bestaatAl = !m && bestaandeNiveaus.includes(n);
-            return `<option value="${n}" ${gekozen ? 'selected' : ''} ${bestaatAl ? 'disabled' : ''}>${n || 'Alle niveaus'}${bestaatAl ? ' — bestaat al' : ''}</option>`;
+            return `<label class="lm-niveau-checkbox${bestaatAl ? ' lm-niveau--al' : ''}">
+              <input type="checkbox" name="lm-niveau" value="${n}" ${geselect ? 'checked' : ''}>
+              ${n}${bestaatAl ? ' ✓' : ''}
+            </label>`;
           }).join('')}
-        </select>
+          <label class="lm-niveau-checkbox">
+            <input type="checkbox" name="lm-niveau" value="" id="lm-niveau-alle"
+              ${!(m?.niveau || '').trim() ? 'checked' : ''}>
+            Alle niveaus
+          </label>
+        </div>
       </div>
       <div class="form-field">
         <label>Vak</label>
@@ -1013,7 +1024,7 @@ async function lmAnalyseerPraktijkBestand(btn) {
   const fd = new FormData();
   fd.append('bestand', fileInput.files[0]);
   fd.append('opdrachtnaam', naamInput?.value || '');
-  fd.append('niveau', document.getElementById('lm-niveau')?.value || '');
+  fd.append('niveau', _lmGetNiveau());
   try {
     const res = await fetch('/api/les-modules/analyseer-praktijk', { method: 'POST', credentials: 'same-origin', body: fd });
     const data = await res.json();
@@ -1054,7 +1065,7 @@ async function lmAnalyseerGedeeldBestand(btn) {
   const fd = new FormData();
   fd.append('bestand', fileInput.files[0]);
   fd.append('opdrachtnaam', naamInput?.value || 'Gedeelde praktijkopdracht');
-  fd.append('niveau', document.getElementById('lm-niveau')?.value || '');
+  fd.append('niveau', _lmGetNiveau());
   try {
     const res = await fetch('/api/les-modules/analyseer-praktijk', { method: 'POST', credentials: 'same-origin', body: fd });
     const data = await res.json();
@@ -1289,7 +1300,7 @@ async function analyseerLesModuleBestand() {
   if (statusEl) statusEl.innerHTML = '<span style="color:var(--ink-muted);font-size:13px">⏳ AI analyseert het bestand...</span>';
   const fd = new FormData();
   fd.append('bestand', input.files[0]);
-  fd.append('niveau', document.getElementById('lm-niveau')?.value || '');
+  fd.append('niveau', _lmGetNiveau());
   fd.append('type', document.getElementById('lm-type')?.value || 'profieldeel');
   try {
     const res = await fetch('/api/les-modules/analyseer', { method: 'POST', credentials: 'same-origin', body: fd });
@@ -1311,14 +1322,18 @@ async function analyseerLesModuleBestand() {
 // OPSLAAN / VERWIJDEREN
 // ============================================================
 
+function _lmGetNiveau() {
+  const alles = document.getElementById('lm-niveau-alle');
+  if (alles?.checked) return '';
+  const checked = [...document.querySelectorAll('input[name="lm-niveau"]:checked')]
+    .map(cb => cb.value).filter(Boolean);
+  return checked.join(',');
+}
+
 async function slaLesModuleOp(moduleId) {
   const naam = document.getElementById('lm-naam')?.value.trim();
   if (!naam) { alert('Vul een naam in.'); return; }
-  const niveau = document.getElementById('lm-niveau')?.value || '';
-  if (!moduleId && Array.isArray(window._lmBestaandeNiveaus) && window._lmBestaandeNiveaus.includes(niveau)) {
-    alert('Dit niveau bestaat al binnen deze module. Kies een ander niveau.');
-    return;
-  }
+  const niveau = _lmGetNiveau();
 
   const isTheorieModule = document.getElementById('lm-type')?.value === 'theorie_module';
   const payload = {
