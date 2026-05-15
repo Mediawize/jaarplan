@@ -141,11 +141,15 @@ async function openNieuwProfielModal(vakId = null, profielId = null, isTheorie =
           ${vakken.map(v => `<option value="${v.id}" ${(vakId === v.id || p?.vakId === v.id) ? 'selected' : ''}>${escHtml(v.naam)} — ${escHtml(v.volledig || '')}</option>`).join('')}
         </select>
       </div>
-      <div class="form-field">
-        <label>Niveau</label>
-        <select id="lp-niveau">
-          ${['', 'BB', 'KB', 'GL', 'TL', 'Havo', 'VWO'].map(n => `<option value="${n}" ${(p?.niveau || '') === n ? 'selected' : ''}>${n || '— Kies module —'}</option>`).join('')}
-        </select>
+      <div class="form-field form-full">
+        <label>Niveau(s)</label>
+        <div id="lp-niveau-groep" class="lm-niveau-checkboxes">
+          ${['BB', 'KB', 'GL', 'TL', 'Havo', 'VWO'].map(n => `<label class="lm-niveau-checkbox">
+            <input type="checkbox" name="lp-niveau" value="${n}" ${(p?.niveau || '') === n ? 'checked' : ''}>
+            ${n}
+          </label>`).join('')}
+        </div>
+        <small id="lp-niveau-hint" style="color:var(--ink-muted);font-size:11px;margin-top:4px;display:block">Bij meerdere niveaus wordt per niveau een apart profiel aangemaakt.</small>
       </div>
       <div class="form-field form-full">
         <label>${isTheorie ? 'Theorie module koppelen' : 'Lesmodule koppelen'}</label>
@@ -182,18 +186,15 @@ async function openNieuwProfielModal(vakId = null, profielId = null, isTheorie =
 function lpModuleGewijzigd() {
   lpFilterModules();
   const select = document.getElementById('lp-module');
-  const niveauSelect = document.getElementById('lp-niveau');
-  if (!select || !niveauSelect) return;
+  const groep = document.getElementById('lp-niveau-groep');
+  if (!select || !groep) return;
   const gekozen = select.selectedOptions[0];
   const moduleNiveaus = (gekozen?.dataset.niveau || '').split(',').map(x => x.trim()).filter(Boolean);
-  [...niveauSelect.options].forEach(opt => {
-    opt.hidden = moduleNiveaus.length > 0 && opt.value && !moduleNiveaus.includes(opt.value);
+  groep.querySelectorAll('input[name="lp-niveau"]').forEach(cb => {
+    const inModule = moduleNiveaus.length === 0 || moduleNiveaus.includes(cb.value);
+    cb.closest('label').style.display = inModule ? '' : 'none';
+    cb.checked = moduleNiveaus.includes(cb.value);
   });
-  if (moduleNiveaus.length === 1) {
-    niveauSelect.value = moduleNiveaus[0];
-  } else if (niveauSelect.selectedOptions[0]?.hidden) {
-    niveauSelect.value = '';
-  }
 }
 
 function lpFilterModules() {
@@ -214,7 +215,7 @@ function lpFilterModules() {
 async function slaProfielOp(profielId) {
   const naam = document.getElementById('lp-naam').value.trim();
   const vakId = document.getElementById('lp-vak').value;
-  const niveau = document.getElementById('lp-niveau').value;
+  const niveaus = [...document.querySelectorAll('input[name="lp-niveau"]:checked')].map(cb => cb.value);
   const moduleId = document.getElementById('lp-module').value || null;
   const urenPerWeek = parseFloat(document.getElementById('lp-uren').value) || 0;
   const urenTheorie = parseFloat(document.getElementById('lp-theorie').value) || 0;
@@ -224,17 +225,30 @@ async function slaProfielOp(profielId) {
   if (!naam) { alert('Naam is verplicht.'); return; }
 
   try {
-    let id = profielId;
-    const payload = { naam, vakId, niveau, moduleId, urenPerWeek, urenTheorie, urenPraktijk, beschrijving };
     if (profielId) {
-      await API.updateLesprofiel(profielId, payload);
+      // Bewerken: altijd één niveau (eerste aangevinkte of leeg)
+      const niveau = niveaus[0] || '';
+      await API.updateLesprofiel(profielId, { naam, vakId, niveau, moduleId, urenPerWeek, urenTheorie, urenPraktijk, beschrijving });
+      closeModalDirect();
+      Cache.invalidateAll();
+      openProfielDetail(profielId);
     } else {
-      const r = await API.addLesprofiel(payload);
-      id = r.id;
+      // Nieuw: één profiel per aangevinkt niveau
+      const lijst = niveaus.length ? niveaus : [''];
+      let eersteId = null;
+      for (const niveau of lijst) {
+        const profielNaam = lijst.length > 1 ? `${naam} ${niveau}`.trim() : naam;
+        const r = await API.addLesprofiel({ naam: profielNaam, vakId, niveau, moduleId, urenPerWeek, urenTheorie, urenPraktijk, beschrijving });
+        if (!eersteId) eersteId = r.id;
+      }
+      closeModalDirect();
+      Cache.invalidateAll();
+      if (lijst.length > 1) {
+        renderLesprofielen();
+      } else {
+        openProfielDetail(eersteId);
+      }
     }
-    closeModalDirect();
-    Cache.invalidateAll();
-    openProfielDetail(id);
   } catch(e) { showError(e.message); }
 }
 
