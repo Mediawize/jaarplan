@@ -485,18 +485,27 @@ async function openKoppelModal(profielId) {
   const relevante = klassen.filter(k => lpKlasPastBijProfiel(k, p));
   const alleOpd = await API.getOpdrachten();
   const alGekoppeld = alleOpd.filter(o => o.profielId === profielId);
-  const gekoppeldeKlasNamen = [...new Set(alGekoppeld.map(o => o.klasId))].map(id => klassen.find(k => k.id === id)?.naam).filter(Boolean);
+  const gekoppeldeKlasIds = [...new Set(alGekoppeld.map(o => o.klasId))];
+  const gekoppeldeKlassen = gekoppeldeKlasIds.map(id => klassen.find(k => k.id === id)).filter(Boolean);
   _lpVerdelingPreview = null;
   _lpVerdelingStappen = null;
 
   openModal(`
     <h2>Profiel koppelen aan planning</h2>
     <p class="modal-sub">Koppel "<strong>${escHtml(p.naam)}</strong>" aan een klas en startweek.</p>
-    ${gekoppeldeKlasNamen.length > 0
-      ? `<div class="alert alert-info" style="margin-bottom:16px">
-           ⚠️ Al gekoppeld aan: <strong>${escHtml(gekoppeldeKlasNamen.join(', '))}</strong><br>
-           <span style="font-size:12px">Bij opnieuw koppelen worden de oude opdrachten vervangen.</span>
-         </div>` : ''}
+    ${gekoppeldeKlassen.length > 0 ? `
+      <div style="margin-bottom:16px">
+        <div style="font-size:12px;font-weight:600;color:var(--ink-muted);margin-bottom:6px">Al gekoppeld aan:</div>
+        ${gekoppeldeKlassen.map(k => {
+          const aantalOpd = alGekoppeld.filter(o => o.klasId === k.id).length;
+          return `<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--surface-2);border-radius:var(--radius-sm);margin-bottom:4px">
+            <span style="flex:1;font-size:13px;font-weight:500">${escHtml(k.naam)}</span>
+            <span style="font-size:12px;color:var(--ink-muted)">${aantalOpd} opdrachten</span>
+            <button class="btn btn-sm" style="color:var(--red);border-color:rgba(220,38,38,0.3);flex-shrink:0" onclick="lpOntkoppelVanuitModal('${profielId}','${k.id}','${escHtml(k.naam)}')">Ontkoppelen</button>
+          </div>`;
+        }).join('')}
+        <div style="font-size:11px;color:var(--ink-muted);margin-top:4px">Bij opnieuw koppelen worden de bestaande opdrachten vervangen.</div>
+      </div>` : ''}
     <div class="form-grid">
       <div class="form-field form-full">
         <label>Klas *</label>
@@ -534,6 +543,16 @@ async function openKoppelModal(profielId) {
     </div>
   `);
   setTimeout(() => laadKoppelWeken(profielId), 100);
+}
+
+async function lpOntkoppelVanuitModal(profielId, klasId, klasNaam) {
+  if (!confirm(`Koppeling met "${klasNaam}" verwijderen?\n\nAlle opdrachten van dit profiel in deze klas worden verwijderd.`)) return;
+  try {
+    const opdrachten = await API.getOpdrachten(klasId);
+    await Promise.all(opdrachten.filter(o => o.profielId === profielId).map(o => API.deleteOpdracht(o.id)));
+    Cache.invalidateAll();
+    openKoppelModal(profielId);
+  } catch(e) { showError(e.message); }
 }
 
 async function laadKoppelWeken(profielId) {
