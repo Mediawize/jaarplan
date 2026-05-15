@@ -631,8 +631,8 @@ function lmHoofdstapHtml(i, stap, bib) {
       ${lessenHtml}
       <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px">
         <button class="btn btn-sm lm-voeg-les-btn" onclick="lmVoegLesToe(this)"
-          style="font-size:11px;padding:3px 8px${lessen.length >= 10 ? ';opacity:.4' : ''}"
-          ${lessen.length >= 10 ? 'disabled' : ''}>+ Sub-les</button>
+          style="font-size:11px;padding:3px 8px${lessen.length >= 15 ? ';opacity:.4' : ''}"
+          ${lessen.length >= 15 ? 'disabled' : ''}>+ Sub-les</button>
         <button class="btn btn-sm" onclick="lmAnalyseerSubLesAfbeelding(this)"
           style="font-size:11px;padding:3px 8px;background:#ede9fe;border-color:#c4b5fd;color:#6d28d9">🖼 Afbeelding analyseren</button>
       </div>
@@ -685,7 +685,7 @@ function lmVoegLesToe(btn) {
   const stap = btn.closest('.lm-hoofdstap');
   const lessenDiv = stap.querySelector('.lm-lessen');
   const bestaandeLessen = stap.querySelectorAll('.lm-les-rij').length;
-  if (bestaandeLessen >= 10) return;
+  if (bestaandeLessen >= 15) return;
   const hoofdstappen = Array.from(document.querySelectorAll('.lm-hoofdstap'));
   const stapIdx = hoofdstappen.indexOf(stap);
   const div = document.createElement('div');
@@ -710,8 +710,8 @@ function lmUpdateVoegLesKnop(stap) {
   const btn = stap.querySelector('.lm-voeg-les-btn');
   if (!btn) return;
   const count = stap.querySelectorAll('.lm-les-rij').length;
-  btn.disabled = count >= 10;
-  btn.style.opacity = count >= 10 ? '.4' : '1';
+  btn.disabled = count >= 15;
+  btn.style.opacity = count >= 15 ? '.4' : '1';
 }
 
 async function lmAnalyseerSubLesAfbeelding(btn) {
@@ -747,7 +747,7 @@ async function lmAnalyseerSubLesAfbeelding(btn) {
       const stapIdx = hoofdstappen.indexOf(stap);
       namen.forEach((naam, i) => {
         const bestaand = stap.querySelectorAll('.lm-les-rij').length;
-        if (bestaand >= 10) return;
+        if (bestaand >= 15) return;
         const div = document.createElement('div');
         div.innerHTML = lmLesHtml(stapIdx, bestaand, naam);
         lessenDiv.insertBefore(div.firstElementChild, btn.parentElement);
