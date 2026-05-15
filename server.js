@@ -878,6 +878,46 @@ app.delete('/api/les-modules/:id', requireAdmin, (req, res) => {
   res.json({ success: true });
 });
 
+// Afbeelding uploaden en stappen extraheren via vision AI
+app.post('/api/les-modules/analyseer-afbeelding', requireAdmin, uploadMemory.single('bestand'), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: 'Geen afbeelding ontvangen.' });
+    const mime = req.file.mimetype || 'image/jpeg';
+    const allowed = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+    if (!allowed.includes(mime)) return res.status(400).json({ error: 'Alleen JPEG, PNG, WebP of GIF toegestaan.' });
+
+    const imageBase64 = req.file.buffer.toString('base64');
+    const rawText = await chatVision({
+      imageBase64,
+      mediaType: mime,
+      prompt: `Dit is een screenshot van een leerplatform of inhoudsopgave met theoriestappen of lessen.
+
+Lees alle zichtbare stap- of lesnamen uit de afbeelding.
+Sla items over die een toets of test zijn (zoals "D-toets", "Eindtoets", "Toets", "Test", "Assessment", "Oefenexamen").
+Sla ook navigatie-elementen, knoppen en voortgangsbalken over.
+
+Geef ALLEEN geldige JSON terug:
+{ "stappen": ["naam stap 1", "naam stap 2", ...] }
+
+Gebruik de exacte namen zoals zichtbaar in de afbeelding.`,
+      system: 'Je bent een assistent die tekst uit screenshots van onderwijsplatforms leest. Geef altijd alleen geldig JSON terug.',
+      maxTokens: 1000,
+    });
+
+    let stappen = [];
+    try {
+      const parsed = extractJsonFromText(rawText);
+      stappen = Array.isArray(parsed.stappen) ? parsed.stappen.filter(Boolean) : [];
+    } catch {
+      stappen = rawText.split('\n').map(l => l.replace(/^[-*\d.]+\s*/, '').trim()).filter(Boolean);
+    }
+    res.json({ success: true, stappen });
+  } catch (e) {
+    console.error('Fout bij /api/les-modules/analyseer-afbeelding:', e);
+    res.status(500).json({ error: 'Fout bij analyseren afbeelding: ' + e.message });
+  }
+});
+
 // PDF of DOCX uploaden en theorie-stappen extraheren
 app.post('/api/les-modules/analyseer', requireAdmin, upload.single('bestand'), async (req, res) => {
   try {
