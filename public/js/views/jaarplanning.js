@@ -102,9 +102,6 @@ async function renderJaarplanning() {
 function renderJpGrid(weken, opdrachten, klas, cw, readonly) {
   if (!weken.length) return `<div class="empty-state"><p>Geen weken gevonden voor dit schooljaar.</p></div>`;
 
-  // Week-thema's alleen tonen als de klas minstens één lesprofiel-opdracht heeft
-  const heeftLesprofiel = opdrachten.some(o => o.profielId);
-
   // Schooljaar volgorde: week 35–52 (najaar) eerst, dan week 1–34 (voorjaar)
   const gesorteerd = [...weken].sort((a, b) => {
     const schoolWeekNr = wn => wn >= 35 ? wn - 35 : wn + 52 - 35;
@@ -154,11 +151,15 @@ function renderJpGrid(weken, opdrachten, klas, cw, readonly) {
       <div class="jp-week-header">
         <span class="jp-week-nr">${isHuidig ? `<span style="color:var(--accent)">▶</span> ` : ''}Week ${week.weeknummer}</span>
         <span class="jp-week-datum">${week.van||''}</span>
-        ${week.thema && heeftLesprofiel ? `<span style="font-size:11.5px;color:var(--ink-3);font-style:italic;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;border-left:2px solid var(--border-2);padding-left:8px">${escHtml(week.thema)}</span>` : ''}
+        ${week.thema ? `<span style="font-size:11.5px;color:var(--ink-3);font-style:italic;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;border-left:2px solid var(--border-2);padding-left:8px">${escHtml(week.thema)}</span>` : ''}
         <span style="margin-left:auto;font-size:11px;color:var(--ink-4)">${weekOpd.length ? `${weekOpd.length} opdracht${weekOpd.length !== 1 ? 'en' : ''}` : ''}</span>
-        ${!readonly ? `<button class="icon-btn" onclick="openOpdrachtModal(null, ${week.weeknummer})" title="Opdracht toevoegen">
-          <svg viewBox="0 0 20 20" fill="none"><path d="M10 4v12M4 10h12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-        </button>` : ''}
+        ${!readonly ? `
+          <button class="icon-btn" onclick="jpBewijsThema('${week.id}', ${week.weeknummer}, ${JSON.stringify(week.thema || '')})" title="${week.thema ? 'Thema bewerken' : 'Thema instellen'}" style="color:${week.thema ? 'var(--accent)' : 'var(--ink-4)'}">
+            <svg viewBox="0 0 20 20" fill="none" style="width:14px;height:14px"><path d="M13.5 3.5l2 2L7 15l-3 1 1-3 9.5-9.5z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+          <button class="icon-btn" onclick="openOpdrachtModal(null, ${week.weeknummer})" title="Opdracht toevoegen">
+            <svg viewBox="0 0 20 20" fill="none"><path d="M10 4v12M4 10h12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          </button>` : ''}
       </div>
       <div class="jp-opdrachten">
         ${weekOpd.length === 0
@@ -168,6 +169,33 @@ function renderJpGrid(weken, opdrachten, klas, cw, readonly) {
       </div>
     </div>`;
   }).join('');
+}
+
+function jpBewijsThema(weekId, weeknummer, huidigThema) {
+  openModal(`
+    <h2>Weekthema — week ${weeknummer}</h2>
+    <div class="form-grid">
+      <div class="form-field form-full">
+        <label>Thema (optioneel)</label>
+        <input id="jp-thema-input" value="${escHtml(huidigThema)}" placeholder="bijv. Veiligheid op de werkplek" autofocus>
+      </div>
+    </div>
+    <div class="modal-actions">
+      ${huidigThema ? `<button class="btn" style="color:var(--red);border-color:rgba(220,38,38,0.3)" onclick="jpSlaThemaOp('${weekId}','')">Verwijderen</button>` : ''}
+      <button class="btn" onclick="closeModalDirect()">Annuleren</button>
+      <button class="btn btn-primary" onclick="jpSlaThemaOp('${weekId}', document.getElementById('jp-thema-input').value.trim())">Opslaan</button>
+    </div>
+  `);
+  setTimeout(() => document.getElementById('jp-thema-input')?.focus(), 50);
+}
+
+async function jpSlaThemaOp(weekId, thema) {
+  try {
+    await API.updateWeekThema(weekId, thema);
+    Cache.invalidate('weken');
+    closeModalDirect();
+    renderJaarplanning();
+  } catch(e) { showError(e.message); }
 }
 
 function typeKleurBalk(t) {
