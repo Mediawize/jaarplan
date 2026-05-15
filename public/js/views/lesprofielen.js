@@ -144,14 +144,14 @@ async function openNieuwProfielModal(vakId = null, profielId = null, isTheorie =
       <div class="form-field">
         <label>Niveau</label>
         <select id="lp-niveau">
-          ${['', 'BB', 'KB', 'GL', 'TL', 'Havo', 'VWO'].map(n => `<option value="${n}" ${(p?.niveau || '') === n ? 'selected' : ''}>${n || 'Alle niveaus'}</option>`).join('')}
+          ${['', 'BB', 'KB', 'GL', 'TL', 'Havo', 'VWO'].map(n => `<option value="${n}" ${(p?.niveau || '') === n ? 'selected' : ''}>${n || '— Kies module —'}</option>`).join('')}
         </select>
       </div>
       <div class="form-field form-full">
         <label>${isTheorie ? 'Theorie module koppelen' : 'Lesmodule koppelen'}</label>
-        <select id="lp-module">
+        <select id="lp-module" onchange="lpModuleGewijzigd()">
           <option value="">— Geen module —</option>
-          ${modules.map(m => `<option value="${m.id}" data-vakid="${escHtml(m.vakId || '')}" data-istheorie="${m.isTheorieModule ? '1' : '0'}" ${p?.moduleId === m.id ? 'selected' : ''}>${escHtml(m.naam)}${m.niveau ? ' [' + m.niveau + ']' : ''}</option>`).join('')}
+          ${modules.map(m => `<option value="${m.id}" data-vakid="${escHtml(m.vakId || '')}" data-istheorie="${m.isTheorieModule ? '1' : '0'}" data-niveau="${escHtml(m.niveau || '')}" ${p?.moduleId === m.id ? 'selected' : ''}>${escHtml(m.naam)}</option>`).join('')}
         </select>
       </div>
       <div class="form-field">
@@ -176,7 +176,24 @@ async function openNieuwProfielModal(vakId = null, profielId = null, isTheorie =
       <button class="btn btn-primary" onclick="slaProfielOp('${profielId || ''}')">Opslaan</button>
     </div>
   `);
-  setTimeout(lpFilterModules, 0);
+  setTimeout(lpModuleGewijzigd, 0);
+}
+
+function lpModuleGewijzigd() {
+  lpFilterModules();
+  const select = document.getElementById('lp-module');
+  const niveauSelect = document.getElementById('lp-niveau');
+  if (!select || !niveauSelect) return;
+  const gekozen = select.selectedOptions[0];
+  const moduleNiveaus = (gekozen?.dataset.niveau || '').split(',').map(x => x.trim()).filter(Boolean);
+  [...niveauSelect.options].forEach(opt => {
+    opt.hidden = moduleNiveaus.length > 0 && opt.value && !moduleNiveaus.includes(opt.value);
+  });
+  if (moduleNiveaus.length === 1) {
+    niveauSelect.value = moduleNiveaus[0];
+  } else if (niveauSelect.selectedOptions[0]?.hidden) {
+    niveauSelect.value = '';
+  }
 }
 
 function lpFilterModules() {
