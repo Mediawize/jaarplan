@@ -771,7 +771,7 @@ Zet elke gevonden les- of theoriestap als aparte string in de array. Gebruik de 
 // LESPROFIEL — AI Weekverdeling genereren bij koppelen
 // ============================================================
 app.post('/api/lesprofielen/:id/genereer-verdeling', requireCanEdit, async (req, res) => {
-  const { klasId } = req.body || {};
+  const { klasId, startweek } = req.body || {};
   const aantalWekenRaw = parseInt(req.body?.aantalWeken, 10);
   if (!Number.isFinite(aantalWekenRaw) || aantalWekenRaw < 1 || aantalWekenRaw > 52) {
     return res.status(400).json({ error: 'Aantal weken moet tussen 1 en 52 liggen' });
@@ -784,6 +784,10 @@ app.post('/api/lesprofielen/:id/genereer-verdeling', requireCanEdit, async (req,
 
     const module = db.getLesModule(profiel.moduleId);
     if (!module) return res.status(404).json({ error: 'Lesmodule niet gevonden' });
+
+    const klas = klasId ? db.getKlas(klasId) : null;
+    const isRoulatie = !!(klas?.roulatie);
+    const roulatieBlokken = klas?.roulatieBlokken || null;
 
     const weken = Math.max(1, Number(aantalWeken) || 8);
     const urenTheorie = profiel.urenTheorie || 0;
@@ -801,8 +805,12 @@ app.post('/api/lesprofielen/:id/genereer-verdeling', requireCanEdit, async (req,
     }));
     const gedeeldeOpdrachten = (module.gedeeldeOpdrachten || []).map(o => o.naam || '').filter(Boolean);
 
+    const roulatieContext = isRoulatie
+      ? `\nDit is een roulatieklas — elke groep krijgt de volledige module in een blok van ${weken} aaneengesloten weken (startweek ${startweek || '?'}). Plan de module compact en volledig binnen deze ${weken} weken.`
+      : '';
+
     const prompt = `Je bent een ervaren VMBO/MBO docent die lesplanning maakt.
-Module: "${module.naam}", ${weken} weken beschikbaar, ${urenPerWeek} uur/week (${urenTheorie}u theorie + ${urenPraktijk}u praktijk).
+Module: "${module.naam}", ${weken} weken beschikbaar, ${urenPerWeek} uur/week (${urenTheorie}u theorie + ${urenPraktijk}u praktijk).${roulatieContext}
 
 Theoriestappen in de module:
 ${stappen.map((s, i) => `${i + 1}. ${s.naam}${s.lessen.length ? ': ' + s.lessen.join(', ') : ''}${s.aantalPraktijk ? ` (${s.aantalPraktijk} praktijkopdrachten)` : ''}${s.heeftToets ? ' [bevat toets]' : ''}`).join('\n')}
