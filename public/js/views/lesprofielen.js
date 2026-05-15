@@ -42,7 +42,7 @@ async function renderLesprofielen() {
     document.getElementById('view-lesprofielen').innerHTML = `
       <div class="page-header">
         <div class="page-header-left"><h1>Lesprofielen</h1></div>
-        <button class="btn btn-sm btn-primary" onclick="openNieuwProfielModal()">+ Profiel</button>
+        <button class="btn btn-sm btn-primary" onclick="openNieuwProfielModal()">+ Module</button>
       </div>
       <div class="alert alert-info" style="margin-bottom:20px">
         Een lesprofiel koppelt een lesmodule aan een klas. Vul uren in, koppel aan de planning — AI maakt de weekverdeling.
@@ -60,7 +60,7 @@ async function renderLesprofielen() {
             return `<div class="card" style="margin-bottom:20px">
               <div class="card-header">
                 <div><h2>${escHtml(vak.naam)} — ${escHtml(vak.volledig || '')}</h2><div class="card-meta">${vp.length} profiel${vp.length !== 1 ? 'en' : ''}</div></div>
-                <button class="btn btn-sm btn-primary" onclick="openNieuwProfielModal('${vak.id}')">+ Profiel</button>
+                <button class="btn btn-sm btn-primary" onclick="openNieuwProfielModal('${vak.id}')">+ Module</button>
               </div>
               ${niveaus.map(niveau => {
                 const groep = perNiveau[niveau];
