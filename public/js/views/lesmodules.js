@@ -638,7 +638,7 @@ function lmHoofdstapHtml(i, stap, bib) {
     <div class="lm-lessen" style="padding-left:30px;margin-bottom:8px">
       <div style="font-size:11px;color:var(--ink-muted);margin-bottom:4px">Sub-lessen (theorie)</div>
       ${lessenHtml}
-      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px">
+      <div class="lm-les-knoppen" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px">
         <button class="btn btn-sm lm-voeg-les-btn" onclick="lmVoegLesToe(this)"
           style="font-size:11px;padding:3px 8px${lessen.length >= 15 ? ';opacity:.4' : ''}"
           ${lessen.length >= 15 ? 'disabled' : ''}>+ Sub-les</button>
@@ -699,7 +699,7 @@ function lmVoegLesToe(btn) {
   const stapIdx = hoofdstappen.indexOf(stap);
   const div = document.createElement('div');
   div.innerHTML = lmLesHtml(stapIdx, bestaandeLessen, '');
-  lessenDiv.insertBefore(div.firstElementChild, btn.parentElement);
+  stap.querySelector('.lm-les-knoppen').before(div.firstElementChild);
   lessenDiv.querySelectorAll('.lm-les-input')[bestaandeLessen]?.focus();
   lmUpdateLesNummers(stap);
   lmUpdateVoegLesKnop(stap);
@@ -759,7 +759,7 @@ async function lmAnalyseerSubLesAfbeelding(btn) {
         if (bestaand >= 15) return;
         const div = document.createElement('div');
         div.innerHTML = lmLesHtml(stapIdx, bestaand, naam);
-        lessenDiv.insertBefore(div.firstElementChild, btn.parentElement);
+        stap.querySelector('.lm-les-knoppen').before(div.firstElementChild);
       });
       lmUpdateLesNummers(stap);
       lmUpdateVoegLesKnop(stap);
