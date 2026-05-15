@@ -447,12 +447,20 @@ async function openLesModuleModal(moduleId = null, preset = {}) {
 
     <div id="lm-upload-sectie" style="${m ? 'display:none' : ''}">
       <hr style="border:none;border-top:1px solid var(--border);margin:0 0 16px">
-      <div class="form-field form-full">
-        <label>PDF of Word uploaden</label>
-        <input id="lm-bestand" type="file" accept=".pdf,.docx,.doc">
-        <small style="color:var(--ink-muted)">Syllabus- of profieldeel-document. Toetsmomenten worden automatisch overgeslagen.</small>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div class="form-field form-full" style="margin:0">
+          <label>PDF of Word uploaden</label>
+          <input id="lm-bestand" type="file" accept=".pdf,.docx,.doc">
+          <small style="color:var(--ink-muted)">Syllabus- of profieldeel-document. Toetsmomenten worden automatisch overgeslagen.</small>
+          <button class="btn btn-primary" style="margin-top:8px" onclick="analyseerLesModuleBestand()">AI analyseer bestand</button>
+        </div>
+        <div class="form-field form-full" style="margin:0">
+          <label>Afbeelding uploaden</label>
+          <input id="lm-afbeelding" type="file" accept="image/jpeg,image/png,image/webp,image/gif">
+          <small style="color:var(--ink-muted)">Screenshot van leerplatform of inhoudsopgave. AI leest de stappen eruit.</small>
+          <button class="btn btn-primary" style="margin-top:8px" onclick="analyseerLesModuleAfbeelding()">AI analyseer afbeelding</button>
+        </div>
       </div>
-      <button class="btn btn-primary" style="margin-bottom:16px" onclick="analyseerLesModuleBestand()">AI analyseer bestand</button>
       <div id="lm-analyse-status"></div>
       <hr style="border:none;border-top:1px solid var(--border);margin:16px 0">
     </div>
@@ -1287,6 +1295,27 @@ function lmLeesGedeeldeOpdrachten() {
 // ============================================================
 // AI UPLOAD (theorie syllabus)
 // ============================================================
+
+async function analyseerLesModuleAfbeelding() {
+  const input = document.getElementById('lm-afbeelding');
+  const statusEl = document.getElementById('lm-analyse-status');
+  if (!input?.files?.[0]) { if (statusEl) statusEl.innerHTML = '<span style="color:var(--red);font-size:13px">Kies eerst een afbeelding.</span>'; return; }
+  if (statusEl) statusEl.innerHTML = '<span style="color:var(--ink-muted);font-size:13px">⏳ AI analyseert de afbeelding...</span>';
+  const fd = new FormData();
+  fd.append('bestand', input.files[0]);
+  try {
+    const res = await fetch('/api/les-modules/analyseer-afbeelding', { method: 'POST', credentials: 'same-origin', body: fd });
+    const data = await res.json();
+    if (!res.ok || data.error) throw new Error(data.error || 'Fout');
+    const stappen = (data.stappen || []).map(naam => ({ naam, lessen: [], praktijkOpdrachten: [] }));
+    const lijst = document.getElementById('lm-stappen-lijst');
+    if (lijst) lijst.innerHTML = lmStappenHtml(stappen, window._lmBibliotheek || []);
+    lmUpdateStapCount();
+    if (statusEl) statusEl.innerHTML = `<div class="alert alert-success" style="margin-top:8px">${stappen.length} stappen gevonden uit afbeelding.</div>`;
+  } catch (e) {
+    if (statusEl) statusEl.innerHTML = `<div class="alert" style="background:var(--red-dim);color:var(--red-text);border:1px solid var(--red-dim);border-radius:8px;padding:10px;margin-top:8px;font-size:13px">Fout: ${escHtml(e.message)}</div>`;
+  }
+}
 
 async function analyseerLesModuleBestand() {
   const input = document.getElementById('lm-bestand');
