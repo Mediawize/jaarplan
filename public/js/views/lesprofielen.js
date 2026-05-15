@@ -42,7 +42,10 @@ async function renderLesprofielen() {
     document.getElementById('view-lesprofielen').innerHTML = `
       <div class="page-header">
         <div class="page-header-left"><h1>Lesprofielen</h1></div>
-        <button class="btn btn-sm btn-primary" onclick="openNieuwProfielModal()">+ Nieuw lesprofiel</button>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-sm btn-primary" onclick="openNieuwProfielModal(null,null,false)">+ Profiel</button>
+          <button class="btn btn-sm" style="background:#ede9fe;border-color:#c4b5fd;color:#6d28d9" onclick="openNieuwProfielModal(null,null,true)">+ Theorie profiel</button>
+        </div>
       </div>
       <div class="alert alert-info" style="margin-bottom:20px">
         Een lesprofiel koppelt een lesmodule aan een klas. Vul uren in, koppel aan de planning — AI maakt de weekverdeling.
@@ -60,7 +63,10 @@ async function renderLesprofielen() {
             return `<div class="card" style="margin-bottom:20px">
               <div class="card-header">
                 <div><h2>${escHtml(vak.naam)} — ${escHtml(vak.volledig || '')}</h2><div class="card-meta">${vp.length} profiel${vp.length !== 1 ? 'en' : ''}</div></div>
-                <button class="btn btn-sm btn-primary" onclick="openNieuwProfielModal('${vak.id}')">+ Profiel</button>
+                <div style="display:flex;gap:6px">
+                  <button class="btn btn-sm btn-primary" onclick="openNieuwProfielModal('${vak.id}',null,false)">+ Profiel</button>
+                  <button class="btn btn-sm" style="background:#ede9fe;border-color:#c4b5fd;color:#6d28d9;font-size:12px" onclick="openNieuwProfielModal('${vak.id}',null,true)">+ Theorie</button>
+                </div>
               </div>
               ${niveaus.map(niveau => {
                 const groep = perNiveau[niveau];
@@ -106,12 +112,24 @@ async function renderLesprofielen() {
 // ============================================================
 // Nieuw / bewerk profiel — simpel formulier
 // ============================================================
-async function openNieuwProfielModal(vakId = null, profielId = null) {
+async function openNieuwProfielModal(vakId = null, profielId = null, isTheorie = null) {
   const [vakken, profielen, modules] = await Promise.all([API.getVakken(), API.getLesprofielen(), API.getLesModules()]);
   const p = profielId ? profielen.find(x => x.id === profielId) : null;
 
+  // Bij bewerken: detecteer type uit gekoppelde module
+  if (isTheorie === null && p?.moduleId) {
+    const mod = modules.find(m => m.id === p.moduleId);
+    isTheorie = mod ? !!mod.isTheorieModule : false;
+  }
+  if (isTheorie === null) isTheorie = false;
+
+  const titels = isTheorie
+    ? (profielId ? 'Theorie-lesprofiel bewerken' : 'Nieuw theorie-lesprofiel')
+    : (profielId ? 'Lesprofiel bewerken' : 'Nieuw lesprofiel');
+
   openModal(`
-    <h2>${profielId ? 'Lesprofiel bewerken' : 'Nieuw lesprofiel'}</h2>
+    <h2>${titels}</h2>
+    <input type="hidden" id="lp-istheorie" value="${isTheorie ? '1' : '0'}">
     <div class="form-grid">
       <div class="form-field form-full">
         <label>Naam *</label>
@@ -130,10 +148,10 @@ async function openNieuwProfielModal(vakId = null, profielId = null) {
         </select>
       </div>
       <div class="form-field form-full">
-        <label>Lesmodule koppelen</label>
+        <label>${isTheorie ? 'Theorie module koppelen' : 'Lesmodule koppelen'}</label>
         <select id="lp-module">
           <option value="">— Geen module —</option>
-          ${modules.map(m => `<option value="${m.id}" data-vakid="${escHtml(m.vakId || '')}" ${p?.moduleId === m.id ? 'selected' : ''}>${escHtml(m.naam)}${m.niveau ? ' [' + m.niveau + ']' : ''}</option>`).join('')}
+          ${modules.map(m => `<option value="${m.id}" data-vakid="${escHtml(m.vakId || '')}" data-istheorie="${m.isTheorieModule ? '1' : '0'}" ${p?.moduleId === m.id ? 'selected' : ''}>${escHtml(m.naam)}${m.niveau ? ' [' + m.niveau + ']' : ''}</option>`).join('')}
         </select>
       </div>
       <div class="form-field">
@@ -163,12 +181,15 @@ async function openNieuwProfielModal(vakId = null, profielId = null) {
 
 function lpFilterModules() {
   const vakId = document.getElementById('lp-vak')?.value || '';
+  const isTheorie = document.getElementById('lp-istheorie')?.value === '1';
   const select = document.getElementById('lp-module');
   if (!select) return;
   [...select.options].forEach(opt => {
     if (!opt.value) { opt.hidden = false; return; }
     const moduleVakken = (opt.dataset.vakid || '').split(',').map(x => x.trim()).filter(Boolean);
-    opt.hidden = moduleVakken.length > 0 && !moduleVakken.includes(vakId);
+    const vakMatch = moduleVakken.length === 0 || moduleVakken.includes(vakId);
+    const typeMatch = isTheorie ? opt.dataset.istheorie === '1' : opt.dataset.istheorie !== '1';
+    opt.hidden = !vakMatch || !typeMatch;
   });
   if (select.selectedOptions[0]?.hidden) select.value = '';
 }
