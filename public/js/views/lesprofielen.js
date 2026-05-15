@@ -1,7 +1,3 @@
-// ============================================================
-// lesprofielen.js — Lean lesprofielen (naam + module + uren)
-// ============================================================
-
 function lpNormalizeNiveau(value) {
   const raw = String(value || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
   if (!raw) return '';
@@ -110,11 +106,10 @@ async function openNieuwProfielModal(vakId = null, profielId = null) {
   const p = profielId ? profielen.find(x => x.id === profielId) : null;
   const bewerken = !!profielId;
 
-  // Module-dropdown alleen bij bewerken
   const moduleHtml = bewerken ? `
     <div class="form-field form-full">
       <label>Module koppelen</label>
-      <select id="lp-module" onchange="lpModuleGewijzigd()">
+      <select id="lp-module" onchange="moduleGewijzigd('lp-module')">
         <option value="">— Geen module —</option>
         ${modules.map(m => `<option value="${m.id}" data-vakid="${escHtml(m.vakId || '')}" data-istheorie="${m.isTheorieModule ? '1' : '0'}" data-niveau="${escHtml(m.niveau || '')}" ${p?.moduleId === m.id ? 'selected' : ''}>${escHtml(m.naam)}${m.isTheorieModule ? ' (theorie)' : ''}</option>`).join('')}
       </select>
@@ -135,23 +130,7 @@ async function openNieuwProfielModal(vakId = null, profielId = null) {
       </div>
       <div class="form-field form-full">
         <label>Niveau(s) en uren${bewerken ? '' : ' — per niveau een apart profiel'}</label>
-        <div style="display:flex;flex-direction:column;gap:8px;margin-top:2px">
-          <div class="lm-niveau-checkboxes" style="margin-bottom:2px">
-            ${['BB', 'KB', 'GL', 'TL', 'Havo', 'VWO'].map(n => `<label class="lm-niveau-checkbox">
-              <input type="checkbox" name="lp-niveau" value="${n}"
-                ${(p?.niveau || '') === n ? 'checked' : ''}
-                onchange="lpNiveauCheckChanged()">
-              ${n}
-            </label>`).join('')}
-          </div>
-          <div style="display:flex;gap:6px;font-size:10px;color:var(--ink-muted);padding:0 2px">
-            <span style="min-width:36px"></span>
-            <span style="width:64px;text-align:center">Totaal</span>
-            <span style="width:64px;text-align:center">Theorie</span>
-            <span style="width:64px;text-align:center">Praktijk</span>
-          </div>
-          <div id="lp-uren-per-niveau" style="display:flex;flex-direction:column;gap:6px"></div>
-        </div>
+        ${lpNiveauUrenSectieHtml(p?.niveau || '')}
       </div>
       ${moduleHtml}
       <div class="form-field form-full">
@@ -164,10 +143,9 @@ async function openNieuwProfielModal(vakId = null, profielId = null) {
       <button class="btn btn-primary" onclick="slaProfielOp('${profielId || ''}')">Opslaan</button>
     </div>
   `);
-  // Initieel uren-inputs renderen
   if (bewerken) {
     lpNiveauCheckChanged({ totaal: p?.urenPerWeek || '', theorie: p?.urenTheorie || '', praktijk: p?.urenPraktijk || '' });
-    setTimeout(lpModuleGewijzigd, 0);
+    setTimeout(() => moduleGewijzigd('lp-module'), 0);
   } else {
     lpNiveauCheckChanged();
   }
@@ -178,7 +156,6 @@ function lpNiveauCheckChanged(bestaand = {}) {
   if (!container) return;
   const niveauKleur = { BB: '#f59e0b', KB: '#3b82f6', GL: '#8b5cf6', TL: '#8b5cf6', Havo: '#0891b2', VWO: '#ef4444' };
   const checked = [...document.querySelectorAll('input[name="lp-niveau"]:checked')].map(cb => cb.value);
-  // Bewaar bestaande ingevoerde waarden
   const huidige = {};
   container.querySelectorAll('[data-niveau]').forEach(el => {
     const inputs = el.querySelectorAll('input');
@@ -200,31 +177,56 @@ function lpNiveauCheckChanged(bestaand = {}) {
   }).join('');
 }
 
-function lpModuleGewijzigd() {
-  lpFilterModules();
-  const select = document.getElementById('lp-module');
-  const groep = document.getElementById('lp-niveau-groep');
-  if (!select || !groep) return;
-  const gekozen = select.selectedOptions[0];
-  const moduleNiveaus = (gekozen?.dataset.niveau || '').split(',').map(x => x.trim()).filter(Boolean);
-  groep.querySelectorAll('input[name="lp-niveau"]').forEach(cb => {
+function lpNiveauUrenSectieHtml(gekozenNiveau = '') {
+  return `<div style="display:flex;flex-direction:column;gap:8px;margin-top:2px">
+    <div class="lm-niveau-checkboxes" style="margin-bottom:2px">
+      ${['BB', 'KB', 'GL', 'TL', 'Havo', 'VWO'].map(n => `<label class="lm-niveau-checkbox">
+        <input type="checkbox" name="lp-niveau" value="${n}"
+          ${gekozenNiveau === n ? 'checked' : ''}
+          onchange="lpNiveauCheckChanged()">
+        ${n}
+      </label>`).join('')}
+    </div>
+    <div style="display:flex;gap:6px;font-size:10px;color:var(--ink-muted);padding:0 2px">
+      <span style="min-width:36px"></span>
+      <span style="width:64px;text-align:center">Totaal</span>
+      <span style="width:64px;text-align:center">Theorie</span>
+      <span style="width:64px;text-align:center">Praktijk</span>
+    </div>
+    <div id="lp-uren-per-niveau" style="display:flex;flex-direction:column;gap:6px"></div>
+  </div>`;
+}
+
+function readUrenPerNiveau() {
+  const result = {};
+  document.getElementById('lp-uren-per-niveau')?.querySelectorAll('[data-niveau]').forEach(el => {
+    const inputs = el.querySelectorAll('input');
+    result[el.dataset.niveau] = { totaal: parseFloat(inputs[0]?.value)||0, theorie: parseFloat(inputs[1]?.value)||0, praktijk: parseFloat(inputs[2]?.value)||0 };
+  });
+  return result;
+}
+
+function moduleGewijzigd(selectId) {
+  if (selectId === 'lp-module') lpFilterModules();
+  const sel = document.getElementById(selectId);
+  const opt = sel?.selectedOptions[0];
+  const moduleNiveaus = (opt?.dataset.niveau || '').split(',').map(x => x.trim()).filter(Boolean);
+  document.querySelectorAll('input[name="lp-niveau"]').forEach(cb => {
     const inModule = moduleNiveaus.length === 0 || moduleNiveaus.includes(cb.value);
     cb.closest('label').style.display = inModule ? '' : 'none';
     cb.checked = moduleNiveaus.includes(cb.value);
   });
+  lpNiveauCheckChanged();
 }
 
 function lpFilterModules() {
   const vakId = document.getElementById('lp-vak')?.value || '';
-  const isTheorie = document.getElementById('lp-istheorie')?.value === '1';
   const select = document.getElementById('lp-module');
   if (!select) return;
   [...select.options].forEach(opt => {
     if (!opt.value) { opt.hidden = false; return; }
     const moduleVakken = (opt.dataset.vakid || '').split(',').map(x => x.trim()).filter(Boolean);
-    const vakMatch = moduleVakken.length === 0 || moduleVakken.includes(vakId);
-    const typeMatch = isTheorie ? opt.dataset.istheorie === '1' : opt.dataset.istheorie !== '1';
-    opt.hidden = !vakMatch || !typeMatch;
+    opt.hidden = moduleVakken.length > 0 && !moduleVakken.includes(vakId);
   });
   if (select.selectedOptions[0]?.hidden) select.value = '';
 }
@@ -239,28 +241,14 @@ async function openKoppelModuleModal(vakId) {
     <div class="form-grid">
       <div class="form-field form-full">
         <label>Module *</label>
-        <select id="km-module" onchange="kmModuleGewijzigd()">
+        <select id="km-module" onchange="moduleGewijzigd('km-module')">
           <option value="">— Kies een module —</option>
           ${vakModules.map(m => `<option value="${m.id}" data-naam="${escHtml(m.naam)}" data-niveau="${escHtml(m.niveau || '')}">${escHtml(m.naam)}${m.isTheorieModule ? ' (theorie)' : ''}${m.niveau ? ' [' + m.niveau + ']' : ''}</option>`).join('')}
         </select>
       </div>
       <div class="form-field form-full">
         <label>Niveau(s) en uren — per niveau een apart profiel</label>
-        <div style="display:flex;flex-direction:column;gap:8px;margin-top:2px">
-          <div class="lm-niveau-checkboxes">
-            ${['BB','KB','GL','TL','Havo','VWO'].map(n => `<label class="lm-niveau-checkbox">
-              <input type="checkbox" name="lp-niveau" value="${n}" onchange="lpNiveauCheckChanged()">
-              ${n}
-            </label>`).join('')}
-          </div>
-          <div style="display:flex;gap:6px;font-size:10px;color:var(--ink-muted);padding:0 2px">
-            <span style="min-width:36px"></span>
-            <span style="width:64px;text-align:center">Totaal</span>
-            <span style="width:64px;text-align:center">Theorie</span>
-            <span style="width:64px;text-align:center">Praktijk</span>
-          </div>
-          <div id="lp-uren-per-niveau" style="display:flex;flex-direction:column;gap:6px"></div>
-        </div>
+        ${lpNiveauUrenSectieHtml()}
       </div>
     </div>
     <div class="modal-actions">
@@ -270,40 +258,21 @@ async function openKoppelModuleModal(vakId) {
   `);
 }
 
-function kmModuleGewijzigd() {
-  const sel = document.getElementById('km-module');
-  const opt = sel?.selectedOptions[0];
-  const moduleNiveaus = (opt?.dataset.niveau || '').split(',').map(x => x.trim()).filter(Boolean);
-  document.querySelectorAll('input[name="lp-niveau"]').forEach(cb => {
-    const inModule = moduleNiveaus.length === 0 || moduleNiveaus.includes(cb.value);
-    cb.closest('label').style.display = inModule ? '' : 'none';
-    cb.checked = moduleNiveaus.includes(cb.value);
-  });
-  lpNiveauCheckChanged();
-}
-
 async function slaKoppelModuleOp(vakId) {
-  const moduleId = document.getElementById('km-module')?.value || null;
-  if (!moduleId) { alert('Kies een module.'); return; }
   const moduleSel = document.getElementById('km-module');
+  const moduleId = moduleSel?.value || null;
+  if (!moduleId) { alert('Kies een module.'); return; }
   const moduleNaam = moduleSel?.selectedOptions[0]?.dataset.naam || '';
-  const urenContainer = document.getElementById('lp-uren-per-niveau');
-  const urenPerNiveau = {};
-  urenContainer?.querySelectorAll('[data-niveau]').forEach(el => {
-    const inputs = el.querySelectorAll('input');
-    urenPerNiveau[el.dataset.niveau] = { totaal: parseFloat(inputs[0]?.value)||0, theorie: parseFloat(inputs[1]?.value)||0, praktijk: parseFloat(inputs[2]?.value)||0 };
-  });
+  const urenPerNiveau = readUrenPerNiveau();
   const lijst = Object.keys(urenPerNiveau).length ? Object.entries(urenPerNiveau) : [['', {}]];
   try {
-    let eersteId = null;
-    for (const [niveau, u] of lijst) {
+    const results = await Promise.all(lijst.map(([niveau, u]) => {
       const naam = lijst.length > 1 ? `${moduleNaam} ${niveau}`.trim() : moduleNaam;
-      const r = await API.addLesprofiel({ naam, vakId, niveau, moduleId, urenPerWeek: u.totaal||0, urenTheorie: u.theorie||0, urenPraktijk: u.praktijk||0 });
-      if (!eersteId) eersteId = r.id;
-    }
+      return API.addLesprofiel({ naam, vakId, niveau, moduleId, urenPerWeek: u.totaal||0, urenTheorie: u.theorie||0, urenPraktijk: u.praktijk||0 });
+    }));
     closeModalDirect();
     Cache.invalidateAll();
-    lijst.length > 1 ? renderLesprofielen() : openProfielDetail(eersteId);
+    lijst.length > 1 ? renderLesprofielen() : openProfielDetail(results[0]?.id);
   } catch(e) { showError(e.message); }
 }
 
@@ -312,24 +281,12 @@ async function slaProfielOp(profielId) {
   const vakId = document.getElementById('lp-vak').value;
   const moduleId = document.getElementById('lp-module')?.value || null;
   const beschrijving = document.getElementById('lp-beschrijving').value.trim();
-
-  // Uren per niveau uitlezen (totaal, theorie, praktijk)
-  const urenContainer = document.getElementById('lp-uren-per-niveau');
-  const urenPerNiveau = {};
-  urenContainer?.querySelectorAll('[data-niveau]').forEach(el => {
-    const inputs = el.querySelectorAll('input');
-    urenPerNiveau[el.dataset.niveau] = {
-      totaal:   parseFloat(inputs[0]?.value) || 0,
-      theorie:  parseFloat(inputs[1]?.value) || 0,
-      praktijk: parseFloat(inputs[2]?.value) || 0,
-    };
-  });
+  const urenPerNiveau = readUrenPerNiveau();
 
   if (!naam) { alert('Naam is verplicht.'); return; }
 
   try {
     if (profielId) {
-      // Bewerken: eerste aangevinkte niveau
       const niveau = [...document.querySelectorAll('input[name="lp-niveau"]:checked')].map(cb => cb.value)[0] || '';
       const u = urenPerNiveau[niveau] || {};
       await API.updateLesprofiel(profielId, { naam, vakId, niveau, moduleId, urenPerWeek: u.totaal || 0, urenTheorie: u.theorie || 0, urenPraktijk: u.praktijk || 0, beschrijving });
@@ -337,21 +294,14 @@ async function slaProfielOp(profielId) {
       Cache.invalidateAll();
       openProfielDetail(profielId);
     } else {
-      // Nieuw: één profiel per aangevinkt niveau met eigen uren
       const lijst = Object.keys(urenPerNiveau).length ? Object.entries(urenPerNiveau) : [['', {}]];
-      let eersteId = null;
-      for (const [niveau, u] of lijst) {
+      const results = await Promise.all(lijst.map(([niveau, u]) => {
         const profielNaam = lijst.length > 1 ? `${naam} ${niveau}`.trim() : naam;
-        const r = await API.addLesprofiel({ naam: profielNaam, vakId, niveau, moduleId, urenPerWeek: u.totaal || 0, urenTheorie: u.theorie || 0, urenPraktijk: u.praktijk || 0, beschrijving });
-        if (!eersteId) eersteId = r.id;
-      }
+        return API.addLesprofiel({ naam: profielNaam, vakId, niveau, moduleId, urenPerWeek: u.totaal || 0, urenTheorie: u.theorie || 0, urenPraktijk: u.praktijk || 0, beschrijving });
+      }));
       closeModalDirect();
       Cache.invalidateAll();
-      if (lijst.length > 1) {
-        renderLesprofielen();
-      } else {
-        openProfielDetail(eersteId);
-      }
+      lijst.length > 1 ? renderLesprofielen() : openProfielDetail(results[0]?.id);
     }
   } catch(e) { showError(e.message); }
 }
@@ -407,7 +357,6 @@ async function openProfielDetail(profielId) {
          <button class="btn btn-sm btn-primary" style="margin-top:14px" onclick="openKoppelModal('${p.id}')">+ Koppelen aan andere klas</button>
        </div>`;
 
-  // Module-inhoud weergeven
   let moduleInhoudHTML = '';
   if (mod) {
     const stappen = mod.stappen || [];
@@ -452,7 +401,6 @@ async function openProfielDetail(profielId) {
         </div>
       </div>`;
   } else if (p.weken && p.weken.length > 0) {
-    // Oud profiel met weken-JSON — toon in read-only modus
     moduleInhoudHTML = `
       <div class="card" style="margin-bottom:20px">
         <div class="card-header"><h2>Weekindeling (oud formaat)</h2></div>
@@ -749,7 +697,6 @@ async function slaKoppelingOp(profielId) {
   const klas = klassen.find(k => k.id === klasId);
   if (!p || !klas) return;
 
-  // Verwijder bestaande gekoppelde opdrachten
   const bestaandeOpd = await API.getOpdrachten(klasId);
   const teVerwijderen = bestaandeOpd.filter(o => o.profielId === profielId);
   for (const o of teVerwijderen) { await API.deleteOpdracht(o.id); }
@@ -778,7 +725,6 @@ async function slaKoppelingOp(profielId) {
           stapNaam: t.stapNaam || stapInfo?.naam || '',
           stapIndex: stapInfo?.index ?? null,
         });
-        // Voeg toets toe als de stap een toets heeft
         if (stapInfo && stapInfo.heeftToets) {
           await API.addOpdracht({
             naam: `Toets — ${t.stapNaam || p.naam}`,
@@ -807,7 +753,6 @@ async function slaKoppelingOp(profielId) {
       }
     }
   } else {
-    // Geen AI-verdeling: maak 1 blok-opdracht per week
     for (let i = 0; i < schoolWeken.length; i++) {
       const sw = schoolWeken[i];
       await API.addOpdracht({
