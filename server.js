@@ -22,7 +22,12 @@ app.set('trust proxy', 1);
 const PORT = process.env.PORT || 3001;
 
 if (!process.env.SESSION_SECRET) {
-  console.warn('⚠️  WAARSCHUWING: SESSION_SECRET niet ingesteld in .env!');
+  if (process.env.NODE_ENV === 'production') {
+    console.error('FATALE FOUT: SESSION_SECRET is niet ingesteld. Zet SESSION_SECRET in .env en herstart de server.');
+    process.exit(1);
+  } else {
+    console.warn('⚠️  WAARSCHUWING: SESSION_SECRET niet ingesteld in .env!');
+  }
 }
 if (!process.env.RESEND_API_KEY) {
   console.warn('⚠️  WAARSCHUWING: RESEND_API_KEY niet ingesteld — wachtwoord reset e-mails werken niet.');
@@ -106,7 +111,20 @@ const upload = multer({ storage, limits: { fileSize: 25 * 1024 * 1024 }, fileFil
 const uploadSingle = upload;
 const uploadMemory = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 
-app.use(helmet({ contentSecurityPolicy: false }));
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc:  ["'self'"],
+      scriptSrc:   ["'self'", "'unsafe-inline'"],
+      styleSrc:    ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+      fontSrc:     ["'self'", "https://fonts.gstatic.com"],
+      imgSrc:      ["'self'", "data:", "blob:"],
+      connectSrc:  ["'self'"],
+      objectSrc:   ["'none'"],
+      frameAncestors: ["'none'"],
+    },
+  },
+}));
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 app.use((err, req, res, next) => {
@@ -122,7 +140,14 @@ app.get('/app', (req, res) => res.sendFile(path.join(__dirname, 'public', 'app.h
 app.get('/reset-wachtwoord', (req, res) => res.sendFile(path.join(__dirname, 'public', 'app.html')));
 
 app.use(express.static(path.join(__dirname, 'public')));
-app.use('/uploads', express.static(uploadDir));
+// Uploads vereisen authenticatie — geen open static serve
+app.get('/uploads/:filename', (req, res) => {
+  if (!req.session?.user) return res.status(401).json({ error: 'Niet ingelogd' });
+  const filename = path.basename(req.params.filename);
+  const filePath = path.join(uploadDir, filename);
+  if (!fs.existsSync(filePath)) return res.status(404).json({ error: 'Niet gevonden' });
+  res.sendFile(filePath);
+});
 const sessionDb = require('better-sqlite3')(path.join(__dirname, 'db', 'sessions.db'));
 app.use(session({
   store: new BetterSqlite3Store({ client: sessionDb, expired: { clear: true, intervalMs: 15 * 60 * 1000 } }),
@@ -132,6 +157,7 @@ app.use(session({
   cookie: {
     secure: process.env.NODE_ENV === 'production',
     httpOnly: true,
+    sameSite: 'lax',
     maxAge: 8 * 60 * 60 * 1000
   }
 }));
@@ -148,6 +174,35 @@ function requireCanEdit(req, res, next) {
   if (!req.session.user || (req.session.user.rol !== 'admin' && req.session.user.rol !== 'docent')) {
     return res.status(403).json({ error: 'Geen schrijfrechten' });
   }
+  next();
+}
+
+// Controleert of ingelogde docent bij de klas hoort (admin mag altijd)
+function _isKlasDocent(user, klas) {
+  if (!klas) return false;
+  const docenten = klas.docenten || [];
+  return docenten.includes(user.id) || klas.docentId === user.id;
+}
+function requireKlasEigenaar(req, res, next) {
+  if (req.session.user.rol === 'admin') return next();
+  const klas = db.getKlas(req.params.id);
+  if (!klas) return res.status(404).json({ error: 'Niet gevonden' });
+  if (!_isKlasDocent(req.session.user, klas)) return res.status(403).json({ error: 'Geen toegang tot deze klas' });
+  next();
+}
+function requireOpdrachtEigenaar(req, res, next) {
+  if (req.session.user.rol === 'admin') return next();
+  const o = db.getOpdracht(req.params.id);
+  if (!o) return res.status(404).json({ error: 'Niet gevonden' });
+  const klas = db.getKlas(o.klasId);
+  if (!_isKlasDocent(req.session.user, klas)) return res.status(403).json({ error: 'Geen toegang tot deze opdracht' });
+  next();
+}
+function requireProfielEigenaar(req, res, next) {
+  if (req.session.user.rol === 'admin') return next();
+  const p = db.getLesprofiel(req.params.id);
+  if (!p) return res.status(404).json({ error: 'Niet gevonden' });
+  if (p.docentId !== req.session.user.id) return res.status(403).json({ error: 'Geen toegang tot dit lesprofiel' });
   next();
 }
 
@@ -337,8 +392,8 @@ app.get('/api/klassen', requireAuth, (req, res) => {
   res.json(db.getKlassen(u.rol === 'docent' ? u.id : null));
 });
 app.post('/api/klassen', requireAdmin, (req, res) => res.json(db.addKlas(req.body)));
-app.put('/api/klassen/:id', requireCanEdit, (req, res) => { db.updateKlas(req.params.id, req.body); res.json({ success: true }); });
-app.delete('/api/klassen/:id', requireCanEdit, (req, res) => { db.deleteKlas(req.params.id); res.json({ success: true }); });
+app.put('/api/klassen/:id', requireCanEdit, requireKlasEigenaar, (req, res) => { db.updateKlas(req.params.id, req.body); res.json({ success: true }); });
+app.delete('/api/klassen/:id', requireCanEdit, requireKlasEigenaar, (req, res) => { db.deleteKlas(req.params.id); res.json({ success: true }); });
 
 // ============================================================
 // SCHOOLJAREN
@@ -388,11 +443,11 @@ app.get('/api/opdrachten/:id', requireAuth, (req, res) => {
   res.json(o);
 });
 app.post('/api/opdrachten', requireCanEdit, (req, res) => res.json(db.addOpdracht(req.body)));
-app.put('/api/opdrachten/:id', requireCanEdit, (req, res) => {
+app.put('/api/opdrachten/:id', requireCanEdit, requireOpdrachtEigenaar, (req, res) => {
   db.updateOpdracht(req.params.id, req.body);
   res.json({ success: true });
 });
-app.delete('/api/opdrachten/:id', requireCanEdit, (req, res) => {
+app.delete('/api/opdrachten/:id', requireCanEdit, requireOpdrachtEigenaar, (req, res) => {
   db.deleteOpdracht(req.params.id);
   res.json({ success: true });
 });
@@ -444,11 +499,11 @@ app.post('/api/lesprofielen', requireCanEdit, (req, res) => {
   const r = db.addLesprofiel({ ...req.body, docentId: req.session.user.id });
   res.json(r);
 });
-app.put('/api/lesprofielen/:id', requireCanEdit, (req, res) => {
+app.put('/api/lesprofielen/:id', requireCanEdit, requireProfielEigenaar, (req, res) => {
   db.updateLesprofiel(req.params.id, req.body);
   res.json({ success: true });
 });
-app.delete('/api/lesprofielen/:id', requireCanEdit, (req, res) => {
+app.delete('/api/lesprofielen/:id', requireCanEdit, requireProfielEigenaar, (req, res) => {
   db.deleteLesprofiel(req.params.id);
   res.json({ success: true });
 });
