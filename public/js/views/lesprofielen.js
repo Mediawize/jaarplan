@@ -60,6 +60,7 @@ async function renderLesprofielen() {
             return `<div class="card" style="margin-bottom:20px">
               <div class="card-header">
                 <div><h2>${escHtml(vak.naam)} — ${escHtml(vak.volledig || '')}</h2><div class="card-meta">${vp.length} profiel${vp.length !== 1 ? 'en' : ''}</div></div>
+                <button class="btn btn-sm" style="background:#eff6ff;border-color:#93c5fd;color:#2563eb" onclick="openKoppelModuleModal('${vak.id}')">+ Module</button>
               </div>
               ${niveaus.map(niveau => {
                 const groep = perNiveau[niveau];
@@ -87,7 +88,6 @@ async function renderLesprofielen() {
                         </div>
                         <div class="lp-kaart-acties">
                           <button class="btn btn-sm btn-primary" style="flex:1" onclick="event.stopPropagation();openKoppelModal('${p.id}')">Koppelen →</button>
-                          <button class="btn btn-sm" style="background:#eff6ff;border-color:#93c5fd;color:#2563eb" onclick="event.stopPropagation();openKoppelModuleModal('${p.id}','${p.vakId}')">+ Module</button>
                           <button class="btn btn-sm" onclick="event.stopPropagation();openNieuwProfielModal('${p.vakId}','${p.id}')">✏️</button>
                           <button class="btn btn-sm" style="color:var(--red);border-color:rgba(220,38,38,0.3)" onclick="event.stopPropagation();verwijderProfiel('${p.id}')">🗑</button>
                         </div>
@@ -230,38 +230,81 @@ function lpFilterModules() {
   if (select.selectedOptions[0]?.hidden) select.value = '';
 }
 
-async function openKoppelModuleModal(profielId, vakId) {
-  const modules = await API.getLesModules();
-  const moduleOpties = modules
-    .filter(m => !m.vakId || m.vakId.split(',').map(x => x.trim()).includes(vakId))
-    .map(m => `<option value="${m.id}">${escHtml(m.naam)}${m.isTheorieModule ? ' (theorie)' : ''}${m.niveau ? ' [' + m.niveau + ']' : ''}</option>`)
-    .join('');
+async function openKoppelModuleModal(vakId) {
+  const [vakken, modules] = await Promise.all([API.getVakken(), API.getLesModules()]);
+  const vak = vakken.find(v => v.id === vakId);
+  const vakModules = modules.filter(m => !m.vakId || m.vakId.split(',').map(x => x.trim()).includes(vakId));
 
   openModal(`
-    <h2>Module koppelen</h2>
+    <h2>Module toevoegen aan ${escHtml(vak?.naam || '')}</h2>
     <div class="form-grid">
       <div class="form-field form-full">
-        <label>Module</label>
-        <select id="km-module">
-          <option value="">— Geen module —</option>
-          ${moduleOpties}
+        <label>Module *</label>
+        <select id="km-module" onchange="kmModuleGewijzigd()">
+          <option value="">— Kies een module —</option>
+          ${vakModules.map(m => `<option value="${m.id}" data-naam="${escHtml(m.naam)}" data-niveau="${escHtml(m.niveau || '')}">${escHtml(m.naam)}${m.isTheorieModule ? ' (theorie)' : ''}${m.niveau ? ' [' + m.niveau + ']' : ''}</option>`).join('')}
         </select>
+      </div>
+      <div class="form-field form-full">
+        <label>Niveau(s) en uren — per niveau een apart profiel</label>
+        <div style="display:flex;flex-direction:column;gap:8px;margin-top:2px">
+          <div class="lm-niveau-checkboxes">
+            ${['BB','KB','GL','TL','Havo','VWO'].map(n => `<label class="lm-niveau-checkbox">
+              <input type="checkbox" name="km-niveau" value="${n}" onchange="lpNiveauCheckChanged()" data-container="lp-uren-per-niveau">
+              ${n}
+            </label>`).join('')}
+          </div>
+          <div style="display:flex;gap:6px;font-size:10px;color:var(--ink-muted);padding:0 2px">
+            <span style="min-width:36px"></span>
+            <span style="width:64px;text-align:center">Totaal</span>
+            <span style="width:64px;text-align:center">Theorie</span>
+            <span style="width:64px;text-align:center">Praktijk</span>
+          </div>
+          <div id="lp-uren-per-niveau" style="display:flex;flex-direction:column;gap:6px"></div>
+        </div>
       </div>
     </div>
     <div class="modal-actions">
       <button class="btn" onclick="closeModalDirect()">Annuleren</button>
-      <button class="btn btn-primary" onclick="slaKoppelModuleOp('${profielId}')">Koppelen</button>
+      <button class="btn btn-primary" onclick="slaKoppelModuleOp('${vakId}')">Toevoegen</button>
     </div>
   `);
 }
 
-async function slaKoppelModuleOp(profielId) {
+function kmModuleGewijzigd() {
+  const sel = document.getElementById('km-module');
+  const opt = sel?.selectedOptions[0];
+  const moduleNiveaus = (opt?.dataset.niveau || '').split(',').map(x => x.trim()).filter(Boolean);
+  document.querySelectorAll('input[name="km-niveau"]').forEach(cb => {
+    const inModule = moduleNiveaus.length === 0 || moduleNiveaus.includes(cb.value);
+    cb.closest('label').style.display = inModule ? '' : 'none';
+    cb.checked = moduleNiveaus.includes(cb.value);
+  });
+  lpNiveauCheckChanged();
+}
+
+async function slaKoppelModuleOp(vakId) {
   const moduleId = document.getElementById('km-module')?.value || null;
+  if (!moduleId) { alert('Kies een module.'); return; }
+  const moduleSel = document.getElementById('km-module');
+  const moduleNaam = moduleSel?.selectedOptions[0]?.dataset.naam || '';
+  const urenContainer = document.getElementById('lp-uren-per-niveau');
+  const urenPerNiveau = {};
+  urenContainer?.querySelectorAll('[data-niveau]').forEach(el => {
+    const inputs = el.querySelectorAll('input');
+    urenPerNiveau[el.dataset.niveau] = { totaal: parseFloat(inputs[0]?.value)||0, theorie: parseFloat(inputs[1]?.value)||0, praktijk: parseFloat(inputs[2]?.value)||0 };
+  });
+  const lijst = Object.keys(urenPerNiveau).length ? Object.entries(urenPerNiveau) : [['', {}]];
   try {
-    await API.updateLesprofiel(profielId, { moduleId });
+    let eersteId = null;
+    for (const [niveau, u] of lijst) {
+      const naam = lijst.length > 1 ? `${moduleNaam} ${niveau}`.trim() : moduleNaam;
+      const r = await API.addLesprofiel({ naam, vakId, niveau, moduleId, urenPerWeek: u.totaal||0, urenTheorie: u.theorie||0, urenPraktijk: u.praktijk||0 });
+      if (!eersteId) eersteId = r.id;
+    }
     closeModalDirect();
     Cache.invalidateAll();
-    openProfielDetail(profielId);
+    lijst.length > 1 ? renderLesprofielen() : openProfielDetail(eersteId);
   } catch(e) { showError(e.message); }
 }
 
