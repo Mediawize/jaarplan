@@ -23,7 +23,11 @@ async function renderLesModules() {
     const docentVakken = Auth.currentUser?.vakken || [];
     const zichtbaar = isAdmin
       ? modules
-      : modules.filter(m => !m.vakId || docentVakken.includes(m.vakId));
+      : modules.filter(m => {
+          if (!m.vakId) return true;
+          const ids = m.vakId.split(',').map(x => x.trim()).filter(Boolean);
+          return ids.some(v => docentVakken.includes(v));
+        });
 
     const typeInfo = {
       profieldeel: { label: 'Profieldelen', typeLabel: 'Profieldeel', kleur: 'var(--blue-text)' },
@@ -433,11 +437,16 @@ async function openLesModuleModal(moduleId = null, preset = {}) {
         </div>
       </div>
       <div class="form-field">
-        <label>Vak</label>
-        <select id="lm-vak">
-          <option value="">Geen specifiek vak</option>
-          ${vakken.map(v => `<option value="${v.id}" ${((m?.vakId || basisVakId) === v.id) ? 'selected' : ''}>${escHtml(v.naam)}</option>`).join('')}
-        </select>
+        <label>Vak(ken)</label>
+        <div class="lm-niveau-checkboxes">
+          ${vakken.map(v => {
+            const gesVakken = (m?.vakId || basisVakId || '').split(',').map(x => x.trim());
+            return `<label class="lm-niveau-checkbox">
+              <input type="checkbox" name="lm-vak" value="${escHtml(v.id)}" ${gesVakken.includes(v.id) ? 'checked' : ''}>
+              ${escHtml(v.naam)}
+            </label>`;
+          }).join('')}
+        </div>
       </div>
       <div class="form-field form-full"><label>Naam *</label><input id="lm-naam" value="${escHtml(m?.naam || basisNaam || '')}" placeholder="bijv. Booglasprocessen"></div>
       <div class="form-field form-full"><label>Beschrijving</label>
@@ -690,7 +699,7 @@ function lmVoegLesToe(btn) {
   const stapIdx = hoofdstappen.indexOf(stap);
   const div = document.createElement('div');
   div.innerHTML = lmLesHtml(stapIdx, bestaandeLessen, '');
-  lessenDiv.insertBefore(div.firstElementChild, btn);
+  lessenDiv.insertBefore(div.firstElementChild, btn.parentElement);
   lessenDiv.querySelectorAll('.lm-les-input')[bestaandeLessen]?.focus();
   lmUpdateLesNummers(stap);
   lmUpdateVoegLesKnop(stap);
@@ -971,7 +980,7 @@ async function lmUploadToetsMateriaal(btn) {
   const file = input?.files?.[0];
   if (!file) { alert('Kies eerst een toetsbestand.'); return; }
   const stapNaam = stap.querySelector('.lm-hoofdstap-input')?.value.trim() || 'Toets';
-  const vakNaam = document.getElementById('lm-vak')?.selectedOptions?.[0]?.textContent || '';
+  const vakNaam = _lmGetVakNaam();
   const oudeTekst = btn.textContent;
   btn.disabled = true; btn.textContent = '⏳';
   try {
@@ -1004,7 +1013,7 @@ async function lmUploadPraktijkMateriaal(btn, type) {
   const file = input?.files?.[0];
   if (!file) { alert('Kies eerst een werkboekje.'); return; }
   const naam = naamInput?.value.trim() || file.name || 'Werkboekje';
-  const vakNaam = document.getElementById('lm-vak')?.selectedOptions?.[0]?.textContent || '';
+  const vakNaam = _lmGetVakNaam();
   const oudeTekst = btn.textContent;
   btn.disabled = true; btn.textContent = '⏳';
   try {
@@ -1041,7 +1050,7 @@ async function lmUploadGedeeldMateriaal(btn, type) {
   const file = input?.files?.[0];
   if (!file) { alert('Kies eerst een werkboekje.'); return; }
   const naam = naamInput?.value.trim() || file.name || 'Werkboekje';
-  const vakNaam = document.getElementById('lm-vak')?.selectedOptions?.[0]?.textContent || '';
+  const vakNaam = _lmGetVakNaam();
   const oudeTekst = btn.textContent;
   btn.disabled = true; btn.textContent = '⏳';
   try {
@@ -1405,6 +1414,14 @@ function _lmGetNiveau() {
   return [...document.querySelectorAll('input[name="lm-niveau"]:checked')]
     .map(cb => cb.value).filter(Boolean).join(',');
 }
+function _lmGetVakId() {
+  return [...document.querySelectorAll('input[name="lm-vak"]:checked')]
+    .map(cb => cb.value).filter(Boolean).join(',') || null;
+}
+function _lmGetVakNaam() {
+  return [...document.querySelectorAll('input[name="lm-vak"]:checked')]
+    .map(cb => cb.closest('label')?.textContent?.trim() || cb.value).filter(Boolean).join(', ');
+}
 
 async function slaLesModuleOp(moduleId) {
   const naam = document.getElementById('lm-naam')?.value.trim();
@@ -1416,7 +1433,7 @@ async function slaLesModuleOp(moduleId) {
     naam,
     type: document.getElementById('lm-type')?.value || 'profieldeel',
     categorie: 'theorie',
-    vakId: document.getElementById('lm-vak')?.value || null,
+    vakId: _lmGetVakId(),
     niveau,
     beschrijving: document.getElementById('lm-beschrijving')?.value.trim() || '',
     stappen: lmLeesStappen(),
