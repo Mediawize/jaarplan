@@ -718,6 +718,23 @@
 .td-actions{background:#eef2ff;border-color:#dbeafe;}.td-actions button{width:100%;height:34px;margin-top:8px;text-align:left;border:1px solid #dbeafe;background:#fff;border-radius:7px;padding:0 10px;font-weight:700;color:#111827;cursor:pointer;font-family:inherit;}.td-actions span{float:right;background:#7c3aed;color:#fff;border-radius:999px;padding:2px 6px;font-size:10px;}
 .td-tip{border-radius:14px;background:#dcfce7;padding:16px;border:1px solid #bbf7d0;color:#065f46;}.td-tip p{margin:8px 0 0;font-size:13px;line-height:1.45;color:#064e3b;}
 
+/* ── Desktop kaartopmaak (>760px) ── */
+@media (min-width:761px){
+  /* Toggle nooit tonen */
+  .td-detail-toggle{display:none!important;}
+  /* Detail altijd zichtbaar */
+  .td-lesson-detail{display:block!important;margin-top:10px;padding-top:10px;border-top:1px solid #f3f4f6;}
+  .td-combined-detail{display:flex!important;flex-wrap:wrap;gap:6px;margin-top:6px;}
+  /* Knoppen: compact, niet full-width */
+  .td-acties-hoofd button,.td-acties-hoofd a{flex:0 1 auto;}
+  .td-acties-extra button,.td-acties-extra a{flex:0 1 auto;}
+  /* Combined: per-klas rij horizontaal in één lijn */
+  .td-combined-klas-row{flex-direction:row;align-items:center;flex-wrap:wrap;gap:8px;}
+  .td-combined-klas-row .td-class--sm{flex-shrink:0;}
+  .td-acties-hoofd--inline{flex-wrap:nowrap;}
+  .td-acties-hoofd--inline button,.td-acties-hoofd--inline a{flex:0 1 auto;white-space:nowrap;}
+}
+
 @media (max-width:1100px){.td-layout{grid-template-columns:1fr}.td-side{grid-template-columns:repeat(2,1fr);display:grid}.td-stats{grid-template-columns:repeat(2,1fr)}}
 @media (max-width:760px){.teacher-dashboard{padding:16px 0}.td-topbar,.td-section-head{flex-direction:column;align-items:stretch}.td-top-actions{justify-content:stretch}.td-btn{flex:1;justify-content:center}.td-stats{grid-template-columns:1fr}.td-side{display:flex}.td-lesson-titel{white-space:normal}.td-lesson-header{flex-wrap:wrap}.td-time{flex-wrap:wrap}}
 
