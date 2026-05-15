@@ -42,7 +42,7 @@ async function renderLesprofielen() {
     document.getElementById('view-lesprofielen').innerHTML = `
       <div class="page-header">
         <div class="page-header-left"><h1>Lesprofielen</h1></div>
-        <button class="btn btn-sm btn-primary" onclick="openNieuwProfielModal()">+ Module</button>
+        <button class="btn btn-sm btn-primary" onclick="openNieuwProfielModal()">+ Profiel</button>
       </div>
       <div class="alert alert-info" style="margin-bottom:20px">
         Een lesprofiel koppelt een lesmodule aan een klas. Vul uren in, koppel aan de planning — AI maakt de weekverdeling.
@@ -60,7 +60,6 @@ async function renderLesprofielen() {
             return `<div class="card" style="margin-bottom:20px">
               <div class="card-header">
                 <div><h2>${escHtml(vak.naam)} — ${escHtml(vak.volledig || '')}</h2><div class="card-meta">${vp.length} profiel${vp.length !== 1 ? 'en' : ''}</div></div>
-                <button class="btn btn-sm btn-primary" onclick="openNieuwProfielModal('${vak.id}')">+ Module</button>
               </div>
               ${niveaus.map(niveau => {
                 const groep = perNiveau[niveau];
@@ -88,6 +87,7 @@ async function renderLesprofielen() {
                         </div>
                         <div class="lp-kaart-acties">
                           <button class="btn btn-sm btn-primary" style="flex:1" onclick="event.stopPropagation();openKoppelModal('${p.id}')">Koppelen →</button>
+                          <button class="btn btn-sm" style="background:#eff6ff;border-color:#93c5fd;color:#2563eb" onclick="event.stopPropagation();openKoppelModuleModal('${p.id}','${p.vakId}')">+ Module</button>
                           <button class="btn btn-sm" onclick="event.stopPropagation();openNieuwProfielModal('${p.vakId}','${p.id}')">✏️</button>
                           <button class="btn btn-sm" style="color:var(--red);border-color:rgba(220,38,38,0.3)" onclick="event.stopPropagation();verwijderProfiel('${p.id}')">🗑</button>
                         </div>
@@ -228,6 +228,41 @@ function lpFilterModules() {
     opt.hidden = !vakMatch || !typeMatch;
   });
   if (select.selectedOptions[0]?.hidden) select.value = '';
+}
+
+async function openKoppelModuleModal(profielId, vakId) {
+  const modules = await API.getLesModules();
+  const moduleOpties = modules
+    .filter(m => !m.vakId || m.vakId.split(',').map(x => x.trim()).includes(vakId))
+    .map(m => `<option value="${m.id}">${escHtml(m.naam)}${m.isTheorieModule ? ' (theorie)' : ''}${m.niveau ? ' [' + m.niveau + ']' : ''}</option>`)
+    .join('');
+
+  openModal(`
+    <h2>Module koppelen</h2>
+    <div class="form-grid">
+      <div class="form-field form-full">
+        <label>Module</label>
+        <select id="km-module">
+          <option value="">— Geen module —</option>
+          ${moduleOpties}
+        </select>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModalDirect()">Annuleren</button>
+      <button class="btn btn-primary" onclick="slaKoppelModuleOp('${profielId}')">Koppelen</button>
+    </div>
+  `);
+}
+
+async function slaKoppelModuleOp(profielId) {
+  const moduleId = document.getElementById('km-module')?.value || null;
+  try {
+    await API.updateLesprofiel(profielId, { moduleId });
+    closeModalDirect();
+    Cache.invalidateAll();
+    openProfielDetail(profielId);
+  } catch(e) { showError(e.message); }
 }
 
 async function slaProfielOp(profielId) {
