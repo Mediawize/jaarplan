@@ -42,7 +42,7 @@ async function renderLesprofielen() {
     document.getElementById('view-lesprofielen').innerHTML = `
       <div class="page-header">
         <div class="page-header-left"><h1>Lesprofielen</h1></div>
-        <button class="btn btn-sm btn-primary" onclick="openNieuwProfielModal()">+ Module</button>
+        <button class="btn btn-sm btn-primary" onclick="openNieuwProfielModal()">+ Profiel</button>
       </div>
       <div class="alert alert-info" style="margin-bottom:20px">
         Een lesprofiel koppelt een lesmodule aan een klas. Vul uren in, koppel aan de planning — AI maakt de weekverdeling.
@@ -60,7 +60,7 @@ async function renderLesprofielen() {
             return `<div class="card" style="margin-bottom:20px">
               <div class="card-header">
                 <div><h2>${escHtml(vak.naam)} — ${escHtml(vak.volledig || '')}</h2><div class="card-meta">${vp.length} profiel${vp.length !== 1 ? 'en' : ''}</div></div>
-                <button class="btn btn-sm btn-primary" onclick="openNieuwProfielModal('${vak.id}')">+ Module</button>
+                <button class="btn btn-sm" style="background:#eff6ff;border-color:#93c5fd;color:#2563eb" onclick="openKoppelModuleModal('${vak.id}')">+ Module</button>
               </div>
               ${niveaus.map(niveau => {
                 const groep = perNiveau[niveau];
@@ -228,6 +228,52 @@ function lpFilterModules() {
     opt.hidden = !vakMatch || !typeMatch;
   });
   if (select.selectedOptions[0]?.hidden) select.value = '';
+}
+
+async function openKoppelModuleModal(vakId) {
+  const [profielen, modules] = await Promise.all([API.getLesprofielen(), API.getLesModules()]);
+  const vakProfielen = profielen.filter(p => p.vakId === vakId);
+  if (!vakProfielen.length) { alert('Maak eerst een profiel aan voor dit vak.'); return; }
+
+  const moduleOpties = modules
+    .filter(m => !m.vakId || m.vakId.split(',').map(x => x.trim()).includes(vakId))
+    .map(m => `<option value="${m.id}">${escHtml(m.naam)}${m.isTheorieModule ? ' (theorie)' : ''}${m.niveau ? ' [' + m.niveau + ']' : ''}</option>`)
+    .join('');
+
+  openModal(`
+    <h2>Module koppelen</h2>
+    <div class="form-grid">
+      <div class="form-field form-full">
+        <label>Profiel</label>
+        <select id="km-profiel">
+          ${vakProfielen.map(p => `<option value="${p.id}">${escHtml(p.naam)}${p.niveau ? ' — ' + p.niveau : ''}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-field form-full">
+        <label>Module</label>
+        <select id="km-module">
+          <option value="">— Geen module —</option>
+          ${moduleOpties}
+        </select>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModalDirect()">Annuleren</button>
+      <button class="btn btn-primary" onclick="slaKoppelModuleOp()">Koppelen</button>
+    </div>
+  `);
+}
+
+async function slaKoppelModuleOp() {
+  const profielId = document.getElementById('km-profiel')?.value;
+  const moduleId  = document.getElementById('km-module')?.value || null;
+  if (!profielId) return;
+  try {
+    await API.updateLesprofiel(profielId, { moduleId });
+    closeModalDirect();
+    Cache.invalidateAll();
+    openProfielDetail(profielId);
+  } catch(e) { showError(e.message); }
 }
 
 async function slaProfielOp(profielId) {
