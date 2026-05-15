@@ -42,16 +42,12 @@ async function renderLesprofielen() {
     document.getElementById('view-lesprofielen').innerHTML = `
       <div class="page-header">
         <div class="page-header-left"><h1>Lesprofielen</h1></div>
-        <button class="btn btn-sm btn-primary" onclick="openNieuwProfielModal()">+ Profiel</button>
       </div>
       <div class="alert alert-info" style="margin-bottom:20px">
-        Een lesprofiel koppelt een lesmodule aan een klas. Vul uren in, koppel aan de planning — AI maakt de weekverdeling.
+        Klik op <strong>+ Module</strong> bij een vak om een module te koppelen. Per niveau wordt automatisch een profiel aangemaakt.
       </div>
-      ${profielen.length === 0
-        ? `<div class="card"><div class="empty-state"><h3>Nog geen lesprofielen</h3><button class="btn btn-primary" onclick="openNieuwProfielModal()">Eerste profiel aanmaken</button></div></div>`
-        : vakken.map(vak => {
+      ${vakken.map(vak => {
             const vp = perVak[vak.id] || [];
-            if (!vp.length) return '';
             const perNiveau = {};
             vp.forEach(p => { const n = p.niveau || '__geen__'; if (!perNiveau[n]) perNiveau[n] = []; perNiveau[n].push(p); });
             const overige = Object.keys(perNiveau).filter(n => !niveauVolgorde.includes(n) && n !== '__geen__');
@@ -59,43 +55,46 @@ async function renderLesprofielen() {
 
             return `<div class="card" style="margin-bottom:20px">
               <div class="card-header">
-                <div><h2>${escHtml(vak.naam)} — ${escHtml(vak.volledig || '')}</h2><div class="card-meta">${vp.length} profiel${vp.length !== 1 ? 'en' : ''}</div></div>
+                <div><h2>${escHtml(vak.naam)} — ${escHtml(vak.volledig || '')}</h2><div class="card-meta">${vp.length} module${vp.length !== 1 ? 's' : ''}</div></div>
                 <button class="btn btn-sm" style="background:#eff6ff;border-color:#93c5fd;color:#2563eb" onclick="openKoppelModuleModal('${vak.id}')">+ Module</button>
               </div>
-              ${niveaus.map(niveau => {
-                const groep = perNiveau[niveau];
-                const niveauLabel = niveau === '__geen__' ? 'Overig' : niveau;
-                const kleur = niveauKleur[niveau] || 'var(--ink-3)';
-                return `
-                  <div class="lp-niveau-header">
-                    <span class="lp-niveau-pill" style="color:${kleur};background:${kleur}1a">${niveauLabel}</span>
-                    <span class="lp-niveau-count">${groep.length} profiel${groep.length !== 1 ? 'en' : ''}</span>
-                  </div>
-                  <div class="lp-profielen-grid">
-                    ${groep.map(p => {
-                      const mod = p.moduleId ? moduleMap[p.moduleId] : null;
-                      const aantalStappen = mod ? (mod.stappen || []).length : 0;
-                      const urenLabel = p.urenPerWeek ? `${p.urenPerWeek}u/week` : (p.urenTheorie || p.urenPraktijk ? `${p.urenTheorie || 0}u theorie · ${p.urenPraktijk || 0}u praktijk` : '');
-                      return `<div class="lp-kaart" onclick="openProfielDetail('${p.id}')">
-                        <div class="lp-kaart-naam">${escHtml(p.naam)}</div>
-                        <div class="lp-kaart-module">
-                          ${mod
-                            ? `<svg viewBox="0 0 20 20" fill="none" style="width:13px;height:13px;flex-shrink:0"><path d="M4 3h9l4 4v11H4V3z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>${escHtml(mod.naam)}`
-                            : `<span style="color:var(--ink-4)">Geen module gekoppeld</span>`}
-                        </div>
-                        <div class="lp-kaart-meta">
-                          ${aantalStappen ? aantalStappen + ' stappen' : ''}${aantalStappen && urenLabel ? ' · ' : ''}${urenLabel}
-                        </div>
-                        <div class="lp-kaart-acties">
-                          <button class="btn btn-sm btn-primary" style="flex:1" onclick="event.stopPropagation();openKoppelModal('${p.id}')">Koppelen →</button>
-                          <button class="btn btn-sm" onclick="event.stopPropagation();openNieuwProfielModal('${p.vakId}','${p.id}')">✏️</button>
-                          <button class="btn btn-sm" style="color:var(--red);border-color:rgba(220,38,38,0.3)" onclick="event.stopPropagation();verwijderProfiel('${p.id}')">🗑</button>
-                        </div>
-                      </div>`;
-                    }).join('')}
-                  </div>
-                  <div style="height:1px;background:var(--border);margin:0 22px"></div>`;
-              }).join('')}
+              ${!vp.length
+                ? `<div style="padding:20px 24px;color:var(--ink-muted);font-size:13px">Nog geen modules gekoppeld</div>`
+                : niveaus.map(niveau => {
+                    const groep = perNiveau[niveau];
+                    const niveauLabel = niveau === '__geen__' ? 'Overig' : niveau;
+                    const kleur = niveauKleur[niveau] || 'var(--ink-3)';
+                    return `
+                      <div class="lp-niveau-header">
+                        <span class="lp-niveau-pill" style="color:${kleur};background:${kleur}1a">${niveauLabel}</span>
+                        <span class="lp-niveau-count">${groep.length} profiel${groep.length !== 1 ? 'en' : ''}</span>
+                      </div>
+                      <div class="lp-profielen-grid">
+                        ${groep.map(p => {
+                          const mod = p.moduleId ? moduleMap[p.moduleId] : null;
+                          const aantalStappen = mod ? (mod.stappen || []).length : 0;
+                          const urenLabel = p.urenPerWeek ? `${p.urenPerWeek}u/week` : (p.urenTheorie || p.urenPraktijk ? `${p.urenTheorie || 0}u theorie · ${p.urenPraktijk || 0}u praktijk` : '');
+                          return `<div class="lp-kaart" onclick="openProfielDetail('${p.id}')">
+                            <div class="lp-kaart-naam">${escHtml(p.naam)}</div>
+                            <div class="lp-kaart-module">
+                              ${mod
+                                ? `<svg viewBox="0 0 20 20" fill="none" style="width:13px;height:13px;flex-shrink:0"><path d="M4 3h9l4 4v11H4V3z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>${escHtml(mod.naam)}`
+                                : `<span style="color:var(--ink-4)">Geen module gekoppeld</span>`}
+                            </div>
+                            <div class="lp-kaart-meta">
+                              ${aantalStappen ? aantalStappen + ' stappen' : ''}${aantalStappen && urenLabel ? ' · ' : ''}${urenLabel}
+                            </div>
+                            <div class="lp-kaart-acties">
+                              <button class="btn btn-sm btn-primary" style="flex:1" onclick="event.stopPropagation();openKoppelModal('${p.id}')">Koppelen →</button>
+                              <button class="btn btn-sm" onclick="event.stopPropagation();openNieuwProfielModal('${p.vakId}','${p.id}')">✏️</button>
+                              <button class="btn btn-sm" style="color:var(--red);border-color:rgba(220,38,38,0.3)" onclick="event.stopPropagation();verwijderProfiel('${p.id}')">🗑</button>
+                            </div>
+                          </div>`;
+                        }).join('')}
+                      </div>
+                      <div style="height:1px;background:var(--border);margin:0 22px"></div>`;
+                  }).join('')
+              }
             </div>`;
           }).join('')
       }
