@@ -297,16 +297,53 @@ function migreer() {
   }
 
   // Activiteit-kolommen toevoegen als ze ontbreken
-  const lbKolommen = db.prepare("PRAGMA table_info(lesbrieven)").all().map(k => k.name);
-  if (!lbKolommen.includes('activiteitNaam')) {
+  const lbKolommen = db.prepare("PRAGMA table_info(lesbrieven)").all();
+  const lbKolomNamen = lbKolommen.map(k => k.name);
+  if (!lbKolomNamen.includes('activiteitNaam')) {
     db.exec("ALTER TABLE lesbrieven ADD COLUMN activiteitNaam TEXT DEFAULT ''");
     db.exec("ALTER TABLE lesbrieven ADD COLUMN activiteitType TEXT DEFAULT ''");
     db.exec("ALTER TABLE lesbrieven ADD COLUMN activiteitUren REAL DEFAULT 1");
     console.log('Migratie: activiteitNaam/Type/Uren kolommen toegevoegd aan lesbrieven');
   }
-  if (!lbKolommen.includes('data')) {
+  if (!lbKolomNamen.includes('data')) {
     db.exec("ALTER TABLE lesbrieven ADD COLUMN data TEXT DEFAULT '{}'");
     console.log('Migratie: data kolom toegevoegd aan lesbrieven');
+  }
+  // weekIdx/actIdx mogen nullable zijn — herstel schema als NOT NULL nog actief is
+  const weekIdxKol = lbKolommen.find(k => k.name === 'weekIdx');
+  if (weekIdxKol && weekIdxKol.notnull) {
+    db.exec(`
+      CREATE TABLE lesbrieven_migrate AS SELECT * FROM lesbrieven;
+      DROP TABLE lesbrieven;
+      CREATE TABLE lesbrieven (
+        id TEXT PRIMARY KEY,
+        profielId TEXT,
+        weekIdx INTEGER,
+        actIdx INTEGER,
+        voorbereiding TEXT DEFAULT '',
+        benodigdheden TEXT DEFAULT '[]',
+        lesverloop TEXT DEFAULT '[]',
+        stappenplan TEXT DEFAULT '[]',
+        aandachtspunten TEXT DEFAULT '[]',
+        differentiatie TEXT DEFAULT '{}',
+        opmerkingen TEXT DEFAULT '',
+        bijgewerkt TEXT DEFAULT (datetime('now')),
+        activiteitNaam TEXT DEFAULT '',
+        activiteitType TEXT DEFAULT '',
+        activiteitUren REAL DEFAULT 1,
+        data TEXT DEFAULT '{}',
+        opdrachtId TEXT,
+        UNIQUE(profielId, weekIdx, actIdx)
+      );
+      INSERT INTO lesbrieven SELECT
+        id, profielId, COALESCE(weekIdx,0), COALESCE(actIdx,0),
+        voorbereiding, benodigdheden, lesverloop, stappenplan,
+        aandachtspunten, differentiatie, opmerkingen, bijgewerkt,
+        activiteitNaam, activiteitType, activiteitUren, data, opdrachtId
+      FROM lesbrieven_migrate;
+      DROP TABLE lesbrieven_migrate;
+    `);
+    console.log('Migratie: lesbrieven weekIdx/actIdx NOT NULL constraint verwijderd');
   }
 
   // Materialen bibliotheek
@@ -487,7 +524,7 @@ const Q = {
   getLesbrief: db.prepare('SELECT * FROM lesbrieven WHERE id=?'),
   getLesbrievBySleutel: db.prepare('SELECT * FROM lesbrieven WHERE profielId=? AND weekIdx=? AND actIdx=?'),
   getLesbrievByOpdrachtId: db.prepare('SELECT * FROM lesbrieven WHERE opdrachtId=? LIMIT 1'),
-  insLesbrief: db.prepare('INSERT INTO lesbrieven (id,profielId,weekIdx,actIdx,activiteitNaam,activiteitType,activiteitUren,data,opdrachtId) VALUES (?,?,?,?,?,?,?,?,?)'),
+  insLesbrief: db.prepare('INSERT INTO lesbrieven (id,profielId,weekIdx,actIdx,activiteitNaam,activiteitType,activiteitUren,data,opdrachtId) VALUES (?,?,COALESCE(?,0),COALESCE(?,0),?,?,?,?,?)'),
   updLesbrief: db.prepare("UPDATE lesbrieven SET activiteitNaam=?,activiteitType=?,activiteitUren=?,data=?,bijgewerkt=datetime('now') WHERE id=?"),
   delLesbrief: db.prepare('DELETE FROM lesbrieven WHERE id=?'),
 
