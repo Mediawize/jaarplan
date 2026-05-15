@@ -498,14 +498,17 @@ async function openKoppelModal(profielId) {
            <span style="font-size:12px">Bij opnieuw koppelen worden de oude opdrachten vervangen.</span>
          </div>` : ''}
     <div class="form-grid">
-      <div class="form-field">
+      <div class="form-field form-full">
         <label>Klas *</label>
         <select id="koppel-klas" onchange="laadKoppelWeken('${p.id}')">
           ${relevante.length === 0
             ? `<option value="">Geen klassen voor ${escHtml(vak?.naam || 'dit vak')}${p.niveau ? ' niveau ' + p.niveau : ''}</option>`
-            : relevante.map(k => `<option value="${k.id}">${escHtml(k.naam)} — ${escHtml(k.schooljaar)}</option>`).join('')}
+            : relevante.map(k => `<option value="${k.id}">${escHtml(k.naam)}${k.roulatie ? ' ⟳' : ''} — ${escHtml(k.schooljaar)}</option>`).join('')}
         </select>
       </div>
+    </div>
+    <div id="koppel-roulatie-helper"></div>
+    <div class="form-grid">
       <div class="form-field">
         <label>Startweek *</label>
         <select id="koppel-startweek"><option value="">— Selecteer klas eerst —</option></select>
@@ -539,20 +542,50 @@ async function laadKoppelWeken(profielId) {
   const klassen = await API.getKlassen();
   const klas = klassen.find(k => k.id === klasId);
   if (!klas) return;
-  const weken = (await API.getWeken(klas.schooljaar)).filter(w => !w.isVakantie);
+
+  const alleWeken = await API.getWeken(klas.schooljaar);
+  const actieveWeken = alleWeken.filter(w => !w.isVakantie && isRoulatieWeekActief(klas, w.weeknummer));
+
+  const helper = document.getElementById('koppel-roulatie-helper');
+  if (helper) {
+    if (klas.roulatie && klas.roulatieBlokken?.length > 0) {
+      helper.innerHTML = `
+        <div style="background:var(--amber-dim);border:1px solid rgba(217,119,6,0.2);border-radius:var(--radius-sm);padding:10px 14px;margin-bottom:12px">
+          <div style="font-size:12px;font-weight:600;color:var(--amber-text);margin-bottom:8px">⟳ Roulatieklas — kies een groep om startweek en weken in te vullen:</div>
+          <div style="display:flex;flex-wrap:wrap;gap:6px">
+            ${klas.roulatieBlokken.map((b, i) => {
+              const eindIdx = _schoolWekenVolgorde.indexOf(b.startWeek) + b.aantalWeken - 1;
+              const eindWeek = _schoolWekenVolgorde[Math.min(eindIdx, _schoolWekenVolgorde.length - 1)];
+              return `<button type="button" class="btn btn-sm" onclick="lpSelecteerRoulatieBlok(${b.startWeek},${b.aantalWeken})" style="background:var(--amber-dim);border-color:rgba(217,119,6,0.4);color:var(--amber-text)">Groep ${i+1}: wk ${b.startWeek}–${eindWeek} (${b.aantalWeken}w)</button>`;
+            }).join('')}
+          </div>
+        </div>`;
+    } else {
+      helper.innerHTML = '';
+    }
+  }
+
   const sel = document.getElementById('koppel-startweek');
   if (!sel) return;
-  sel.innerHTML = `<option value="">— Selecteer startweek —</option>` + weken.map(w => `<option value="${w.weeknummer}">Wk ${w.weeknummer} · ${w.van} – ${w.tot}${w.thema ? ' · ' + w.thema : ''}</option>`).join('');
+  sel.innerHTML = `<option value="">— Selecteer startweek —</option>` + actieveWeken.map(w => `<option value="${w.weeknummer}">Wk ${w.weeknummer} · ${w.van} – ${w.tot}${w.thema ? ' · ' + w.thema : ''}</option>`).join('');
   sel.onchange = () => {
     const sw = parseInt(sel.value);
     const nw = parseInt(document.getElementById('koppel-weken')?.value || 0);
     const preview = document.getElementById('koppel-week-preview');
     if (!sw || !preview) return;
-    const schoolWeken = weken.filter(w => Number(w.weeknummer) >= sw).slice(0, nw);
+    const schoolWeken = actieveWeken.filter(w => Number(w.weeknummer) >= sw).slice(0, nw);
     if (schoolWeken.length) {
       preview.innerHTML = `<div class="alert alert-success" style="font-size:12px">Week ${schoolWeken[0].weeknummer} t/m ${schoolWeken[schoolWeken.length-1].weeknummer} (${schoolWeken.length} weken)</div>`;
     }
   };
+}
+
+function lpSelecteerRoulatieBlok(startWeek, aantalWeken) {
+  const sel = document.getElementById('koppel-startweek');
+  const nw = document.getElementById('koppel-weken');
+  if (sel) sel.value = startWeek;
+  if (nw) nw.value = aantalWeken;
+  sel?.dispatchEvent(new Event('change'));
 }
 
 let _lpDragState = null;
@@ -671,10 +704,11 @@ function lpVerschuifWeek(idx, richting) {
 async function genereerVerdeling(profielId) {
   const aantalWeken = parseInt(document.getElementById('koppel-weken')?.value || 8);
   const klasId = document.getElementById('koppel-klas')?.value || null;
+  const startweek = parseInt(document.getElementById('koppel-startweek')?.value || 0) || null;
   const btn = document.getElementById('koppel-ai-btn');
   if (btn) { btn.disabled = true; btn.textContent = '⏳ Genereren…'; }
   try {
-    const data = await API.genereerLesprofielVerdeling(profielId, { aantalWeken, klasId });
+    const data = await API.genereerLesprofielVerdeling(profielId, { aantalWeken, klasId, startweek });
     _lpVerdelingPreview = data.weken || [];
     _lpVerdelingStappen = data.stappen || [];
     lpRenderVerdelingPreview();
@@ -701,7 +735,8 @@ async function slaKoppelingOp(profielId) {
   const teVerwijderen = bestaandeOpd.filter(o => o.profielId === profielId);
   for (const o of teVerwijderen) { await API.deleteOpdracht(o.id); }
 
-  const alleWeken = (await API.getWeken(klas.schooljaar)).filter(w => !w.isVakantie);
+  const alleWeken = (await API.getWeken(klas.schooljaar))
+    .filter(w => !w.isVakantie && isRoulatieWeekActief(klas, w.weeknummer));
   const startIdx = alleWeken.findIndex(w => Number(w.weeknummer) === startweek);
   const schoolWeken = alleWeken.slice(startIdx, startIdx + aantalWeken);
 
