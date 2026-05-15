@@ -629,9 +629,13 @@ function lmHoofdstapHtml(i, stap, bib) {
     <div class="lm-lessen" style="padding-left:30px;margin-bottom:8px">
       <div style="font-size:11px;color:var(--ink-muted);margin-bottom:4px">Sub-lessen (theorie)</div>
       ${lessenHtml}
-      <button class="btn btn-sm lm-voeg-les-btn" onclick="lmVoegLesToe(this)"
-        style="font-size:11px;padding:3px 8px${lessen.length >= 3 ? ';opacity:.4' : ''}"
-        ${lessen.length >= 3 ? 'disabled' : ''}>+ Sub-les</button>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px">
+        <button class="btn btn-sm lm-voeg-les-btn" onclick="lmVoegLesToe(this)"
+          style="font-size:11px;padding:3px 8px${lessen.length >= 10 ? ';opacity:.4' : ''}"
+          ${lessen.length >= 10 ? 'disabled' : ''}>+ Sub-les</button>
+        <button class="btn btn-sm" onclick="lmAnalyseerSubLesAfbeelding(this)"
+          style="font-size:11px;padding:3px 8px;background:#ede9fe;border-color:#c4b5fd;color:#6d28d9">🖼 Afbeelding analyseren</button>
+      </div>
     </div>
 
     <div class="lm-praktijk-sectie" style="padding-left:30px">
@@ -681,7 +685,7 @@ function lmVoegLesToe(btn) {
   const stap = btn.closest('.lm-hoofdstap');
   const lessenDiv = stap.querySelector('.lm-lessen');
   const bestaandeLessen = stap.querySelectorAll('.lm-les-rij').length;
-  if (bestaandeLessen >= 3) return;
+  if (bestaandeLessen >= 10) return;
   const hoofdstappen = Array.from(document.querySelectorAll('.lm-hoofdstap'));
   const stapIdx = hoofdstappen.indexOf(stap);
   const div = document.createElement('div');
@@ -706,8 +710,59 @@ function lmUpdateVoegLesKnop(stap) {
   const btn = stap.querySelector('.lm-voeg-les-btn');
   if (!btn) return;
   const count = stap.querySelectorAll('.lm-les-rij').length;
-  btn.disabled = count >= 3;
-  btn.style.opacity = count >= 3 ? '.4' : '1';
+  btn.disabled = count >= 10;
+  btn.style.opacity = count >= 10 ? '.4' : '1';
+}
+
+async function lmAnalyseerSubLesAfbeelding(btn) {
+  const stap = btn.closest('.lm-hoofdstap');
+  const lessenDiv = stap.querySelector('.lm-lessen');
+
+  // Verberg knop tijdelijk, toon status
+  const origTekst = btn.textContent;
+  const statusSpan = document.createElement('span');
+  statusSpan.style.cssText = 'font-size:11px;color:var(--ink-muted);margin-left:6px';
+  btn.after(statusSpan);
+
+  // Open file picker
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = 'image/jpeg,image/png,image/webp,image/gif';
+  input.onchange = async () => {
+    if (!input.files?.[0]) { statusSpan.remove(); return; }
+    btn.disabled = true;
+    btn.textContent = '⏳';
+    statusSpan.textContent = 'AI analyseert...';
+    try {
+      const fd = new FormData();
+      fd.append('bestand', input.files[0]);
+      const res = await fetch('/api/les-modules/analyseer-afbeelding', { method: 'POST', credentials: 'same-origin', body: fd });
+      const data = await res.json();
+      if (!res.ok || data.error) throw new Error(data.error || 'Fout');
+
+      const namen = (data.stappen || []).filter(Boolean);
+      if (!namen.length) { statusSpan.textContent = 'Geen stappen gevonden.'; btn.textContent = origTekst; btn.disabled = false; return; }
+
+      const hoofdstappen = Array.from(document.querySelectorAll('.lm-hoofdstap'));
+      const stapIdx = hoofdstappen.indexOf(stap);
+      namen.forEach((naam, i) => {
+        const bestaand = stap.querySelectorAll('.lm-les-rij').length;
+        if (bestaand >= 10) return;
+        const div = document.createElement('div');
+        div.innerHTML = lmLesHtml(stapIdx, bestaand, naam);
+        lessenDiv.insertBefore(div.firstElementChild, btn.parentElement);
+      });
+      lmUpdateLesNummers(stap);
+      lmUpdateVoegLesKnop(stap);
+      statusSpan.textContent = `${namen.length} sub-lessen toegevoegd ✓`;
+      setTimeout(() => statusSpan.remove(), 3000);
+    } catch (e) {
+      statusSpan.textContent = 'Fout: ' + e.message;
+    }
+    btn.textContent = origTekst;
+    btn.disabled = false;
+  };
+  input.click();
 }
 
 // ============================================================
