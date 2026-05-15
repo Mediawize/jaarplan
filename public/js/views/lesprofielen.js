@@ -133,7 +133,7 @@ async function openNieuwProfielModal(vakId = null, profielId = null) {
         <label>Lesmodule koppelen</label>
         <select id="lp-module">
           <option value="">— Geen module —</option>
-          ${modules.map(m => `<option value="${m.id}" ${p?.moduleId === m.id ? 'selected' : ''}>${escHtml(m.naam)}${m.niveau ? ' [' + m.niveau + ']' : ''}</option>`).join('')}
+          ${modules.map(m => `<option value="${m.id}" data-vakid="${escHtml(m.vakId || '')}" ${p?.moduleId === m.id ? 'selected' : ''}>${escHtml(m.naam)}${m.niveau ? ' [' + m.niveau + ']' : ''}</option>`).join('')}
         </select>
       </div>
       <div class="form-field">
@@ -158,6 +158,19 @@ async function openNieuwProfielModal(vakId = null, profielId = null) {
       <button class="btn btn-primary" onclick="slaProfielOp('${profielId || ''}')">Opslaan</button>
     </div>
   `);
+  setTimeout(lpFilterModules, 0);
+}
+
+function lpFilterModules() {
+  const vakId = document.getElementById('lp-vak')?.value || '';
+  const select = document.getElementById('lp-module');
+  if (!select) return;
+  [...select.options].forEach(opt => {
+    if (!opt.value) { opt.hidden = false; return; }
+    const moduleVakken = (opt.dataset.vakid || '').split(',').map(x => x.trim()).filter(Boolean);
+    opt.hidden = moduleVakken.length > 0 && !moduleVakken.includes(vakId);
+  });
+  if (select.selectedOptions[0]?.hidden) select.value = '';
 }
 
 async function slaProfielOp(profielId) {
