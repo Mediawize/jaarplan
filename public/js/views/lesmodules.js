@@ -430,11 +430,6 @@ async function openLesModuleModal(moduleId = null, preset = {}) {
               ${n}${bestaatAl ? ' ✓' : ''}
             </label>`;
           }).join('')}
-          <label class="lm-niveau-checkbox">
-            <input type="checkbox" name="lm-niveau" value="" id="lm-niveau-alle"
-              ${!(m?.niveau || '').trim() ? 'checked' : ''}>
-            Alle niveaus
-          </label>
         </div>
       </div>
       <div class="form-field">
@@ -1323,11 +1318,8 @@ async function analyseerLesModuleBestand() {
 // ============================================================
 
 function _lmGetNiveau() {
-  const alles = document.getElementById('lm-niveau-alle');
-  if (alles?.checked) return '';
-  const checked = [...document.querySelectorAll('input[name="lm-niveau"]:checked')]
-    .map(cb => cb.value).filter(Boolean);
-  return checked.join(',');
+  return [...document.querySelectorAll('input[name="lm-niveau"]:checked')]
+    .map(cb => cb.value).filter(Boolean).join(',');
 }
 
 async function slaLesModuleOp(moduleId) {
