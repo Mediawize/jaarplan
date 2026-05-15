@@ -49,7 +49,7 @@ async function renderDashboard() {
         <div class="td-topbar">
           <div>
             <h1>${escHtml(begroeting)} ${escHtml(voornaam)}! <span>👋</span></h1>
-            <p>Hier is je overzicht voor vandaag, ${escHtml(datumLang)}.</p>
+            <p>${isVandaag ? `Hier is je overzicht voor vandaag, ${escHtml(datumLang)}.` : `Je bekijkt ${escHtml(datumLang)}.`}</p>
           </div>
           <div class="td-top-actions">
             <button class="td-btn td-btn-light" onclick="showView('jaarplanning')">
