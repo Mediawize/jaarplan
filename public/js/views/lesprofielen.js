@@ -135,7 +135,7 @@ async function openNieuwProfielModal(vakId = null, profielId = null) {
         </select>
       </div>
       <div class="form-field form-full">
-        <label>Niveau(s) en uren per week${bewerken ? '' : ' — per niveau een apart profiel'}</label>
+        <label>Niveau(s) en uren${bewerken ? '' : ' — per niveau een apart profiel'}</label>
         <div style="display:flex;flex-direction:column;gap:8px;margin-top:2px">
           <div class="lm-niveau-checkboxes" style="margin-bottom:2px">
             ${['BB', 'KB', 'GL', 'TL', 'Havo', 'VWO'].map(n => `<label class="lm-niveau-checkbox">
@@ -145,18 +145,16 @@ async function openNieuwProfielModal(vakId = null, profielId = null) {
               ${n}
             </label>`).join('')}
           </div>
-          <div id="lp-uren-per-niveau" style="display:flex;flex-wrap:wrap;gap:8px"></div>
+          <div style="display:flex;gap:6px;font-size:10px;color:var(--ink-muted);padding:0 2px">
+            <span style="min-width:36px"></span>
+            <span style="width:64px;text-align:center">Totaal</span>
+            <span style="width:64px;text-align:center">Theorie</span>
+            <span style="width:64px;text-align:center">Praktijk</span>
+          </div>
+          <div id="lp-uren-per-niveau" style="display:flex;flex-direction:column;gap:6px"></div>
         </div>
       </div>
       ${moduleHtml}
-      <div class="form-field">
-        <label>Waarvan theorie (u)</label>
-        <input id="lp-theorie" type="number" min="0" max="40" step="0.5" value="${p?.urenPerWeek ? '' : (p?.urenTheorie || '')}" placeholder="bijv. 1">
-      </div>
-      <div class="form-field">
-        <label>Waarvan praktijk (u)</label>
-        <input id="lp-praktijk" type="number" min="0" max="40" step="0.5" value="${p?.urenPraktijk || ''}" placeholder="bijv. 3">
-      </div>
       <div class="form-field form-full">
         <label>Beschrijving (optioneel)</label>
         <input id="lp-beschrijving" value="${escHtml(p?.beschrijving || '')}" placeholder="Korte omschrijving">
@@ -169,32 +167,36 @@ async function openNieuwProfielModal(vakId = null, profielId = null) {
   `);
   // Initieel uren-inputs renderen
   if (bewerken) {
-    lpNiveauCheckChanged(p?.urenPerWeek || 0);
+    lpNiveauCheckChanged({ totaal: p?.urenPerWeek || '', theorie: p?.urenTheorie || '', praktijk: p?.urenPraktijk || '' });
     setTimeout(lpModuleGewijzigd, 0);
   } else {
     lpNiveauCheckChanged();
   }
 }
 
-function lpNiveauCheckChanged(bestaandUren = 0) {
+function lpNiveauCheckChanged(bestaand = {}) {
   const container = document.getElementById('lp-uren-per-niveau');
   if (!container) return;
   const niveauKleur = { BB: '#f59e0b', KB: '#3b82f6', GL: '#8b5cf6', TL: '#8b5cf6', Havo: '#0891b2', VWO: '#ef4444' };
   const checked = [...document.querySelectorAll('input[name="lp-niveau"]:checked')].map(cb => cb.value);
-  // Bewaar bestaande waarden
+  // Bewaar bestaande ingevoerde waarden
   const huidige = {};
   container.querySelectorAll('[data-niveau]').forEach(el => {
-    huidige[el.dataset.niveau] = el.querySelector('input')?.value || '';
+    const inputs = el.querySelectorAll('input');
+    huidige[el.dataset.niveau] = { totaal: inputs[0]?.value || '', theorie: inputs[1]?.value || '', praktijk: inputs[2]?.value || '' };
   });
+  const inputStijl = 'width:64px;border:1px solid var(--border);border-radius:6px;padding:3px 6px;font-size:13px;text-align:center';
   container.innerHTML = checked.map(n => {
     const kleur = niveauKleur[n] || 'var(--ink-3)';
-    const val = huidige[n] || (bestaandUren || '');
-    return `<div data-niveau="${n}" style="display:flex;align-items:center;gap:6px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:6px 10px">
-      <span style="font-size:12px;font-weight:700;color:${kleur};min-width:28px">${n}</span>
-      <input type="number" min="0" max="40" step="0.5" value="${val}" placeholder="u/week"
-        style="width:64px;border:1px solid var(--border);border-radius:6px;padding:3px 6px;font-size:13px;text-align:center"
-        title="${n} — uren per week">
-      <span style="font-size:11px;color:var(--ink-muted)">u/week</span>
+    const v = huidige[n] || { totaal: bestaand.totaal || '', theorie: bestaand.theorie || '', praktijk: bestaand.praktijk || '' };
+    return `<div data-niveau="${n}" style="display:flex;align-items:center;gap:6px;padding:4px 2px">
+      <span style="font-size:12px;font-weight:700;color:${kleur};min-width:36px">${n}</span>
+      <input type="number" min="0" max="40" step="0.5" value="${v.totaal}" placeholder="0"
+        style="${inputStijl}" title="${n} — totaal uren/week">
+      <input type="number" min="0" max="40" step="0.5" value="${v.theorie}" placeholder="0"
+        style="${inputStijl};border-color:#93c5fd" title="${n} — theorie uren">
+      <input type="number" min="0" max="40" step="0.5" value="${v.praktijk}" placeholder="0"
+        style="${inputStijl};border-color:#fcd34d" title="${n} — praktijk uren">
     </div>`;
   }).join('');
 }
@@ -232,15 +234,18 @@ async function slaProfielOp(profielId) {
   const naam = document.getElementById('lp-naam').value.trim();
   const vakId = document.getElementById('lp-vak').value;
   const moduleId = document.getElementById('lp-module')?.value || null;
-  const urenTheorie = parseFloat(document.getElementById('lp-theorie').value) || 0;
-  const urenPraktijk = parseFloat(document.getElementById('lp-praktijk').value) || 0;
   const beschrijving = document.getElementById('lp-beschrijving').value.trim();
 
-  // Uren per niveau uitlezen
+  // Uren per niveau uitlezen (totaal, theorie, praktijk)
   const urenContainer = document.getElementById('lp-uren-per-niveau');
   const urenPerNiveau = {};
   urenContainer?.querySelectorAll('[data-niveau]').forEach(el => {
-    urenPerNiveau[el.dataset.niveau] = parseFloat(el.querySelector('input')?.value) || 0;
+    const inputs = el.querySelectorAll('input');
+    urenPerNiveau[el.dataset.niveau] = {
+      totaal:   parseFloat(inputs[0]?.value) || 0,
+      theorie:  parseFloat(inputs[1]?.value) || 0,
+      praktijk: parseFloat(inputs[2]?.value) || 0,
+    };
   });
 
   if (!naam) { alert('Naam is verplicht.'); return; }
@@ -249,18 +254,18 @@ async function slaProfielOp(profielId) {
     if (profielId) {
       // Bewerken: eerste aangevinkte niveau
       const niveau = [...document.querySelectorAll('input[name="lp-niveau"]:checked')].map(cb => cb.value)[0] || '';
-      const urenPerWeek = urenPerNiveau[niveau] || 0;
-      await API.updateLesprofiel(profielId, { naam, vakId, niveau, moduleId, urenPerWeek, urenTheorie, urenPraktijk, beschrijving });
+      const u = urenPerNiveau[niveau] || {};
+      await API.updateLesprofiel(profielId, { naam, vakId, niveau, moduleId, urenPerWeek: u.totaal || 0, urenTheorie: u.theorie || 0, urenPraktijk: u.praktijk || 0, beschrijving });
       closeModalDirect();
       Cache.invalidateAll();
       openProfielDetail(profielId);
     } else {
       // Nieuw: één profiel per aangevinkt niveau met eigen uren
-      const lijst = Object.keys(urenPerNiveau).length ? Object.entries(urenPerNiveau) : [['', 0]];
+      const lijst = Object.keys(urenPerNiveau).length ? Object.entries(urenPerNiveau) : [['', {}]];
       let eersteId = null;
-      for (const [niveau, urenPerWeek] of lijst) {
+      for (const [niveau, u] of lijst) {
         const profielNaam = lijst.length > 1 ? `${naam} ${niveau}`.trim() : naam;
-        const r = await API.addLesprofiel({ naam: profielNaam, vakId, niveau, moduleId, urenPerWeek, urenTheorie, urenPraktijk, beschrijving });
+        const r = await API.addLesprofiel({ naam: profielNaam, vakId, niveau, moduleId, urenPerWeek: u.totaal || 0, urenTheorie: u.theorie || 0, urenPraktijk: u.praktijk || 0, beschrijving });
         if (!eersteId) eersteId = r.id;
       }
       closeModalDirect();
