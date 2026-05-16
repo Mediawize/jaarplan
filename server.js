@@ -141,14 +141,6 @@ app.get('/app', (req, res) => res.sendFile(path.join(__dirname, 'public', 'app.h
 app.get('/reset-wachtwoord', (req, res) => res.sendFile(path.join(__dirname, 'public', 'app.html')));
 
 app.use(express.static(path.join(__dirname, 'public')));
-// Uploads vereisen authenticatie — geen open static serve
-app.get('/uploads/:filename', (req, res) => {
-  if (!req.session?.user) return res.status(401).json({ error: 'Niet ingelogd' });
-  const filename = path.basename(req.params.filename);
-  const filePath = path.join(uploadDir, filename);
-  if (!fs.existsSync(filePath)) return res.status(404).json({ error: 'Niet gevonden' });
-  res.sendFile(filePath);
-});
 const sessionDb = require('better-sqlite3')(path.join(__dirname, 'db', 'sessions.db'));
 app.use(session({
   store: new BetterSqlite3Store({ client: sessionDb, expired: { clear: true, intervalMs: 15 * 60 * 1000 } }),
@@ -162,6 +154,15 @@ app.use(session({
     maxAge: 8 * 60 * 60 * 1000
   }
 }));
+
+// Uploads vereisen authenticatie — na session-middleware
+app.get('/uploads/:filename', (req, res) => {
+  if (!req.session?.user) return res.status(401).json({ error: 'Niet ingelogd' });
+  const filename = path.basename(req.params.filename);
+  const filePath = path.join(uploadDir, filename);
+  if (!fs.existsSync(filePath)) return res.status(404).json({ error: 'Niet gevonden' });
+  res.sendFile(filePath);
+});
 
 function requireAuth(req, res, next) {
   if (!req.session.user) return res.status(401).json({ error: 'Niet ingelogd' });
